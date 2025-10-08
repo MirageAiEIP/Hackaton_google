@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { config } from '@/config';
 import { logger } from '@/utils/logger';
 
-const globalForPrisma = globalThis as unknown as {
+const globalForPrisma = globalThis as typeof globalThis & {
   prisma: PrismaClient | undefined;
 };
 
@@ -17,9 +17,11 @@ if (!config.isProduction) {
   globalForPrisma.prisma = prisma;
 }
 
-process.on('beforeExit', async () => {
-  logger.info('Disconnecting Prisma Client...');
-  await prisma.$disconnect();
+process.on('beforeExit', () => {
+  void (async () => {
+    logger.info('Disconnecting Prisma Client...');
+    await prisma.$disconnect();
+  })();
 });
 
 export async function testDatabaseConnection(): Promise<boolean> {

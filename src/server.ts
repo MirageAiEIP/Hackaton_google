@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
-import healthRoutes from '@/api/routes/health.routes';
 import { errorHandler } from '@/api/middleware/error-handler';
 import { requestLogger } from '@/api/middleware/request-logger';
+import healthRoutes from '@/api/routes/health.routes';
 import { config } from '@/config';
 import { logger } from '@/utils/logger';
 import { testDatabaseConnection } from '@/utils/prisma';
@@ -58,13 +58,8 @@ async function startServer(): Promise<void> {
     logger.info(`🚀 Starting ${config.agent.name}...`);
     logger.info(`📝 Environment: ${config.env}`);
     logger.info(`🔧 Log Level: ${config.logging.level}`);
-
-    const server = { port, fetch: app.fetch };
-
     logger.info(`✅ Server running on http://localhost:${port}`);
     logger.info(`🏥 Health check: http://localhost:${port}/health`);
-
-    return;
   } catch (error) {
     logger.error('Failed to start server', error as Error);
     process.exit(1);
@@ -82,7 +77,8 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Start the server
-void startServer();
+if (import.meta.url === `file://${process.argv[1]}`) {
+  void startServer();
+}
 
 export default app;

@@ -13,7 +13,7 @@ health.get('/', async (c) => {
   // Check database
   let dbStatus: 'up' | 'down' = 'down';
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await prisma.$queryRaw<number[]>`SELECT 1`;
     dbStatus = 'up';
   } catch {
     dbStatus = 'down';
@@ -38,7 +38,7 @@ health.get('/', async (c) => {
 // Readiness probe
 health.get('/ready', async (c) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await prisma.$queryRaw<number[]>`SELECT 1`;
     return c.json({ ready: true }, 200);
   } catch {
     return c.json({ ready: false }, 503);

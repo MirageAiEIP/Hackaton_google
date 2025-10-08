@@ -6,7 +6,7 @@ import type { ILogger } from '@/types';
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
 const logFormat = printf(({ level, message, timestamp, ...metadata }) => {
-  let msg = `${timestamp as string} [${level}]: ${message}`;
+  let msg = `${String(timestamp)} [${level}]: ${message}`;
 
   if (Object.keys(metadata).length > 0) {
     msg += ` ${JSON.stringify(metadata)}`;
