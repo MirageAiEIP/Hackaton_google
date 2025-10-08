@@ -7,7 +7,6 @@ export async function errorHandler(c: Context, next: Next): Promise<Response | v
   try {
     await next();
   } catch (error) {
-    // Handle HTTP exceptions
     if (error instanceof HTTPException) {
       logger.warn('HTTP Exception', {
         status: error.status,
@@ -30,7 +29,6 @@ export async function errorHandler(c: Context, next: Next): Promise<Response | v
       );
     }
 
-    // Handle unknown errors
     logger.error('Unhandled error', error as Error, {
       path: c.req.path,
       method: c.req.method,

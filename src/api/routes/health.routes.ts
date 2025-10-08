@@ -6,11 +6,9 @@ import { prisma } from '@/utils/prisma';
 
 const health = new Hono();
 
-// Health check endpoint
 health.get('/', async (c) => {
   const startTime = process.uptime();
 
-  // Check database
   let dbStatus: 'up' | 'down' = 'down';
   try {
     await prisma.$queryRaw<number[]>`SELECT 1`;
@@ -24,7 +22,7 @@ health.get('/', async (c) => {
     timestamp: new Date().toISOString(),
     services: {
       database: dbStatus,
-      ai: 'up', // TODO: Add actual AI service check
+      ai: 'up',
     },
     uptime: Math.floor(startTime),
     version: config.agent.version,
@@ -35,7 +33,6 @@ health.get('/', async (c) => {
   return c.json(healthCheck, statusCode);
 });
 
-// Readiness probe
 health.get('/ready', async (c) => {
   try {
     await prisma.$queryRaw<number[]>`SELECT 1`;
@@ -45,7 +42,6 @@ health.get('/ready', async (c) => {
   }
 });
 
-// Liveness probe
 health.get('/live', (c) => {
   return c.json({ alive: true }, 200);
 });
