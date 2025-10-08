@@ -1,0 +1,202 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+enum PriorityLevel {
+  P0
+  P1
+  P2
+  P3
+  P4
+  P5
+}
+
+enum CallStatus {
+  IN_PROGRESS
+  COMPLETED
+  ESCALATED
+  CANCELLED
+  FAILED
+}
+
+enum ABCDStatus {
+  NORMAL
+  COMPROMISED
+  CRITICAL
+  UNKNOWN
+}
+
+enum ConsciousnessLevel {
+  ALERT
+  VERBAL
+  PAIN
+  UNRESPONSIVE
+}
+
+enum SeverityLevel {
+  MILD
+  MODERATE
+  SEVERE
+}
+
+enum RecommendedAction {
+  IMMEDIATE_DISPATCH
+  PRIORITY_CALLBACK
+  SCHEDULED_APPOINTMENT
+  TELEHEALTH
+  SELF_CARE
+}
+
+model Call {
+  id                String        @id @default(cuid())
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  startedAt         DateTime      @default(now())
+  endedAt           DateTime?
+  duration          Int?          @default(0)
+  status            CallStatus    @default(IN_PROGRESS)
+  patientId         String?
+  patient           Patient?      @relation(fields: [patientId], references: [id])
+  triageReport      TriageReport?
+  transcript        String?       @db.Text
+  audioRecordingUrl String?
+  agentVersion      String        @default("1.0.0")
+  modelUsed         String        @default("claude-3-5-sonnet")
+  processingTime    Int?
+  qualityScore      Float?
+  symptoms          Symptom[]
+  redFlags          RedFlag[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([patientId])
+  @@map("calls")
+}
+
+model Patient {
+  id                 String   @id @default(cuid())
+  phoneHash          String   @unique
+  age                Int?
+  gender             String?
+  address            String?
+  city               String?
+  postalCode         String?
+  latitude           Float?
+  longitude          Float?
+  locationPrecision  String?
+  allergies          String[] @default([])
+  medications        String[] @default([])
+  chronicConditions  String[] @default([])
+  recentSurgery      Boolean  @default(false)
+  pregnancy          Boolean  @default(false)
+  calls              Call[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([phoneHash])
+  @@map("patients")
+}
+
+model TriageReport {
+  id                        String             @id @default(cuid())
+  callId                    String             @unique
+  call                      Call               @relation(fields: [callId], references: [id], onDelete: Cascade)
+  priorityLevel             PriorityLevel
+  priorityScore             Int
+  confidence                Float
+  reasoning                 String             @db.Text
+  airwayStatus              ABCDStatus
+  airwayDetails             String             @db.Text
+  breathingStatus           ABCDStatus
+  breathingRate             Int?
+  breathingDetails          String             @db.Text
+  circulationStatus         ABCDStatus
+  chestPain                 Boolean            @default(false)
+  bleeding                  String?
+  circulationDetails        String             @db.Text
+  consciousnessLevel        ConsciousnessLevel
+  consciousnessDetails      String             @db.Text
+  chiefComplaint            String             @db.Text
+  recommendedAction         RecommendedAction
+  recommendationReasoning   String             @db.Text
+  recommendationConfidence  Float
+  conversationSummary       String             @db.Text
+  keyQuotes                 String[]           @default([])
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+
+  @@index([priorityLevel])
+  @@index([createdAt])
+  @@map("triage_reports")
+}
+
+model Symptom {
+  id         String        @id @default(cuid())
+  callId     String
+  call       Call          @relation(fields: [callId], references: [id], onDelete: Cascade)
+  name       String
+  severity   SeverityLevel
+  onset      String
+  evolution  String
+  details    String?       @db.Text
+  detectedAt DateTime      @default(now())
+
+  @@index([callId])
+  @@map("symptoms")
+}
+
+model RedFlag {
+  id         String   @id @default(cuid())
+  callId     String
+  call       Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  flag       String
+  severity   String
+  detectedAt DateTime @default(now())
+
+  @@index([callId])
+  @@index([severity])
+  @@map("red_flags")
+}
+
+model MedicalKnowledge {
+  id          String                       @id @default(cuid())
+  title       String
+  content     String                       @db.Text
+  category    String
+  subcategory String?
+  embedding   Unsupported("vector(1536)")?
+  source      String?
+  verified    Boolean                      @default(false)
+  verifiedBy  String?
+  verifiedAt  DateTime?
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+
+  @@index([category])
+  @@map("medical_knowledge")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  userId     String?
+  changes    Json?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
