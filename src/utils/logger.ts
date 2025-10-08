@@ -5,7 +5,7 @@ import type { ILogger } from '@/types';
 
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
-const logFormat = printf(({ level, message, timestamp, ...metadata }) => {
+const devLogFormat = printf(({ level, message, timestamp, ...metadata }) => {
   let msg = `${String(timestamp)} [${level}]: ${message}`;
 
   if (Object.keys(metadata).length > 0) {
@@ -15,13 +15,23 @@ const logFormat = printf(({ level, message, timestamp, ...metadata }) => {
   return msg;
 });
 
+const prodLogFormat = winston.format.combine(
+  winston.format.json(),
+  winston.format((info) => {
+    return {
+      ...info,
+      severity: info.level.toUpperCase(),
+    };
+  })()
+);
+
 const winstonLogger = winston.createLogger({
   level: config.logging.level,
   format: combine(
     errors({ stack: true }),
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    timestamp(),
     config.isDevelopment ? colorize() : winston.format.uncolorize(),
-    logFormat
+    config.isDevelopment ? devLogFormat : prodLogFormat
   ),
   transports: [
     new winston.transports.Console({

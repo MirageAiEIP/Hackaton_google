@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import sensible from '@fastify/sensible';
+import rateLimit from '@fastify/rate-limit';
 
 import { config } from '@/config';
 import { logger } from '@/utils/logger';
@@ -14,6 +15,21 @@ const app = fastify({
 
 async function setupServer() {
   await app.register(sensible);
+
+  await app.register(rateLimit, {
+    max: config.rateLimit.maxRequests,
+    timeWindow: config.rateLimit.windowMs,
+    errorResponseBuilder: () => ({
+      success: false,
+      error: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'Too many requests, please try again later',
+      },
+      metadata: {
+        timestamp: new Date().toISOString(),
+      },
+    }),
+  });
 
   await app.register(cors, {
     origin: true,

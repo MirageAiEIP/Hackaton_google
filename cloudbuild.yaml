@@ -1,0 +1,82 @@
+# Google Cloud Build configuration for SAMU AI Triage
+# Triggers on push to main branch
+
+steps:
+  # Step 1: Install dependencies
+  - name: 'node:20-alpine'
+    entrypoint: 'npm'
+    args: ['ci']
+
+  # Step 2: Run linter
+  - name: 'node:20-alpine'
+    entrypoint: 'npm'
+    args: ['run', 'lint']
+
+  # Step 3: Run type check
+  - name: 'node:20-alpine'
+    entrypoint: 'npm'
+    args: ['run', 'type-check']
+
+  # Step 4: Run tests
+  - name: 'node:20-alpine'
+    entrypoint: 'npm'
+    args: ['run', 'test']
+    env:
+      - 'NODE_ENV=test'
+      - 'DATABASE_URL=postgresql://test:test@localhost:5432/test'
+
+  # Step 5: Build application
+  - name: 'node:20-alpine'
+    entrypoint: 'npm'
+    args: ['run', 'build']
+
+  # Step 6: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/samu-ai-triage:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/samu-ai-triage:latest'
+      - '.'
+
+  # Step 7: Push to Google Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/samu-ai-triage:$COMMIT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/samu-ai-triage:latest'
+
+  # Step 8: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'samu-ai-triage'
+      - '--image=gcr.io/$PROJECT_ID/samu-ai-triage:$COMMIT_SHA'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=NODE_ENV=production,LOG_LEVEL=info'
+      - '--set-secrets=DATABASE_URL=samu-database-url:latest,ANTHROPIC_API_KEY=samu-anthropic-key:latest,JWT_SECRET=samu-jwt-secret:latest,ENCRYPTION_KEY=samu-encryption-key:latest'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--max-instances=10'
+      - '--timeout=60s'
+
+# Store images in Google Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/samu-ai-triage:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/samu-ai-triage:latest'
+
+# Timeout for entire build
+timeout: '1200s'
+
+options:
+  machineType: 'N1_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY

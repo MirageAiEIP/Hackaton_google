@@ -22,14 +22,14 @@ This system reduces SAMU wait times during peak hours through a conversational A
 
 ## Technical Stack
 
-- **Backend**: TypeScript + Hono
+- **Backend**: TypeScript + Fastify
 - **AI Framework**: Mastra AI
 - **Database**: PostgreSQL 16 + pgvector
 - **ORM**: Prisma
 - **LLM**: Claude 3.5 Sonnet (Anthropic)
 - **Testing**: Vitest
-- **CI/CD**: GitHub Actions
-- **Containerization**: Docker + docker-compose
+- **CI/CD**: GitHub Actions + Google Cloud Build
+- **Containerization**: Docker + Google Cloud Run
 
 ## Architecture
 
@@ -128,40 +128,125 @@ npm run docker:down       # Stop all containers
 
 ## Testing
 
-The project enforces minimum 80% code coverage across all metrics.
-
-### Coverage Thresholds
-- Lines: 80%
-- Functions: 80%
-- Branches: 75%
-- Statements: 80%
-
 ```bash
 npm run test:coverage
 ```
 
-## Docker Deployment
+## Deployment
 
-### Development Environment
+### Local Development with Docker
 
 ```bash
 docker-compose up
 ```
 
-This starts three services:
+This starts:
 - **app**: Backend API (port 3000)
 - **postgres**: Database with pgvector (port 5432)
-- **redis**: Cache and rate limiting (port 6379)
 
-### Production Deployment
+API available at: `http://localhost:3000`
+Swagger UI: `http://localhost:3000/docs`
+
+### Google Cloud Platform Deployment
+
+#### Prerequisites
+
+1. Install Google Cloud SDK:
+```bash
+curl https://sdk.cloud.google.com | bash
+exec -l $SHELL
+gcloud init
+```
+
+2. Create a GCP project:
+```bash
+gcloud projects create samu-ai-triage --name="SAMU AI Triage"
+gcloud config set project samu-ai-triage
+```
+
+3. Enable required APIs:
+```bash
+gcloud services enable \
+  cloudbuild.googleapis.com \
+  run.googleapis.com \
+  sqladmin.googleapis.com \
+  secretmanager.googleapis.com
+```
+
+#### Setup Cloud SQL (PostgreSQL)
 
 ```bash
-docker build -t samu-ai-triage .
+# Create PostgreSQL instance
+gcloud sql instances create samu-db \
+  --database-version=POSTGRES_16 \
+  --tier=db-f1-micro \
+  --region=europe-west1
 
-docker run -p 3000:3000 \
-  -e DATABASE_URL="postgresql://user:password@host:5432/db" \
-  -e ANTHROPIC_API_KEY="your_key" \
-  samu-ai-triage
+# Create database
+gcloud sql databases create samu_triage --instance=samu-db
+
+# Create user
+gcloud sql users create samuai \
+  --instance=samu-db \
+  --password=YOUR_SECURE_PASSWORD
+```
+
+#### Setup Secrets
+
+```bash
+# Store secrets in Google Secret Manager
+echo -n "postgresql://samuai:PASSWORD@/cloudsql/PROJECT_ID:europe-west1:samu-db/samu_triage" | \
+  gcloud secrets create samu-database-url --data-file=-
+
+echo -n "YOUR_ANTHROPIC_API_KEY" | \
+  gcloud secrets create samu-anthropic-key --data-file=-
+
+openssl rand -base64 32 | gcloud secrets create samu-jwt-secret --data-file=-
+openssl rand -base64 32 | gcloud secrets create samu-encryption-key --data-file=-
+```
+
+#### Deploy with Cloud Build
+
+```bash
+# Submit build (automatically deploys to Cloud Run)
+gcloud builds submit --config=cloudbuild.yaml
+
+# Or connect to GitHub repository for automatic deployments
+gcloud builds triggers create github \
+  --repo-name=Hackaton_google \
+  --repo-owner=MirageAiEIP \
+  --branch-pattern="^main$" \
+  --build-config=cloudbuild.yaml
+```
+
+#### Manual Deploy to Cloud Run
+
+```bash
+# Build and push image
+docker build -t gcr.io/PROJECT_ID/samu-ai-triage .
+docker push gcr.io/PROJECT_ID/samu-ai-triage
+
+# Deploy to Cloud Run
+gcloud run deploy samu-ai-triage \
+  --image=gcr.io/PROJECT_ID/samu-ai-triage \
+  --region=europe-west1 \
+  --platform=managed \
+  --allow-unauthenticated \
+  --set-env-vars=NODE_ENV=production,LOG_LEVEL=info \
+  --set-secrets=DATABASE_URL=samu-database-url:latest,ANTHROPIC_API_KEY=samu-anthropic-key:latest \
+  --memory=512Mi \
+  --cpu=1 \
+  --max-instances=10
+```
+
+#### View Deployment
+
+```bash
+# Get service URL
+gcloud run services describe samu-ai-triage --region=europe-west1 --format='value(status.url)'
+
+# View logs
+gcloud run logs read samu-ai-triage --region=europe-west1 --limit=50
 ```
 
 ## Environment Variables
@@ -197,15 +282,30 @@ GET  /api/v1/reports/:id     # Get triage report
 
 ## CI/CD Pipeline
 
-GitHub Actions workflow executes on every push and pull request:
+### GitHub Actions
+
+Executes on every push and pull request:
 
 1. Lint (ESLint + Prettier)
 2. Type Check (TypeScript strict mode)
 3. Test (Vitest with PostgreSQL service container)
 4. Build (Production build verification)
-5. Security (npm audit + Snyk scanning)
+5. Security (npm audit)
 
-All checks must pass before merging.
+### Google Cloud Build
+
+Automated deployment pipeline (`cloudbuild.yaml`):
+
+1. Install dependencies
+2. Run linter
+3. Run type check
+4. Run tests
+5. Build application
+6. Build Docker image
+7. Push to Google Container Registry
+8. Deploy to Cloud Run
+
+Triggered automatically on push to `main` branch when connected to GitHub.
 
 ## Documentation
 
@@ -227,8 +327,9 @@ This project is licensed under the MIT License.
 
 - Mastra AI - TypeScript AI framework
 - Anthropic - Claude LLM
-- Hono - Web framework
+- Fastify - Web framework
 - Prisma - Database ORM
+- Google Cloud - Cloud infrastructure
 
 ## Contact
 
