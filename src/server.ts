@@ -265,8 +265,9 @@ async function startServer() {
   try {
     const dbConnected = await testDatabaseConnection();
     if (!dbConnected) {
-      logger.error('Failed to connect to database. Exiting...');
-      process.exit(1);
+      logger.warn(
+        'Failed to connect to database. Server will start anyway but health checks will fail.'
+      );
     }
 
     await setupServer();
@@ -274,12 +275,12 @@ async function startServer() {
     const port = config.server.port;
     await app.listen({ port, host: '0.0.0.0' });
 
-    logger.info(`🚀 Starting ${config.agent.name}...`);
-    logger.info(`📝 Environment: ${config.env}`);
-    logger.info(`🔧 Log Level: ${config.logging.level}`);
-    logger.info(`✅ Server running on http://localhost:${port}`);
-    logger.info(`📚 Swagger UI: http://localhost:${port}/docs`);
-    logger.info(`🏥 Health check: http://localhost:${port}/health`);
+    logger.info(`Starting ${config.agent.name}...`);
+    logger.info(`Environment: ${config.env}`);
+    logger.info(`Log Level: ${config.logging.level}`);
+    logger.info(`Server running on http://localhost:${port}`);
+    logger.info(`Swagger UI: http://localhost:${port}/docs`);
+    logger.info(`Health check: http://localhost:${port}/health`);
   } catch (error) {
     logger.error('Failed to start server', error as Error);
     process.exit(1);
@@ -303,7 +304,7 @@ export async function createApp() {
   return app;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.env.NODE_ENV !== 'test') {
   void startServer();
 }
 

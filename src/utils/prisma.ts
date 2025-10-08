@@ -17,20 +17,31 @@ if (!config.isProduction) {
   globalForPrisma.prisma = prisma;
 }
 
-process.on('beforeExit', () => {
-  void (async () => {
+let isDisconnecting = false;
+
+const disconnect = async () => {
+  if (!isDisconnecting) {
+    isDisconnecting = true;
     logger.info('Disconnecting Prisma Client...');
     await prisma.$disconnect();
-  })();
+  }
+};
+
+process.on('SIGINT', () => {
+  void disconnect();
+});
+
+process.on('SIGTERM', () => {
+  void disconnect();
 });
 
 export async function testDatabaseConnection(): Promise<boolean> {
   try {
     await prisma.$connect();
-    logger.info('✅ Database connected successfully');
+    logger.info('Database connected successfully');
     return true;
   } catch (error) {
-    logger.error('❌ Database connection failed', error as Error);
+    logger.error('Database connection failed', error as Error);
     return false;
   }
 }

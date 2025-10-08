@@ -21,7 +21,7 @@ const parseEnv = (): z.infer<typeof envSchema> => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const missing = error.errors.map((e) => e.path.join('.')).join(', ');
-      throw new Error(`❌ Invalid environment variables: ${missing}`);
+      throw new Error(`Invalid environment variables: ${missing}`);
     }
     throw error;
   }
