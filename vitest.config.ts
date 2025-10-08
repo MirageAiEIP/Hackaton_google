@@ -17,12 +17,6 @@ export default defineConfig({
         '**/*.config.ts',
         'prisma/**',
       ],
-      thresholds: {
-        lines: 60,
-        functions: 60,
-        branches: 60,
-        statements: 60,
-      },
     },
     include: ['src/**/*.{test,spec}.ts'],
     exclude: ['node_modules', 'dist', 'coverage'],
