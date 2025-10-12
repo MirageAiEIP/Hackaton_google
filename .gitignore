@@ -19,6 +19,13 @@ build/
 .env.test.local
 .env.production.local
 
+# Google Cloud credentials (NEVER commit these!)
+config/*.json
+config/google-*.json
+
+# Temporary audio files
+temp-audio/
+
 # Logs
 logs
 *.log

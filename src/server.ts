@@ -4,10 +4,12 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import sensible from '@fastify/sensible';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 
 import { config } from '@/config';
 import { logger } from '@/utils/logger';
 import { testDatabaseConnection, prisma } from '@/utils/prisma';
+import { sentimentRoutes } from '@/api/routes/sentiment.routes';
 
 const app = fastify({
   logger: false,
@@ -15,6 +17,12 @@ const app = fastify({
 
 async function setupServer() {
   await app.register(sensible);
+
+  await app.register(multipart, {
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB max file size
+    },
+  });
 
   await app.register(rateLimit, {
     max: config.rateLimit.maxRequests,
@@ -50,6 +58,7 @@ async function setupServer() {
       ],
       tags: [
         { name: 'health', description: 'Health check endpoints' },
+        { name: 'Sentiment Analysis', description: 'Text and audio sentiment analysis' },
         { name: 'calls', description: 'Emergency call management' },
         { name: 'triage', description: 'Triage operations' },
       ],
@@ -244,6 +253,9 @@ async function setupServer() {
       return { alive: true };
     }
   );
+
+  // Register API routes
+  await app.register(sentimentRoutes, { prefix: '/api/v1/sentiment' });
 
   app.setNotFoundHandler((_, reply) => {
     return reply.code(404).send({
