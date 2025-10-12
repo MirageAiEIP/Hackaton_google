@@ -5,6 +5,7 @@ import type {
   HybridAnalysis,
   RecommendationType,
   SentimentAnalysisInput,
+  SentimentType,
   TextAnalysis,
 } from '@/types/sentiment.types';
 import { sentimentAnalysisService } from './sentiment-analysis.service';
@@ -167,29 +168,6 @@ export class HybridSentimentService {
       confidence: Math.round(confidence * 100) / 100,
       reasoning,
     };
-  }
-
-  private hasCriticalEmergencyKeywords(transcript: string): boolean {
-    const criticalKeywords = [
-      'mourir',
-      'vais mourir',
-      'je meurs',
-      'arrêt cardiaque',
-      'crise cardiaque',
-      'infarctus',
-      'ne respire plus',
-      'étouffe',
-      'saigne beaucoup',
-      'hémorragie',
-      'inconscient',
-      'convulsions',
-      'aidez-moi',
-      'au secours',
-      'urgence vitale',
-    ];
-
-    const lowerTranscript = transcript.toLowerCase();
-    return criticalKeywords.some((keyword) => lowerTranscript.includes(keyword));
   }
 
   private calculateClinicalBonus(indicators: string[]): number {

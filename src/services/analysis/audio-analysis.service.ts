@@ -1,5 +1,5 @@
 import { logger } from '@/utils/logger';
-import type { AudioAnalysis } from '@/types/sentiment.types';
+import type { AudioAnalysis, ClinicalIndicator } from '@/types/sentiment.types';
 import { whisperService } from './whisper.service';
 
 /**
@@ -66,7 +66,13 @@ export class AudioAnalysisService {
       return this.getDefaultProsody();
     }
 
-    const duration = words[words.length - 1].end - words[0].start;
+    const lastWord = words[words.length - 1];
+    const firstWord = words[0];
+    if (!lastWord || !firstWord) {
+      return this.getDefaultProsody();
+    }
+
+    const duration = lastWord.end - firstWord.start;
     const wordsPerMinute = (words.length / duration) * 60;
 
     let tempoClassification: 'SLOW' | 'NORMAL' | 'FAST';
@@ -109,13 +115,24 @@ export class AudioAnalysisService {
 
     const pauses: number[] = [];
     for (let i = 1; i < words.length; i++) {
-      const pauseDuration = (words[i].start - words[i - 1].end) * 1000;
+      const currentWord = words[i];
+      const previousWord = words[i - 1];
+      if (!currentWord || !previousWord) {
+        continue;
+      }
+      const pauseDuration = (currentWord.start - previousWord.end) * 1000;
       if (pauseDuration > 200) {
         pauses.push(pauseDuration);
       }
     }
 
-    const totalDuration = words[words.length - 1].end - words[0].start;
+    const lastWord = words[words.length - 1];
+    const firstWord = words[0];
+    if (!lastWord || !firstWord) {
+      return { frequency: 0, avgDuration: 0, longPauses: 0 };
+    }
+
+    const totalDuration = lastWord.end - firstWord.start;
     const frequency = pauses.length > 0 ? (pauses.length / totalDuration) * 60 : 0;
     const avgDuration = pauses.length > 0 ? pauses.reduce((a, b) => a + b, 0) / pauses.length : 0;
     const longPauses = pauses.filter((p) => p > 3000).length;
@@ -147,8 +164,8 @@ export class AudioAnalysisService {
     return Math.min(100, stress);
   }
 
-  private detectClinicalIndicatorsFromText(text: string): string[] {
-    const indicators: string[] = [];
+  private detectClinicalIndicatorsFromText(text: string): ClinicalIndicator[] {
+    const indicators: ClinicalIndicator[] = [];
     const lowerText = text.toLowerCase();
 
     if (

@@ -30,6 +30,9 @@ export class GeminiService {
       });
 
       const text = response.text;
+      if (!text) {
+        throw new Error('Gemini returned empty response');
+      }
 
       const analysis = this.parseResponse(text);
 
