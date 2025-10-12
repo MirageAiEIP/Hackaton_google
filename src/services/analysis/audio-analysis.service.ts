@@ -3,16 +3,26 @@ import type { AudioAnalysis } from '@/types/sentiment.types';
 import { whisperService } from './whisper.service';
 
 /**
- * Audio analysis service using Whisper transcription + punctuation analysis
+ * Service d'analyse vocale basée sur la transcription
+ * Analyse la ponctuation, les pauses et les patterns linguistiques
  */
 export class AudioAnalysisService {
   constructor(private readonly whisper = whisperService) {}
 
-  async analyzeAudio(audioUrl: string): Promise<AudioAnalysis> {
-    logger.info('Starting AI-powered audio analysis', { audioUrl });
+  async analyzeAudio(
+    audioUrl: string,
+    transcriptionResult?: {
+      text: string;
+      words?: Array<{ word: string; start: number; end: number }>;
+    }
+  ): Promise<AudioAnalysis> {
+    logger.info('Starting vocal analysis', { audioUrl });
 
     try {
-      const transcriptionResult = await this.whisper.transcribeWithTimestamps(audioUrl);
+      // Si pas de transcription fournie, on transcrit
+      if (!transcriptionResult) {
+        transcriptionResult = await this.whisper.transcribeWithTimestamps(audioUrl);
+      }
 
       logger.info('Audio transcription completed', {
         text: transcriptionResult.text,
@@ -36,7 +46,7 @@ export class AudioAnalysisService {
         emotionDimensions,
       };
 
-      logger.info('Audio analysis completed', {
+      logger.info('Vocal analysis completed', {
         vocalStress,
         clinicalIndicators,
         arousal: emotionDimensions.arousal,
@@ -85,11 +95,7 @@ export class AudioAnalysisService {
     };
   }
 
-  private calculateBreathiness(dimensions: {
-    arousal: number;
-    dominance: number;
-    valence: number;
-  }): number {
+  private calculateBreathiness(dimensions: { arousal: number; dominance: number }): number {
     const breathiness = dimensions.arousal * (1 - dimensions.dominance);
     return Math.round(breathiness * 100);
   }
@@ -157,11 +163,10 @@ export class AudioAnalysisService {
       indicators.push('WEAKNESS');
     }
 
-    if (
-      lowerText.includes('mourir') ||
-      lowerText.includes('aide') ||
-      lowerText.includes('secours')
-    ) {
+    // PANIC nécessite urgence + ponctuation exclamative
+    const hasPanicWords = /mourir|aide|secours/i.test(lowerText);
+    const hasExclamation = text.includes('!');
+    if (hasPanicWords && hasExclamation) {
       indicators.push('PANIC');
     }
 
@@ -175,7 +180,6 @@ export class AudioAnalysisService {
   private extractEmotionFromPunctuation(text: string): {
     arousal: number;
     dominance: number;
-    valence: number;
   } {
     const exclamations = (text.match(/!/g) || []).length;
     const questions = (text.match(/\?/g) || []).length;
@@ -183,10 +187,8 @@ export class AudioAnalysisService {
     const arousal = Math.min(1.0, (exclamations + questions * 0.5) / 3);
     const hasUrgentWords = /mourir|aide|secours/i.test(text);
     const dominance = hasUrgentWords ? 0.2 : 0.5;
-    const hasNegativeWords = /mal|douleur|mourir|saigne/i.test(text);
-    const valence = hasNegativeWords ? -0.7 : 0.0;
 
-    return { arousal, dominance, valence };
+    return { arousal, dominance };
   }
 
   private calculateConfidence(transcription: string): number {

@@ -70,12 +70,11 @@ export interface PauseAnalysis {
 }
 
 /**
- * Audio emotion dimensions from HF model
+ * Audio emotion dimensions from punctuation analysis
  */
 export interface AudioEmotionDimensions {
   arousal: number; // 0-1 (calm → stressed)
   dominance: number; // 0-1 (weak → strong)
-  valence: number; // -1 to 1 (negative → positive)
 }
 
 /**
@@ -115,9 +114,9 @@ export interface SentimentAnalysisInput {
 }
 
 /**
- * Claude API response for sentiment
+ * LLM API response for semantic sentiment analysis
  */
-export interface ClaudeSemanticAnalysis {
+export interface SemanticAnalysis {
   sentiment: SentimentType;
   painIntensity: number; // 0-100
   coherence: number; // 0-100

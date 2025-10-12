@@ -22,20 +22,22 @@ export const sentimentRoutes: FastifyPluginAsync = async (app) => {
         tags: ['Sentiment Analysis'],
         body: {
           type: 'object',
-          required: ['callId', 'transcript'],
+          required: ['callId'],
           properties: {
             callId: { type: 'string', description: 'Call identifier' },
             transcript: {
               type: 'string',
-              description: 'Text transcript from speech-to-text',
+              description:
+                'Text transcript (optional if audioUrl provided - will use Whisper transcription)',
               minLength: 10,
             },
             audioUrl: {
               type: 'string',
               description:
-                'Optional local file path or GCS URI (must be WAV format: 16kHz, mono, LINEAR16 PCM)',
+                'Audio file path (WAV format). If provided, Whisper transcription will be used for analysis.',
             },
           },
+          anyOf: [{ required: ['transcript'] }, { required: ['audioUrl'] }],
         },
         response: {
           200: {
@@ -86,24 +88,30 @@ export const sentimentRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const bodySchema = z.object({
-        callId: z.string().min(1),
-        transcript: z.string().min(10),
-        audioUrl: z.string().optional(),
-      });
+      const bodySchema = z
+        .object({
+          callId: z.string().min(1),
+          transcript: z.string().min(10).optional(),
+          audioUrl: z.string().optional(),
+        })
+        .refine((data) => data.transcript || data.audioUrl, {
+          message: 'Either transcript or audioUrl must be provided',
+        });
 
       const body = bodySchema.parse(request.body);
+      const transcript = body.transcript || 'Audio transcription in progress';
 
       logger.info('Sentiment analysis requested', {
         callId: body.callId,
-        transcriptLength: body.transcript.length,
+        transcriptLength: transcript.length,
         hasAudio: !!body.audioUrl,
+        transcriptProvided: !!body.transcript,
       });
 
       try {
         const analysis = await hybridSentimentService.analyzeHybrid({
           callId: body.callId,
-          transcript: body.transcript,
+          transcript,
           audioUrl: body.audioUrl,
         });
 

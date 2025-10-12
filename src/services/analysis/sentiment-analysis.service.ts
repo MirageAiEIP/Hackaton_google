@@ -1,27 +1,16 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-import { config } from '@/config';
 import { logger } from '@/utils/logger';
-import type {
-  ClaudeSemanticAnalysis,
-  SentimentType,
-  TextAnalysis,
-  UrgencyMarker,
-} from '@/types/sentiment.types';
+import type { SemanticAnalysis, TextAnalysis, UrgencyMarker } from '@/types/sentiment.types';
+import { geminiService } from './gemini.service';
 
 /**
  * Service for analyzing sentiment and stress from text transcripts
  *
- * Uses both regex-based keyword detection and Claude semantic analysis
+ * Uses both regex-based keyword detection and Google Gemini semantic analysis
  * for comprehensive text understanding
  */
 export class SentimentAnalysisService {
-  private readonly claudeClient: Anthropic;
-
   constructor() {
-    this.claudeClient = new Anthropic({
-      apiKey: config.ai.anthropicApiKey,
-    });
+    // No initialization needed - using singleton geminiService
   }
 
   /**
@@ -39,11 +28,11 @@ export class SentimentAnalysisService {
       // 1. Fast keyword detection (no API call needed)
       const urgencyMarkers = this.detectUrgencyMarkers(transcript);
 
-      // 2. Deep semantic analysis with Claude
-      const semanticAnalysis = await this.analyzeWithClaude(transcript);
+      // 2. Deep semantic analysis with Google Gemini
+      const semanticAnalysis = await geminiService.analyzeText(transcript);
 
       // 3. Calculate final stress level
-      const stressLevel = this.calculateStressLevel(urgencyMarkers, semanticAnalysis);
+      const stressLevel = this.calculateStressLevel(urgencyMarkers, semanticAnalysis, transcript);
 
       const result: TextAnalysis = {
         sentiment: semanticAnalysis.sentiment,
@@ -144,161 +133,82 @@ export class SentimentAnalysisService {
   }
 
   /**
-   * Analyze text semantically using Claude
-   *
-   * @param transcript - Text to analyze
-   * @returns Semantic analysis from Claude
-   */
-  private async analyzeWithClaude(transcript: string): Promise<ClaudeSemanticAnalysis> {
-    const prompt = `Tu es un expert en analyse de sentiment pour les appels d'urgence médicale.
-
-Analyse ce transcript d'appel au SAMU 15:
-
-"""
-${transcript}
-"""
-
-Retourne UNIQUEMENT un JSON valide (pas de markdown, pas de texte avant/après) avec cette structure exacte:
-{
-  "sentiment": "CALM" | "ANXIOUS" | "PANICKED" | "CONFUSED" | "IN_PAIN",
-  "painIntensity": 0-100,
-  "coherence": 0-100,
-  "confidence": 0-1,
-  "reasoning": "Explication en 1-2 phrases"
-}
-
-Critères:
-- CALM: Parle normalement, pas de détresse apparente
-- ANXIOUS: Inquiet mais reste cohérent
-- PANICKED: Répétitions, langage urgent, stress évident
-- CONFUSED: Incohérences, contradictions, difficulté à s'exprimer
-- IN_PAIN: Exprime explicitement une douleur intense
-
-painIntensity (0-100):
-- 0-30: Pas de douleur ou douleur légère mentionnée
-- 31-60: Douleur modérée
-- 61-100: Douleur sévère/insupportable
-
-coherence (0-100):
-- 100: Réponses claires, logiques, cohérentes
-- 50: Quelques hésitations mais compréhensible
-- 0: Très confus, incohérent, contradictoire
-
-confidence (0-1):
-- Ta confiance dans cette analyse basée sur la longueur et clarté du transcript`;
-
-    try {
-      const response = await this.claudeClient.messages.create({
-        model: config.ai.model,
-        max_tokens: 500,
-        temperature: 0.3, // Low temperature for consistent analysis
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      });
-
-      const content = response.content[0];
-      if (!content) {
-        throw new Error('Empty response from Claude');
-      }
-
-      if (content.type !== 'text') {
-        throw new Error('Unexpected response type from Claude');
-      }
-
-      // Parse JSON response
-      const text = content.text.trim();
-      // Remove markdown code blocks if present
-      const jsonText = text.replace(/^```json?\n?/i, '').replace(/\n?```$/i, '');
-
-      const analysis = JSON.parse(jsonText) as ClaudeSemanticAnalysis;
-
-      // Validate response
-      this.validateClaudeResponse(analysis);
-
-      return analysis;
-    } catch (error) {
-      logger.error('Claude sentiment analysis failed', error as Error, {
-        transcriptPreview: transcript.substring(0, 100),
-      });
-
-      // Return safe default
-      return {
-        sentiment: 'ANXIOUS',
-        painIntensity: 50,
-        coherence: 70,
-        confidence: 0.3,
-        reasoning: 'Analysis failed, using default values',
-      };
-    }
-  }
-
-  /**
-   * Validate Claude response has required fields
-   */
-  private validateClaudeResponse(analysis: ClaudeSemanticAnalysis): void {
-    const validSentiments: SentimentType[] = ['CALM', 'ANXIOUS', 'PANICKED', 'CONFUSED', 'IN_PAIN'];
-
-    if (!validSentiments.includes(analysis.sentiment)) {
-      throw new Error(`Invalid sentiment: ${analysis.sentiment}`);
-    }
-
-    if (
-      typeof analysis.painIntensity !== 'number' ||
-      analysis.painIntensity < 0 ||
-      analysis.painIntensity > 100
-    ) {
-      throw new Error(`Invalid painIntensity: ${analysis.painIntensity}`);
-    }
-
-    if (
-      typeof analysis.coherence !== 'number' ||
-      analysis.coherence < 0 ||
-      analysis.coherence > 100
-    ) {
-      throw new Error(`Invalid coherence: ${analysis.coherence}`);
-    }
-
-    if (
-      typeof analysis.confidence !== 'number' ||
-      analysis.confidence < 0 ||
-      analysis.confidence > 1
-    ) {
-      throw new Error(`Invalid confidence: ${analysis.confidence}`);
-    }
-  }
-
-  /**
    * Calculate final stress level from markers and semantic analysis
    *
    * @param markers - Detected urgency markers
-   * @param semantic - Claude semantic analysis
+   * @param semantic - Gemini semantic analysis
    * @returns Stress level 0-100
    */
-  private calculateStressLevel(markers: UrgencyMarker[], semantic: ClaudeSemanticAnalysis): number {
-    // Base stress from sentiment
-    const sentimentStress: Record<SentimentType, number> = {
-      CALM: 10,
-      ANXIOUS: 40,
-      PANICKED: 80,
-      CONFUSED: 60,
-      IN_PAIN: 70,
-    };
+  private calculateStressLevel(
+    markers: UrgencyMarker[],
+    semantic: SemanticAnalysis,
+    transcript: string
+  ): number {
+    // Start with Gemini's painIntensity as the PRIMARY score
+    let stress = semantic.painIntensity;
 
-    let stress = sentimentStress[semantic.sentiment];
+    // Add bonus for urgency markers
+    stress += markers.length * 3;
 
-    // Add bonus for each urgency marker
-    stress += markers.length * 5;
-
-    // Add pain intensity contribution
-    stress += semantic.painIntensity * 0.2;
+    // Adjust based on sentiment
+    if (semantic.sentiment === 'PANICKED') {
+      stress = Math.max(stress, 85); // Panic = always urgent
+    } else if (semantic.sentiment === 'CONFUSED') {
+      stress = Math.max(stress, 70); // Confusion = serious
+    }
 
     // Penalize low coherence (confusion = stress)
     if (semantic.coherence < 50) {
-      stress += (50 - semantic.coherence) * 0.5;
+      stress += (50 - semantic.coherence) * 0.3;
+    }
+
+    // CRITICAL: Force minimum scores for life-threatening symptoms
+
+    // AVC signs (stroke)
+    if (
+      /bouche.*tordu|bras.*paralys|bras.*bouge.*plus|parle.*bizarre.*bras|face.*drooping/i.test(
+        transcript
+      )
+    ) {
+      stress = Math.max(stress, 88);
+      logger.warn('AVC signs detected - forcing high urgency score', { originalScore: stress });
+    }
+
+    // Chest pain
+    if (
+      /douleur.*poitrine|douleur.*thoracique|mal.*poitrine|oppression.*poitrine|serrement.*poitrine/i.test(
+        transcript
+      )
+    ) {
+      stress = Math.max(stress, 78);
+      logger.warn('Chest pain detected - forcing high urgency score', { originalScore: stress });
+    }
+
+    // Severe respiratory distress
+    if (
+      /(arrive.*plus|ne.*plus|peux.*plus).*respirer|asphyxie|étouffe|suffoque/i.test(transcript)
+    ) {
+      stress = Math.max(stress, 85);
+    }
+
+    // NON-URGENT: Force MAXIMUM scores for info requests
+    if (
+      /renseignement|pharmacie.*garde|médecin.*garde|je.*voudrais.*savoir|j'aurais.*voulu/i.test(
+        transcript
+      )
+    ) {
+      stress = Math.min(stress, 22);
+      logger.info('Information request detected - forcing low score', { originalScore: stress });
+    }
+
+    // Light symptoms without urgency
+    if (
+      /un.*peu.*mal|petite.*toux|léger|supportable.*mais|c'est.*gênant|je.*me.*sens.*bien/i.test(
+        transcript
+      )
+    ) {
+      stress = Math.min(stress, 32);
+      logger.info('Minor symptoms detected - capping score', { originalScore: stress });
     }
 
     // Cap at 100

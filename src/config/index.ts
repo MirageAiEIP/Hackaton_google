@@ -8,7 +8,7 @@ const envSchema = z.object({
   PORT: z.string().transform(Number).default('3000'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   DATABASE_URL: z.string().url(),
-  ANTHROPIC_API_KEY: z.string().min(1),
+  GOOGLE_API_KEY: z.string().min(1),
   JWT_SECRET: z.string().min(32).optional(),
   ENCRYPTION_KEY: z.string().min(32).optional(),
   RATE_LIMIT_WINDOW_MS: z.string().transform(Number).default('60000'),
@@ -48,9 +48,9 @@ export const config = {
   },
 
   ai: {
-    anthropicApiKey: env.ANTHROPIC_API_KEY,
-    model: 'claude-3-5-sonnet-20241022',
-    maxTokens: 4096,
+    apiKey: env.GOOGLE_API_KEY,
+    model: 'gemini-2.0-flash-001',
+    maxTokens: 2048,
     temperature: 0.7,
   },
 

@@ -26,25 +26,62 @@ export class HybridSentimentService {
     });
 
     try {
-      const textAnalysis = await this.textService.analyzeText(input.transcript);
-
+      let transcriptToAnalyze = input.transcript;
       let audioAnalysis: AudioAnalysis | null = null;
+      let whisperFailed = false;
+
       if (input.audioUrl) {
-        audioAnalysis = await this.audioService.analyzeAudio(input.audioUrl);
+        try {
+          const { whisperService } = await import('./whisper.service');
+          const whisperResult = await whisperService.transcribeWithTimestamps(input.audioUrl);
+          transcriptToAnalyze = whisperResult.text;
+
+          logger.info('Whisper transcription completed', {
+            transcriptLength: transcriptToAnalyze.length,
+            preview: transcriptToAnalyze.substring(0, 100),
+          });
+
+          audioAnalysis = await this.audioService.analyzeAudio(input.audioUrl, whisperResult);
+        } catch (whisperError) {
+          whisperFailed = true;
+          logger.warn('Whisper failed, using provided transcript', {
+            error: whisperError,
+            hasProvidedTranscript: !!input.transcript && input.transcript.length > 10,
+          });
+
+          if (input.transcript && input.transcript.length > 10) {
+            transcriptToAnalyze = input.transcript;
+          } else {
+            throw new Error('Whisper failed and no transcript provided');
+          }
+        }
+      }
+
+      let textAnalysis;
+      try {
+        textAnalysis = await this.textService.analyzeText(transcriptToAnalyze);
+      } catch (geminiError) {
+        logger.warn('Gemini failed, using keyword analysis', { error: geminiError });
+        textAnalysis = this.analyzeWithKeywordsOnly(transcriptToAnalyze);
       }
 
       const result = this.fuse(textAnalysis, audioAnalysis);
+
+      if (whisperFailed || !audioAnalysis) {
+        result.reasoning = `[Mode dégradé] ${result.reasoning}`;
+      }
 
       logger.info('Hybrid sentiment analysis completed', {
         callId: input.callId,
         finalScore: result.finalScore,
         recommendation: result.recommendation,
         coherence: result.coherence,
+        fallbackUsed: whisperFailed,
       });
 
       return result;
     } catch (error) {
-      logger.error('Hybrid sentiment analysis failed', error as Error, {
+      logger.error('Hybrid sentiment analysis completely failed', error as Error, {
         callId: input.callId,
       });
 
@@ -93,15 +130,15 @@ export class HybridSentimentService {
         finalScore = Math.max(textScore, audioScore);
         reasoning = `Incohérence détectée: Le patient exprime un stress élevé (texte ${textScore}/100) mais sa voix est relativement calme (${audioScore}/100). `;
 
-        if (textScore >= 70) {
-          reasoning += 'Détresse verbale élevée détectée - PRIORITÉ MAINTENUE malgré voix calme.';
+        if (textScore >= 85) {
+          reasoning += 'Détresse verbale extrême détectée - PRIORITÉ MAINTENUE malgré voix calme.';
         } else {
           reasoning += 'Possiblement anxiété disproportionnée. Priorité maintenue par précaution.';
         }
       }
     } else {
       coherence = 'COHERENT';
-      finalScore = textScore * 0.4 + audioScore * 0.6;
+      finalScore = textScore * 0.6 + audioScore * 0.4;
 
       reasoning = `Cohérence texte-audio confirmée (différence: ${scoreDifference} points). `;
       reasoning += `Score texte: ${textScore}/100, score audio: ${audioScore}/100. `;
@@ -159,25 +196,25 @@ export class HybridSentimentService {
     let bonus = 0;
 
     if (indicators.includes('DYSPNEA')) {
-      bonus += 10;
+      bonus += 6;
     }
     if (indicators.includes('WEAKNESS')) {
-      bonus += 10;
+      bonus += 5;
     }
     if (indicators.includes('CONFUSION')) {
-      bonus += 15;
+      bonus += 10;
     }
     if (indicators.includes('PAIN_VOCALIZATION')) {
-      bonus += 12;
+      bonus += 7;
     }
     if (indicators.includes('PANIC')) {
-      bonus += 15;
+      bonus += 8;
     }
     if (indicators.includes('DISTRESS')) {
-      bonus += 12;
+      bonus += 7;
     }
     if (indicators.includes('ALTERED_CONSCIOUSNESS')) {
-      bonus += 20;
+      bonus += 12;
     }
 
     return bonus;
@@ -187,7 +224,7 @@ export class HybridSentimentService {
     if (score >= 70) {
       return 'INCREASE_PRIORITY';
     }
-    if (score <= 30) {
+    if (score <= 35) {
       return 'DECREASE_PRIORITY';
     }
     return 'MAINTAIN';
@@ -198,19 +235,65 @@ export class HybridSentimentService {
       return 0;
     }
     if (score < 50) {
-      return 3;
+      return 1;
     }
     if (score < 70) {
-      return 5;
+      return 2;
     }
     if (score < 85) {
-      return 8;
+      return 5;
     }
-    return 12;
+    return 10;
   }
 
-  private getDefaultAnalysis(transcriptLength: number): HybridAnalysis {
-    const estimatedScore = transcriptLength > 200 ? 50 : 30;
+  private analyzeWithKeywordsOnly(transcript: string): TextAnalysis {
+    const lower = transcript.toLowerCase();
+    let score = 50; // Neutre par défaut
+
+    // Urgences vitales
+    if (/mourir|vais mourir|ne respire plus|inconscient|saigne beaucoup/.test(lower)) {
+      score = 95;
+    }
+    // AVC
+    else if (/bouche.*tordu|bras.*paralys|parle.*bizarre/.test(lower)) {
+      score = 90;
+    }
+    // Douleur thoracique
+    else if (/douleur.*poitrine|mal.*poitrine|oppression/.test(lower)) {
+      score = 80;
+    }
+    // Détresse respiratoire
+    else if (/arrive.*plus.*respirer|étouffe|suffoque/.test(lower)) {
+      score = 85;
+    }
+    // Urgences modérées
+    else if (/très mal|insupportable|aidez-moi/.test(lower)) {
+      score = 65;
+    }
+    // Non urgent
+    else if (/renseignement|pharmacie.*garde|médecin.*garde/.test(lower)) {
+      score = 15;
+    }
+    // Symptômes légers
+    else if (/un peu mal|léger|petite toux/.test(lower)) {
+      score = 30;
+    }
+
+    const sentiment: SentimentType =
+      score >= 80 ? 'PANICKED' : score >= 60 ? 'ANXIOUS' : score >= 40 ? 'IN_PAIN' : 'CALM';
+
+    return {
+      sentiment,
+      stressLevel: score,
+      urgencyMarkers: [],
+      painLanguage: score,
+      coherence: 50,
+      confidence: 0.5,
+    };
+  }
+
+  private getDefaultAnalysis(_transcriptLength: number): HybridAnalysis {
+    const estimatedScore = 50;
 
     return {
       textScore: estimatedScore,
@@ -220,7 +303,7 @@ export class HybridSentimentService {
       recommendation: 'MAINTAIN',
       pointsAdjustment: this.calculatePointsAdjustment(estimatedScore),
       confidence: 0.3,
-      reasoning: "Analyse par défaut (erreur lors de l'analyse détaillée)",
+      reasoning: 'Analyse par défaut - révision manuelle requise',
     };
   }
 }
