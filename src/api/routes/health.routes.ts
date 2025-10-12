@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { config } from '@/config';
 import type { IHealthCheck } from '@/types';
 import { prisma } from '@/utils/prisma';
+import { healthCheckService } from '@/services/health-check.service';
 
 const health = new Hono();
 
@@ -44,6 +45,14 @@ health.get('/ready', async (c) => {
 
 health.get('/live', (c) => {
   return c.json({ alive: true }, 200);
+});
+
+health.get('/external', async (c) => {
+  const health = await healthCheckService.checkAllServices();
+
+  const statusCode = health.overall === 'DOWN' ? 503 : health.overall === 'DEGRADED' ? 200 : 200;
+
+  return c.json(health, statusCode);
 });
 
 export default health;
