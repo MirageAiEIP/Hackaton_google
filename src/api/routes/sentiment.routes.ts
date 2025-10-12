@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { hybridSentimentService } from '@/services/analysis/hybrid-sentiment.service';
+import { storageService } from '@/services/storage.service';
 import { logger } from '@/utils/logger';
 
 /**
@@ -237,27 +238,8 @@ export const sentimentRoutes: FastifyPluginAsync = async (app) => {
               const fileSize = audioBuffer.length;
               logger.info('Audio file read into buffer', { fileSize });
 
-              // Save to temporary file for Speech-to-Text
-              const fs = await import('fs');
-              const path = await import('path');
-              const tempDir = path.join(process.cwd(), 'temp-audio');
-
-              // Create temp directory if it doesn't exist
-              if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
-              }
-
-              // Extract original file extension
-              const originalExt = audioFilename.substring(audioFilename.lastIndexOf('.'));
-              const tempFilePath = path.join(tempDir, `${callId}_${Date.now()}${originalExt}`);
-              fs.writeFileSync(tempFilePath, audioBuffer);
-              logger.info('Audio saved to temp file', {
-                tempFilePath,
-                originalExtension: originalExt,
-              });
-
-              // Store the temp file path for later use
-              audioFilename = tempFilePath;
+              // Upload to Google Cloud Storage (or fallback to local)
+              audioFilename = await storageService.uploadAudio(audioBuffer, callId, audioFilename);
               hasAudioFile = true;
             }
           }

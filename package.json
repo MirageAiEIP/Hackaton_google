@@ -57,6 +57,7 @@
     "@fastify/sensible": "^6.0.3",
     "@fastify/swagger": "^9.5.2",
     "@fastify/swagger-ui": "^5.2.3",
+    "@google-cloud/storage": "^7.17.2",
     "@google/genai": "^1.24.0",
     "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^4.11.1",
