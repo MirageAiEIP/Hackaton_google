@@ -18,18 +18,27 @@ export class StorageService {
 
   constructor() {
     try {
+      // Résoudre le chemin absolu pour GOOGLE_APPLICATION_CREDENTIALS
+      const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      let keyFilename: string | undefined;
+
+      if (credentialsPath) {
+        // Résoudre le chemin relatif si nécessaire
+        keyFilename = path.isAbsolute(credentialsPath)
+          ? credentialsPath
+          : path.resolve(process.cwd(), credentialsPath);
+
+        logger.info('Using GCS credentials', { keyFilename });
+      }
+
       this.storage = new Storage({
-        // Utilise GOOGLE_APPLICATION_CREDENTIALS env var
-        // ou service account JSON
+        keyFilename, // Utilise le chemin résolu
       });
 
-      // Vérifier que le bucket existe
-      this.initializeBucket().catch((error) => {
-        logger.warn('GCS initialization failed, falling back to local storage', {
-          error: error.message,
-        });
-        this.useGCS = false;
-      });
+      logger.info('GCS client initialized successfully', { bucketName: this.bucketName });
+
+      // Note: On ne vérifie pas l'existence du bucket ici pour éviter d'avoir besoin de storage.buckets.get
+      // Le bucket sera vérifié lors du premier upload
     } catch (error) {
       logger.error('Failed to initialize GCS client', error as Error);
       this.useGCS = false;
