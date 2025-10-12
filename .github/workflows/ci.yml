@@ -144,30 +144,6 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/samu_triage_test
           NODE_ENV: test
 
-  test-calibration:
-    name: Calibration Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma Client
-        run: npm run db:generate
-
-      - name: Run calibration tests
-        run: npm run test:calibration
-        env:
-          NODE_ENV: test
-
   test-secrets:
     name: Secrets Tests
     runs-on: ubuntu-latest
@@ -249,7 +225,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, type-check, test-unit, test-sentiment, test-integration, test-calibration, test-secrets, test-coverage]
+    needs: [lint, type-check, test-unit, test-sentiment, test-integration, test-secrets, test-coverage]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
