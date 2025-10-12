@@ -57,6 +57,8 @@ describe('StorageService', () => {
       const callId = 'call-123';
       const filename = 'test.wav';
 
+      // Force GCS upload to fail, triggering local fallback
+      mockFile.save.mockRejectedValue(new Error('GCS disabled'));
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
       const result = await storageService.uploadAudio(audioBuffer, callId, filename);
@@ -74,6 +76,8 @@ describe('StorageService', () => {
       const callId = 'call-123';
       const filename = 'test.wav';
 
+      // Force GCS upload to fail, triggering local fallback
+      mockFile.save.mockRejectedValue(new Error('GCS disabled'));
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
       await storageService.uploadAudio(audioBuffer, callId, filename);
