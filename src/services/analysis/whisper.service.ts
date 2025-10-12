@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { createReadStream, writeFileSync, unlinkSync, existsSync } from 'fs';
 import { logger } from '@/utils/logger';
+import { loadSecrets } from '@/config/secrets.config';
 import { storageService } from '@/services/storage.service';
 import path from 'path';
 
@@ -8,16 +9,28 @@ import path from 'path';
  * Service for audio transcription using OpenAI Whisper API
  */
 export class WhisperService {
-  private readonly client: OpenAI;
+  private client: OpenAI | null = null;
+  private apiKey: string | null = null;
 
   constructor() {
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Initialization is lazy (done on first use)
+  }
 
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY not configured');
+  private async ensureInitialized(): Promise<void> {
+    if (this.client) {
+      return;
     }
 
-    this.client = new OpenAI({ apiKey });
+    // Load API key from Secret Manager or env
+    const secrets = await loadSecrets();
+    this.apiKey = secrets.openaiApiKey || process.env.OPENAI_API_KEY || null;
+
+    if (!this.apiKey) {
+      throw new Error('OpenAI API key not found in Secret Manager or environment variables');
+    }
+
+    this.client = new OpenAI({ apiKey: this.apiKey });
+    logger.info('Whisper service initialized successfully');
   }
 
   /**
@@ -58,11 +71,18 @@ export class WhisperService {
 
   /** Transcribe audio file to text */
   async transcribe(audioPath: string): Promise<string> {
+    // Ensure service is initialized with API key from Secret Manager
+    await this.ensureInitialized();
+
     logger.info('Starting Whisper transcription', { audioPath });
 
     const { path: localPath, isTemp } = await this.getLocalPath(audioPath);
 
     try {
+      if (!this.client) {
+        throw new Error('Whisper service not initialized');
+      }
+
       const transcription = await this.client.audio.transcriptions.create({
         file: createReadStream(localPath),
         model: 'whisper-1',
@@ -91,11 +111,18 @@ export class WhisperService {
     text: string;
     words?: Array<{ word: string; start: number; end: number }>;
   }> {
+    // Ensure service is initialized with API key from Secret Manager
+    await this.ensureInitialized();
+
     logger.info('Starting Whisper transcription with timestamps', { audioPath });
 
     const { path: localPath, isTemp } = await this.getLocalPath(audioPath);
 
     try {
+      if (!this.client) {
+        throw new Error('Whisper service not initialized');
+      }
+
       const response = await this.client.audio.transcriptions.create({
         file: createReadStream(localPath),
         model: 'whisper-1',

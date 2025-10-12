@@ -7,10 +7,12 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.string().transform(Number).default('3000'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
-  DATABASE_URL: z.string().url(),
-  GOOGLE_API_KEY: z.string().min(1),
+  // Secrets loaded from Google Secret Manager (optional in .env)
+  DATABASE_URL: z.string().url().optional(),
+  GOOGLE_API_KEY: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(32).optional(),
   ENCRYPTION_KEY: z.string().min(32).optional(),
+  // Rate limiting
   RATE_LIMIT_WINDOW_MS: z.string().transform(Number).default('60000'),
   RATE_LIMIT_MAX_REQUESTS: z.string().transform(Number).default('100'),
 });
@@ -44,11 +46,13 @@ export const config = {
   },
 
   database: {
-    url: env.DATABASE_URL,
+    // Will be loaded from Secret Manager if not in .env
+    url: env.DATABASE_URL || '',
   },
 
   ai: {
-    apiKey: env.GOOGLE_API_KEY,
+    // Will be loaded from Secret Manager if not in .env
+    apiKey: env.GOOGLE_API_KEY || '',
     model: 'gemini-2.0-flash-001',
     maxTokens: 2048,
     temperature: 0.7,

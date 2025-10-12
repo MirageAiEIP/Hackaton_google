@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { config } from '@/config';
+import { loadSecrets } from '@/config/secrets.config';
 import { logger } from '@/utils/logger';
 import type { SemanticAnalysis, SentimentType } from '@/types/sentiment.types';
 
@@ -8,21 +9,47 @@ import type { SemanticAnalysis, SentimentType } from '@/types/sentiment.types';
  * Remplace Claude - GRATUIT avec 300$ de crédits Google!
  */
 export class GeminiService {
-  private genAI: GoogleGenAI;
+  private genAI: GoogleGenAI | null = null;
+  private apiKey: string | null = null;
 
   constructor() {
+    // Initialization is lazy (done on first use)
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.genAI) {
+      return;
+    }
+
+    // Load API key from Secret Manager or env
+    const secrets = await loadSecrets();
+    this.apiKey = secrets.googleApiKey || config.ai.apiKey || null;
+
+    if (!this.apiKey) {
+      throw new Error('Google API key not found in Secret Manager or environment variables');
+    }
+
     this.genAI = new GoogleGenAI({
-      apiKey: config.ai.apiKey,
+      apiKey: this.apiKey,
     });
+
+    logger.info('Gemini service initialized successfully');
   }
 
   async analyzeText(transcript: string): Promise<SemanticAnalysis> {
+    // Ensure service is initialized with API key from Secret Manager
+    await this.ensureInitialized();
+
     logger.info('Starting Gemini sentiment analysis', {
       transcriptLength: transcript.length,
     });
 
     try {
       const prompt = this.buildPrompt(transcript);
+
+      if (!this.genAI) {
+        throw new Error('Gemini service not initialized');
+      }
 
       const response = await this.genAI.models.generateContent({
         model: config.ai.model,
