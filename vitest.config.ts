@@ -19,7 +19,7 @@ export default defineConfig({
       ],
     },
     include: ['src/**/*.{test,spec}.ts'],
-    exclude: ['node_modules', 'dist', 'coverage'],
+    exclude: ['node_modules', 'dist', 'coverage', '**/*.integration.test.ts'],
     setupFiles: ['./vitest.setup.ts'],
     testTimeout: 10000,
   },
