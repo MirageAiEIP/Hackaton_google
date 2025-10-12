@@ -103,7 +103,12 @@ export async function getSecret(
     'database-url': 'databaseUrl',
   };
 
-  return secrets[mapping[secretName]];
+  const mappedKey = mapping[secretName];
+  if (!mappedKey) {
+    throw new Error(`Unknown secret name: ${secretName}`);
+  }
+
+  return secrets[mappedKey];
 }
 
 /**

@@ -46,40 +46,6 @@ export class StorageService {
   }
 
   /**
-   * Initialise le bucket avec lifecycle policy
-   */
-  private async initializeBucket(): Promise<void> {
-    const bucket = this.storage.bucket(this.bucketName);
-
-    // Vérifier si le bucket existe
-    const [exists] = await bucket.exists();
-
-    if (!exists) {
-      // Créer le bucket
-      await this.storage.createBucket(this.bucketName, {
-        location: 'EUROPE-WEST1', // Paris
-        storageClass: 'STANDARD',
-      });
-
-      logger.info('GCS bucket created', { bucketName: this.bucketName });
-    }
-
-    // Configurer lifecycle (suppression auto après 1h)
-    await bucket.addLifecycleRule({
-      action: { type: 'Delete' },
-      condition: {
-        age: 0, // 0 jours
-        customTimeBefore: new Date(Date.now() + 3600000), // 1h
-      },
-    });
-
-    logger.info('GCS bucket initialized with TTL', {
-      bucketName: this.bucketName,
-      ttl: '1 hour',
-    });
-  }
-
-  /**
    * Upload un fichier audio vers GCS ou local
    *
    * @param audioBuffer - Buffer du fichier audio

@@ -100,6 +100,10 @@ export class SecretManagerService {
 
     results.forEach((result, index) => {
       const secretName = secretNames[index];
+      if (!secretName) {
+        return;
+      }
+
       if (result.status === 'fulfilled') {
         secrets[secretName] = result.value;
       } else {
