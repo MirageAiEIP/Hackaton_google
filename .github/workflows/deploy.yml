@@ -2,7 +2,7 @@ name: Deploy to Google Cloud Run
 
 on:
   push:
-    branches: [preprod, main]
+    branches: [staging, production]
 
 env:
   PROJECT_ID: samu-ai-474822
@@ -24,13 +24,13 @@ jobs:
       - name: Set environment variables
         id: vars
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          if [ "${{ github.ref }}" = "refs/heads/production" ]; then
             echo "SERVICE_NAME=samu-ai-triage-prod" >> $GITHUB_OUTPUT
             echo "ENV=production" >> $GITHUB_OUTPUT
             echo "MIN_INSTANCES=1" >> $GITHUB_OUTPUT
           else
-            echo "SERVICE_NAME=samu-ai-triage-preprod" >> $GITHUB_OUTPUT
-            echo "ENV=preprod" >> $GITHUB_OUTPUT
+            echo "SERVICE_NAME=samu-ai-triage-staging" >> $GITHUB_OUTPUT
+            echo "ENV=staging" >> $GITHUB_OUTPUT
             echo "MIN_INSTANCES=0" >> $GITHUB_OUTPUT
           fi
 
