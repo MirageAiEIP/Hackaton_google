@@ -74,6 +74,12 @@ model Call {
   symptoms          Symptom[]
   redFlags          RedFlag[]
 
+  // Relations avec les nouvelles tables
+  dispatch               Dispatch?
+  queueEntry             QueueEntry?
+  handoffs               Handoff[]
+  elevenLabsConversation ElevenLabsConversation?
+
   @@index([status])
   @@index([createdAt])
   @@index([patientId])
@@ -81,56 +87,56 @@ model Call {
 }
 
 model Patient {
-  id                 String   @id @default(cuid())
-  phoneHash          String   @unique
-  age                Int?
-  gender             String?
-  address            String?
-  city               String?
-  postalCode         String?
-  latitude           Float?
-  longitude          Float?
-  locationPrecision  String?
-  allergies          String[] @default([])
-  medications        String[] @default([])
-  chronicConditions  String[] @default([])
-  recentSurgery      Boolean  @default(false)
-  pregnancy          Boolean  @default(false)
-  calls              Call[]
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  phoneHash         String   @unique
+  age               Int?
+  gender            String?
+  address           String?
+  city              String?
+  postalCode        String?
+  latitude          Float?
+  longitude         Float?
+  locationPrecision String?
+  allergies         String[] @default([])
+  medications       String[] @default([])
+  chronicConditions String[] @default([])
+  recentSurgery     Boolean  @default(false)
+  pregnancy         Boolean  @default(false)
+  calls             Call[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([phoneHash])
   @@map("patients")
 }
 
 model TriageReport {
-  id                        String             @id @default(cuid())
-  callId                    String             @unique
-  call                      Call               @relation(fields: [callId], references: [id], onDelete: Cascade)
-  priorityLevel             PriorityLevel
-  priorityScore             Int
-  confidence                Float
-  reasoning                 String             @db.Text
-  airwayStatus              ABCDStatus
-  airwayDetails             String             @db.Text
-  breathingStatus           ABCDStatus
-  breathingRate             Int?
-  breathingDetails          String             @db.Text
-  circulationStatus         ABCDStatus
-  chestPain                 Boolean            @default(false)
-  bleeding                  String?
-  circulationDetails        String             @db.Text
-  consciousnessLevel        ConsciousnessLevel
-  consciousnessDetails      String             @db.Text
-  chiefComplaint            String             @db.Text
-  recommendedAction         RecommendedAction
-  recommendationReasoning   String             @db.Text
-  recommendationConfidence  Float
-  conversationSummary       String             @db.Text
-  keyQuotes                 String[]           @default([])
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
+  id                       String             @id @default(cuid())
+  callId                   String             @unique
+  call                     Call               @relation(fields: [callId], references: [id], onDelete: Cascade)
+  priorityLevel            PriorityLevel
+  priorityScore            Int
+  confidence               Float
+  reasoning                String             @db.Text
+  airwayStatus             ABCDStatus
+  airwayDetails            String             @db.Text
+  breathingStatus          ABCDStatus
+  breathingRate            Int?
+  breathingDetails         String             @db.Text
+  circulationStatus        ABCDStatus
+  chestPain                Boolean            @default(false)
+  bleeding                 String?
+  circulationDetails       String             @db.Text
+  consciousnessLevel       ConsciousnessLevel
+  consciousnessDetails     String             @db.Text
+  chiefComplaint           String             @db.Text
+  recommendedAction        RecommendedAction
+  recommendationReasoning  String             @db.Text
+  recommendationConfidence Float
+  conversationSummary      String             @db.Text
+  keyQuotes                String[]           @default([])
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
 
   @@index([priorityLevel])
   @@index([createdAt])
@@ -199,4 +205,175 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================================
+// SYSTEM DE QUEUE & HANDOFF
+// ============================================================================
+
+enum DispatchStatus {
+  PENDING
+  DISPATCHED
+  EN_ROUTE
+  ON_SCENE
+  COMPLETED
+  CANCELLED
+}
+
+enum QueueStatus {
+  WAITING
+  CLAIMED
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum HandoffStatus {
+  REQUESTED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+model Dispatch {
+  id     String @id @default(cuid())
+  callId String @unique
+  call   Call   @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  // Dispatch info
+  dispatchId   String        @unique
+  priority     PriorityLevel
+  location     String
+  latitude     Float?
+  longitude    Float?
+  symptoms     String        @db.Text
+  patientPhone String?
+
+  // Timing
+  requestedAt  DateTime  @default(now())
+  dispatchedAt DateTime?
+  arrivedAt    DateTime?
+  completedAt  DateTime?
+
+  // Status
+  status DispatchStatus @default(PENDING)
+
+  // Metrics
+  responseTime Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([callId])
+  @@index([status])
+  @@index([requestedAt])
+  @@index([latitude, longitude])
+  @@map("dispatches")
+}
+
+model QueueEntry {
+  id     String @id @default(cuid())
+  callId String @unique
+  call   Call   @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  // Patient info summary
+  priority       PriorityLevel
+  chiefComplaint String        @db.Text
+  patientAge     Int?
+  patientGender  String?
+  location       String?
+
+  // AI summary for human
+  aiSummary        String   @db.Text
+  aiRecommendation String   @db.Text
+  keySymptoms      String[] @default([])
+  redFlags         String[] @default([])
+
+  // Queue management
+  status       QueueStatus @default(WAITING)
+  waitingSince DateTime    @default(now())
+  claimedBy    String?
+  claimedAt    DateTime?
+
+  // Metadata
+  estimatedWaitTime Int?
+  conversationId    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([waitingSince])
+  @@index([claimedBy])
+  @@map("queue_entries")
+}
+
+model Handoff {
+  id     String @id @default(cuid())
+  callId String
+  call   Call   @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  // Handoff info
+  fromAgent    Boolean @default(true)
+  toOperatorId String
+  reason       String  @db.Text
+
+  // Context transfer
+  conversationId String?
+  transcript     String  @db.Text
+  aiContext      Json
+  patientSummary String  @db.Text
+
+  // Status
+  status      HandoffStatus @default(REQUESTED)
+  requestedAt DateTime      @default(now())
+  acceptedAt  DateTime?
+  completedAt DateTime?
+
+  // Metrics
+  handoffDuration Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([callId])
+  @@index([status])
+  @@index([toOperatorId])
+  @@index([requestedAt])
+  @@map("handoffs")
+}
+
+model ElevenLabsConversation {
+  id             String @id @default(cuid())
+  conversationId String @unique
+  agentId        String
+
+  // Call relationship
+  callId String? @unique
+  call   Call?   @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  // Conversation data
+  startTime       DateTime
+  endTime         DateTime?
+  durationSeconds Int?
+
+  transcript Json
+  toolCalls  Json
+  metadata   Json?
+
+  status   String
+  hasAudio Boolean @default(false)
+  audioUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conversationId])
+  @@index([agentId])
+  @@index([callId])
+  @@index([status])
+  @@index([startTime])
+  @@map("elevenlabs_conversations")
 }

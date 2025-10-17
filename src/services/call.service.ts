@@ -347,6 +347,45 @@ export class CallService {
       skip: options.offset || 0,
     });
   }
+
+  /**
+   * Récupère tous les appels actifs (IN_PROGRESS, ESCALATED)
+   * Utilisé par le dashboard des opérateurs
+   */
+  async getActiveCalls() {
+    logger.info('📋 Getting active calls');
+
+    try {
+      const activeCalls = await prisma.call.findMany({
+        where: {
+          status: {
+            in: ['IN_PROGRESS', 'ESCALATED'],
+          },
+        },
+        include: {
+          patient: true,
+          triageReport: true,
+          elevenLabsConversation: true,
+          handoffs: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+            take: 1, // Dernier handoff seulement
+          },
+        },
+        orderBy: {
+          startedAt: 'desc',
+        },
+      });
+
+      logger.info('✅ Active calls retrieved', { count: activeCalls.length });
+
+      return activeCalls;
+    } catch (error) {
+      logger.error('Failed to get active calls', error as Error);
+      throw new Error('Failed to get active calls');
+    }
+  }
 }
 
 export const callService = new CallService();
