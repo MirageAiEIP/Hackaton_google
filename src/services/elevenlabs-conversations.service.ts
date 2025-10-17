@@ -88,7 +88,9 @@ export class ElevenLabsConversationsService {
   /**
    * Liste les conversations avec pagination
    */
-  async listConversations(params: ListConversationsParams = {}): Promise<ConversationsListResponse> {
+  async listConversations(
+    params: ListConversationsParams = {}
+  ): Promise<ConversationsListResponse> {
     await this.initialize();
 
     const { cursor, agentId, callSuccessful, pageSize = 30 } = params;
@@ -140,7 +142,9 @@ export class ElevenLabsConversationsService {
   /**
    * Récupère toutes les conversations (toutes les pages)
    */
-  async getAllConversations(params: Omit<ListConversationsParams, 'cursor'> = {}): Promise<ConversationListItem[]> {
+  async getAllConversations(
+    params: Omit<ListConversationsParams, 'cursor'> = {}
+  ): Promise<ConversationListItem[]> {
     const allConversations: ConversationListItem[] = [];
     let cursor: string | undefined = undefined;
     let hasMore = true;
@@ -288,7 +292,9 @@ export class ElevenLabsConversationsService {
   /**
    * Extrait les tool calls du transcript (si présents dans les messages)
    */
-  extractToolCalls(transcript: TranscriptMessage[]): Array<{ tool: string; time: number; params: string }> {
+  extractToolCalls(
+    transcript: TranscriptMessage[]
+  ): Array<{ tool: string; time: number; params: string }> {
     const toolCalls: Array<{ tool: string; time: number; params: string }> = [];
 
     for (const msg of transcript) {

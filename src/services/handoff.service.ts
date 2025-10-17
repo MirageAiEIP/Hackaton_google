@@ -20,7 +20,8 @@ export interface TakeControlInput {
 
 export class HandoffService {
   async requestHandoff(input: CreateHandoffInput) {
-    const { callId, toOperatorId, reason, conversationId, transcript, aiContext, patientSummary } = input;
+    const { callId, toOperatorId, reason, conversationId, transcript, aiContext, patientSummary } =
+      input;
 
     logger.info('Requesting handoff', {
       callId,
@@ -302,7 +303,8 @@ export class HandoffService {
 
       const avgDuration =
         completedHandoffs.length > 0
-          ? completedHandoffs.reduce((sum, h) => sum + (h.handoffDuration || 0), 0) / completedHandoffs.length
+          ? completedHandoffs.reduce((sum, h) => sum + (h.handoffDuration || 0), 0) /
+            completedHandoffs.length
           : 0;
 
       const stats = {

@@ -4,11 +4,6 @@ import { z } from 'zod';
  * Validation schemas for test routes
  */
 
-// TTS endpoint
-export const ttsBodySchema = z.object({
-  text: z.string().min(1, 'Text cannot be empty'),
-});
-
 // Dispatch SMUR endpoint
 export const dispatchSmurBodySchema = z.object({
   priority: z.enum(['P0', 'P1', 'P2']),
@@ -28,55 +23,6 @@ export const analyzeAbcdBodySchema = z.object({
 export const recordDataBodySchema = z.object({
   transcript: z.string().optional(),
   notes: z.string().optional(),
-});
-
-// Save conversation endpoint
-export const saveConversationBodySchema = z.object({
-  conversationId: z.string().min(1, 'Conversation ID is required'),
-  agentId: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  transcript: z.array(
-    z.object({
-      role: z.enum(['user', 'agent']),
-      message: z.string(),
-      timestamp: z.string(),
-    })
-  ),
-  toolCalls: z
-    .array(
-      z.object({
-        toolName: z.string(),
-        timestamp: z.string(),
-        parameters: z.record(z.unknown()),
-        result: z.record(z.unknown()).optional(),
-        success: z.boolean(),
-      })
-    )
-    .optional(),
-  metadata: z.record(z.unknown()).optional(),
-});
-
-// Conversations list query params
-export const conversationsQuerySchema = z.object({
-  agent_id: z.string().optional(),
-  cursor: z.string().optional(),
-  page_size: z.coerce.number().min(1).max(100).optional(),
-  call_successful: z.enum(['success', 'failure', 'unknown']).optional(),
-  get_all: z
-    .union([z.boolean(), z.string()])
-    .transform((val) => {
-      if (typeof val === 'boolean') {
-        return val;
-      }
-      return val === 'true';
-    })
-    .optional(),
-});
-
-// Conversation ID param
-export const conversationIdParamSchema = z.object({
-  conversationId: z.string().min(1, 'Conversation ID is required'),
 });
 
 // Queue list query params
@@ -122,7 +68,9 @@ export const takeControlBodySchema = z.object({
 
 // Map interventions query params
 export const mapInterventionsQuerySchema = z.object({
-  status: z.enum(['PENDING', 'DISPATCHED', 'EN_ROUTE', 'ON_SCENE', 'COMPLETED', 'CANCELLED']).optional(),
+  status: z
+    .enum(['PENDING', 'DISPATCHED', 'EN_ROUTE', 'ON_SCENE', 'COMPLETED', 'CANCELLED'])
+    .optional(),
   priority: z.enum(['P0', 'P1', 'P2']).optional(),
   last_hours: z.coerce.number().positive().optional(),
 });

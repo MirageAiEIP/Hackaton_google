@@ -8,7 +8,14 @@ import type {
 } from '@prisma/client';
 
 // Re-export Prisma types for use in other modules
-export type { PriorityLevel, CallStatus, ABCDStatus, ConsciousnessLevel, RecommendedAction, SeverityLevel };
+export type {
+  PriorityLevel,
+  CallStatus,
+  ABCDStatus,
+  ConsciousnessLevel,
+  RecommendedAction,
+  SeverityLevel,
+};
 
 /**
  * Message d'un échange dans la conversation de triage

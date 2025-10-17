@@ -7,7 +7,6 @@ import { logger } from '@/utils/logger';
  */
 
 interface AppSecrets {
-  openaiApiKey: string;
   googleApiKey: string;
   elevenlabsApiKey: string;
   jwtSecret: string;
@@ -35,7 +34,6 @@ export async function loadSecrets(): Promise<AppSecrets> {
     logger.info('Loading secrets from environment variables (development mode)');
 
     secretsCache = {
-      openaiApiKey: process.env.OPENAI_API_KEY || '',
       googleApiKey: process.env.GOOGLE_API_KEY || '',
       elevenlabsApiKey: process.env.ELEVENLABS_API_KEY || '',
       jwtSecret: process.env.JWT_SECRET || '',
@@ -51,7 +49,6 @@ export async function loadSecrets(): Promise<AppSecrets> {
 
   try {
     const secrets = await secretManagerService.getSecrets([
-      'openai-api-key',
       'google-api-key',
       'elevenlabs-api-key',
       'jwt-secret',
@@ -60,7 +57,6 @@ export async function loadSecrets(): Promise<AppSecrets> {
     ]);
 
     secretsCache = {
-      openaiApiKey: secrets['openai-api-key'] || process.env.OPENAI_API_KEY || '',
       googleApiKey: secrets['google-api-key'] || process.env.GOOGLE_API_KEY || '',
       elevenlabsApiKey: secrets['elevenlabs-api-key'] || process.env.ELEVENLABS_API_KEY || '',
       jwtSecret: secrets['jwt-secret'] || process.env.JWT_SECRET || '',
@@ -80,7 +76,6 @@ export async function loadSecrets(): Promise<AppSecrets> {
     logger.warn('Falling back to environment variables');
 
     secretsCache = {
-      openaiApiKey: process.env.OPENAI_API_KEY || '',
       googleApiKey: process.env.GOOGLE_API_KEY || '',
       elevenlabsApiKey: process.env.ELEVENLABS_API_KEY || '',
       jwtSecret: process.env.JWT_SECRET || '',
@@ -96,12 +91,16 @@ export async function loadSecrets(): Promise<AppSecrets> {
  * Récupère un secret spécifique
  */
 export async function getSecret(
-  secretName: 'openai-api-key' | 'google-api-key' | 'elevenlabs-api-key' | 'jwt-secret' | 'encryption-key' | 'database-url'
+  secretName:
+    | 'google-api-key'
+    | 'elevenlabs-api-key'
+    | 'jwt-secret'
+    | 'encryption-key'
+    | 'database-url'
 ): Promise<string> {
   const secrets = await loadSecrets();
 
   const mapping: Record<string, keyof AppSecrets> = {
-    'openai-api-key': 'openaiApiKey',
     'google-api-key': 'googleApiKey',
     'elevenlabs-api-key': 'elevenlabsApiKey',
     'jwt-secret': 'jwtSecret',

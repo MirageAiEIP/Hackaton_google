@@ -62,8 +62,8 @@ async function testSecrets() {
     console.log(`   Préfixe utilisé: ${envPrefix}-\n`);
 
     const secretNames = [
-      'openai-api-key',
       'google-api-key',
+      'elevenlabs-api-key',
       'jwt-secret',
       'encryption-key',
       'database-url',
@@ -73,8 +73,8 @@ async function testSecrets() {
     let failureCount = 0;
 
     for (const secretName of secretNames) {
+      const fullSecretName = `${envPrefix}-${secretName}`;
       try {
-        const fullSecretName = `${envPrefix}-${secretName}`;
         const name = `projects/${PROJECT_ID}/secrets/${fullSecretName}/versions/latest`;
         const [response] = await client.accessSecretVersion({ name });
         const secretValue = response.payload?.data?.toString();

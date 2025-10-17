@@ -470,7 +470,7 @@ describe('DispatchService', () => {
           location: '15 rue Victor Hugo, Lyon',
           symptoms: 'Arrêt cardiaque',
           patientPhone: null,
-          latitude: 45.7640,
+          latitude: 45.764,
           longitude: 4.8357,
           status: 'EN_ROUTE',
           requestedAt: new Date(),
@@ -497,7 +497,7 @@ describe('DispatchService', () => {
       const result = await dispatchService.getMapDispatches();
 
       expect(result.dispatches).toHaveLength(1);
-      expect(result.dispatches[0]?.latitude).toBe(45.7640);
+      expect(result.dispatches[0]?.latitude).toBe(45.764);
       expect(result.dispatches[0]?.longitude).toBe(4.8357);
       expect(result.dispatches[0]?.location).toBe('15 rue Victor Hugo, Lyon');
       expect(result.geoJson.type).toBe('FeatureCollection');
@@ -514,7 +514,7 @@ describe('DispatchService', () => {
           location: '15 rue Victor Hugo, Lyon',
           symptoms: 'Arrêt cardiaque',
           patientPhone: null,
-          latitude: 45.7640,
+          latitude: 45.764,
           longitude: 4.8357,
           status: 'EN_ROUTE',
           requestedAt: new Date(),

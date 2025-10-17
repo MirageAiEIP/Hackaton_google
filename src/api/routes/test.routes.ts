@@ -1,5 +1,4 @@
 import { FastifyInstance } from 'fastify';
-import { getElevenLabsTTSService } from '@/services/elevenlabs-tts-stream.service';
 import { getElevenLabsConversationsService } from '@/services/elevenlabs-conversations.service';
 import { dispatchService } from '@/services/dispatch.service';
 import { queueService } from '@/services/queue.service';
@@ -7,13 +6,9 @@ import { handoffService } from '@/services/handoff.service';
 import { callService } from '@/services/call.service';
 import { logger } from '@/utils/logger';
 import {
-  ttsBodySchema,
   dispatchSmurBodySchema,
   analyzeAbcdBodySchema,
   recordDataBodySchema,
-  saveConversationBodySchema,
-  conversationsQuerySchema,
-  conversationIdParamSchema,
   queueQuerySchema,
   queueClaimParamSchema,
   queueClaimBodySchema,
@@ -29,77 +24,6 @@ import {
  */
 export const registerTestRoutes = (app: FastifyInstance) => {
   /**
-   * Test TTS - Convertit du texte en audio
-   */
-  app.post(
-    '/tts',
-    {
-      schema: {
-        tags: ['test'],
-        summary: 'Test TTS',
-        description: 'Test text-to-speech avec ElevenLabs',
-        body: {
-          type: 'object',
-          required: ['text'],
-          properties: {
-            text: {
-              type: 'string',
-              description: 'Texte à synthétiser',
-            },
-          },
-        },
-      },
-    },
-    async (request, reply) => {
-      const { text } = ttsBodySchema.parse(request.body);
-
-      logger.info('Test TTS request', { text: text.substring(0, 50) + '...' });
-
-      try {
-        const ttsService = getElevenLabsTTSService();
-        const { audioStream } = await ttsService.streamText(text);
-
-        // Collecte tous les chunks audio
-        const chunks: Buffer[] = [];
-        for await (const chunk of audioStream) {
-          chunks.push(chunk);
-        }
-
-        const audioBuffer = Buffer.concat(chunks);
-
-        logger.info('TTS generated', { size: audioBuffer.length });
-
-        // Retourne l'audio en MP3
-        reply.header('Content-Type', 'audio/mpeg');
-        reply.header('Content-Length', audioBuffer.length);
-        return reply.send(audioBuffer);
-      } catch (error) {
-        logger.error('TTS test failed', error as Error);
-        reply.status(500);
-        return { error: 'TTS generation failed' };
-      }
-    }
-  );
-
-  /**
-   * Test VAD - Analyse un fichier audio pour détecter la voix
-   */
-  app.post(
-    '/vad',
-    {
-      schema: {
-        tags: ['test'],
-        summary: 'Test VAD',
-        description: 'Test Voice Activity Detection',
-      },
-    },
-    async () => {
-      // TODO: Implémenter test VAD
-      return { message: 'VAD test endpoint - TODO' };
-    }
-  );
-
-  /**
    * Health check pour le frontend
    */
   app.get(
@@ -114,10 +38,6 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       return {
         status: 'ok',
         timestamp: new Date().toISOString(),
-        services: {
-          tts: 'ready',
-          vad: 'ready',
-        },
       };
     }
   );
@@ -140,7 +60,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
             priority: {
               type: 'string',
               enum: ['P0', 'P1', 'P2'],
-              description: 'Priorité de l\'urgence',
+              description: "Priorité de l'urgence",
             },
             location: {
               type: 'string',
@@ -148,7 +68,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
             },
             reason: {
               type: 'string',
-              description: 'Symptômes / raison de l\'urgence',
+              description: "Symptômes / raison de l'urgence",
             },
             patientPhone: {
               type: 'string',
@@ -156,14 +76,16 @@ export const registerTestRoutes = (app: FastifyInstance) => {
             },
             callId: {
               type: 'string',
-              description: 'ID de l\'appel (optionnel)',
+              description: "ID de l'appel (optionnel)",
             },
           },
         },
       },
     },
     async (request, reply) => {
-      const { priority, location, reason, patientPhone, callId } = dispatchSmurBodySchema.parse(request.body);
+      const { priority, location, reason, patientPhone, callId } = dispatchSmurBodySchema.parse(
+        request.body
+      );
 
       try {
         const result = await dispatchService.createDispatch({
@@ -304,131 +226,15 @@ export const registerTestRoutes = (app: FastifyInstance) => {
   );
 
   /**
-   * Sauvegarde complète de conversation - Appelé à la fin de chaque session
-   * Stocke toutes les données: transcript, tool calls, metadata
-   */
-  app.post(
-    '/save-conversation',
-    {
-      schema: {
-        tags: ['test'],
-        summary: 'Sauvegarder conversation complète',
-        description: 'Enregistre toutes les données d\'une conversation ElevenLabs (transcript, tool calls, metadata)',
-        body: {
-          type: 'object',
-          required: ['conversationId', 'transcript'],
-          properties: {
-            conversationId: {
-              type: 'string',
-              description: 'ID unique de la conversation',
-            },
-            agentId: {
-              type: 'string',
-              description: 'ID de l\'agent ElevenLabs',
-            },
-            startTime: {
-              type: 'string',
-              description: 'Timestamp de début (ISO 8601)',
-            },
-            endTime: {
-              type: 'string',
-              description: 'Timestamp de fin (ISO 8601)',
-            },
-            transcript: {
-              type: 'array',
-              description: 'Transcription complète de la conversation',
-              items: {
-                type: 'object',
-                properties: {
-                  role: { type: 'string', enum: ['user', 'agent'] },
-                  message: { type: 'string' },
-                  timestamp: { type: 'string' },
-                },
-              },
-            },
-            toolCalls: {
-              type: 'array',
-              description: 'Appels de Client Tools effectués',
-              items: {
-                type: 'object',
-                properties: {
-                  toolName: { type: 'string' },
-                  timestamp: { type: 'string' },
-                  parameters: { type: 'object' },
-                  result: { type: 'object' },
-                  success: { type: 'boolean' },
-                },
-              },
-            },
-            metadata: {
-              type: 'object',
-              description: 'Métadonnées supplémentaires',
-            },
-          },
-        },
-      },
-    },
-    async (request) => {
-      const conversationData = saveConversationBodySchema.parse(request.body);
-
-      logger.info('SAVE CONVERSATION REQUEST', {
-        conversationId: conversationData.conversationId,
-        transcriptLength: conversationData.transcript.length,
-        toolCallsCount: conversationData.toolCalls?.length || 0,
-        duration: conversationData.metadata?.durationSeconds,
-      });
-
-      // Log complet des données reçues
-      logger.info('Conversation details', {
-        agentId: conversationData.agentId,
-        startTime: conversationData.startTime,
-        endTime: conversationData.endTime,
-        transcript: conversationData.transcript.map((t) => `${t.role}: ${t.message.substring(0, 50)}...`),
-        toolCalls: conversationData.toolCalls?.map((tc) => ({
-          tool: tc.toolName,
-          success: tc.success,
-          params: Object.keys(tc.parameters),
-        })),
-      });
-
-      // TODO: Implémenter la vraie persistence en DB
-      // - Créer/Update Call dans la DB
-      // - Stocker transcript complet
-      // - Enregistrer les tool calls (dispatches)
-      // - Sauvegarder metadata pour analytics
-      // - Créer AuditLog pour compliance
-
-      const savedId = `CONV-${Date.now()}`;
-
-      logger.info('Conversation saved to database', {
-        id: savedId,
-        conversationId: conversationData.conversationId,
-      });
-
-      return {
-        success: true,
-        id: savedId,
-        conversationId: conversationData.conversationId,
-        stats: {
-          messages: conversationData.transcript.length,
-          toolCalls: conversationData.toolCalls?.length || 0,
-          duration: conversationData.metadata?.durationSeconds || 0,
-        },
-        message: 'Conversation sauvegardée avec succès',
-      };
-    }
-  );
-
-  /**
-   * Liste toutes les conversations ElevenLabs (avec pagination)
+   * CONVERSATIONS ELEVENLABS - Liste des conversations
    */
   app.get(
     '/conversations',
     {
       schema: {
-        tags: ['test'],
-        summary: 'Liste des conversations',
-        description: 'Récupère la liste des conversations depuis l\'API ElevenLabs avec pagination',
+        tags: ['conversations'],
+        summary: 'Liste conversations',
+        description: 'Récupère toutes les conversations depuis ElevenLabs API',
         querystring: {
           type: 'object',
           properties: {
@@ -442,57 +248,32 @@ export const registerTestRoutes = (app: FastifyInstance) => {
             },
             page_size: {
               type: 'number',
-              minimum: 1,
-              maximum: 100,
-              description: 'Nombre de résultats (1-100, défaut 30)',
+              description: 'Nombre de résultats (1-100)',
             },
             call_successful: {
               type: 'string',
               enum: ['success', 'failure', 'unknown'],
-              description: 'Filtrer par résultat de l\'appel',
-            },
-            get_all: {
-              type: 'boolean',
-              description: 'Récupérer toutes les conversations (toutes pages)',
+              description: 'Filtrer par résultat',
             },
           },
         },
       },
     },
     async (request) => {
-      const { agent_id, cursor, page_size, call_successful, get_all } = conversationsQuerySchema.parse(request.query);
+      const { agent_id, cursor, page_size, call_successful } = request.query as {
+        agent_id?: string;
+        cursor?: string;
+        page_size?: number;
+        call_successful?: 'success' | 'failure' | 'unknown';
+      };
 
       try {
         const conversationsService = getElevenLabsConversationsService();
-
-        // Si get_all=true, récupérer toutes les pages
-        if (get_all) {
-          const allConversations = await conversationsService.getAllConversations({
-            agentId: agent_id,
-            callSuccessful: call_successful,
-            pageSize: page_size,
-          });
-
-          logger.info('All conversations retrieved', { count: allConversations.length });
-
-          return {
-            success: true,
-            count: allConversations.length,
-            conversations: allConversations,
-          };
-        }
-
-        // Sinon, récupérer une seule page
         const response = await conversationsService.listConversations({
           agentId: agent_id,
           cursor,
           pageSize: page_size,
           callSuccessful: call_successful,
-        });
-
-        logger.info('Conversations retrieved', {
-          count: response.conversations.length,
-          hasMore: response.has_more,
         });
 
         return {
@@ -513,15 +294,15 @@ export const registerTestRoutes = (app: FastifyInstance) => {
   );
 
   /**
-   * Récupère les détails d'une conversation spécifique
+   * Détails d'une conversation
    */
   app.get(
     '/conversations/:conversationId',
     {
       schema: {
-        tags: ['test'],
-        summary: 'Détails d\'une conversation',
-        description: 'Récupère le transcript complet et metadata d\'une conversation',
+        tags: ['conversations'],
+        summary: 'Détails conversation',
+        description: "Récupère le transcript complet d'une conversation",
         params: {
           type: 'object',
           required: ['conversationId'],
@@ -535,7 +316,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request) => {
-      const { conversationId } = conversationIdParamSchema.parse(request.params);
+      const { conversationId } = request.params as { conversationId: string };
 
       try {
         const conversationsService = getElevenLabsConversationsService();
@@ -544,21 +325,11 @@ export const registerTestRoutes = (app: FastifyInstance) => {
         // Formater le transcript
         const formattedTranscript = conversationsService.formatTranscript(details.transcript);
 
-        // Extraire les tool calls
-        const toolCalls = conversationsService.extractToolCalls(details.transcript);
-
-        logger.info('Conversation details retrieved', {
-          conversationId,
-          transcriptLength: details.transcript.length,
-          toolCallsCount: toolCalls.length,
-        });
-
         return {
           success: true,
           conversation: {
             ...details,
             formattedTranscript,
-            toolCalls,
           },
         };
       } catch (error) {
@@ -572,74 +343,15 @@ export const registerTestRoutes = (app: FastifyInstance) => {
   );
 
   /**
-   * Endpoint de diagnostic - Retourne les détails bruts de l'API ElevenLabs
-   */
-  app.get(
-    '/conversations/:conversationId/raw',
-    {
-      schema: {
-        tags: ['test'],
-        summary: 'Détails bruts (diagnostic)',
-        description: 'Retourne la réponse brute de l\'API ElevenLabs pour diagnostic',
-        params: {
-          type: 'object',
-          required: ['conversationId'],
-          properties: {
-            conversationId: {
-              type: 'string',
-              description: 'ID de la conversation',
-            },
-          },
-        },
-      },
-    },
-    async (request) => {
-      const { conversationId } = conversationIdParamSchema.parse(request.params);
-
-      try {
-        const conversationsService = getElevenLabsConversationsService();
-        const details = await conversationsService.getConversationDetails(conversationId);
-
-        // Log les tool calls détectés
-        const toolCalls = conversationsService.extractToolCalls(details.transcript);
-
-        logger.info('RAW DIAGNOSTIC', {
-          conversationId,
-          transcriptLength: details.transcript.length,
-          toolCallsExtracted: toolCalls.length,
-          rawToolCalls: toolCalls,
-        });
-
-        // Retourner les détails bruts
-        return {
-          success: true,
-          conversationId,
-          raw: details,
-          extracted: {
-            toolCalls,
-            transcriptLength: details.transcript.length,
-          },
-        };
-      } catch (error) {
-        logger.error('Failed to retrieve raw conversation details', error as Error, { conversationId });
-        return {
-          success: false,
-          error: (error as Error).message,
-        };
-      }
-    }
-  );
-
-  /**
-   * Télécharge l'audio d'une conversation
+   * Audio d'une conversation
    */
   app.get(
     '/conversations/:conversationId/audio',
     {
       schema: {
-        tags: ['test'],
-        summary: 'Audio de conversation',
-        description: 'Télécharge l\'enregistrement audio complet en MP3',
+        tags: ['conversations'],
+        summary: 'Audio conversation',
+        description: "Télécharge l'enregistrement audio en MP3",
         params: {
           type: 'object',
           required: ['conversationId'],
@@ -653,20 +365,18 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request, reply) => {
-      const { conversationId } = conversationIdParamSchema.parse(request.params);
+      const { conversationId } = request.params as { conversationId: string };
 
       try {
         const conversationsService = getElevenLabsConversationsService();
         const audioBuffer = await conversationsService.getConversationAudio(conversationId);
 
-        logger.info('Conversation audio retrieved', {
-          conversationId,
-          size: audioBuffer.length,
-        });
-
         reply.header('Content-Type', 'audio/mpeg');
         reply.header('Content-Length', audioBuffer.length);
-        reply.header('Content-Disposition', `attachment; filename="conversation-${conversationId}.mp3"`);
+        reply.header(
+          'Content-Disposition',
+          `attachment; filename="conversation-${conversationId}.mp3"`
+        );
         return reply.send(audioBuffer);
       } catch (error) {
         logger.error('Failed to retrieve conversation audio', error as Error, { conversationId });
@@ -756,7 +466,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
           properties: {
             operatorId: {
               type: 'string',
-              description: 'ID de l\'opérateur qui prend l\'appel',
+              description: "ID de l'opérateur qui prend l'appel",
             },
           },
         },
@@ -808,15 +518,22 @@ export const registerTestRoutes = (app: FastifyInstance) => {
         description: 'Agent IA demande un transfert vers un opérateur humain',
         body: {
           type: 'object',
-          required: ['callId', 'toOperatorId', 'reason', 'transcript', 'aiContext', 'patientSummary'],
+          required: [
+            'callId',
+            'toOperatorId',
+            'reason',
+            'transcript',
+            'aiContext',
+            'patientSummary',
+          ],
           properties: {
             callId: {
               type: 'string',
-              description: 'ID de l\'appel',
+              description: "ID de l'appel",
             },
             toOperatorId: {
               type: 'string',
-              description: 'ID de l\'opérateur cible',
+              description: "ID de l'opérateur cible",
             },
             reason: {
               type: 'string',
@@ -836,15 +553,22 @@ export const registerTestRoutes = (app: FastifyInstance) => {
             },
             patientSummary: {
               type: 'string',
-              description: 'Résumé patient pour l\'opérateur',
+              description: "Résumé patient pour l'opérateur",
             },
           },
         },
       },
     },
     async (request, reply) => {
-      const { callId, toOperatorId, reason, conversationId, transcript, aiContext, patientSummary } =
-        handoffRequestBodySchema.parse(request.body);
+      const {
+        callId,
+        toOperatorId,
+        reason,
+        conversationId,
+        transcript,
+        aiContext,
+        patientSummary,
+      } = handoffRequestBodySchema.parse(request.body);
 
       try {
         const handoff = await handoffService.requestHandoff({
@@ -935,14 +659,14 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       schema: {
         tags: ['handoff'],
         summary: 'Prendre le contrôle',
-        description: 'Opérateur prend instantanément le contrôle d\'une conversation en cours',
+        description: "Opérateur prend instantanément le contrôle d'une conversation en cours",
         params: {
           type: 'object',
           required: ['callId'],
           properties: {
             callId: {
               type: 'string',
-              description: 'ID de l\'appel',
+              description: "ID de l'appel",
             },
           },
         },
@@ -952,7 +676,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
           properties: {
             operatorId: {
               type: 'string',
-              description: 'ID de l\'opérateur qui prend le contrôle',
+              description: "ID de l'opérateur qui prend le contrôle",
             },
             reason: {
               type: 'string',

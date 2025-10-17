@@ -11,11 +11,14 @@ import { logger } from '@/utils/logger';
  */
 
 // Store des conversations actives en mémoire
-const activeConversations = new Map<string, {
-  callId: string;
-  startedAt: Date;
-  signedUrl: string;
-}>();
+const activeConversations = new Map<
+  string,
+  {
+    callId: string;
+    startedAt: Date;
+    signedUrl: string;
+  }
+>();
 
 export const callsRoutes = (app: FastifyInstance) => {
   /**
@@ -28,7 +31,7 @@ export const callsRoutes = (app: FastifyInstance) => {
       schema: {
         tags: ['calls'],
         summary: 'Démarrer conversation web',
-        description: 'Lance une nouvelle conversation avec l\'agent SAMU (backend gère tout)',
+        description: "Lance une nouvelle conversation avec l'agent SAMU (backend gère tout)",
         body: {
           type: 'object',
           properties: {
@@ -138,7 +141,7 @@ export const callsRoutes = (app: FastifyInstance) => {
       schema: {
         tags: ['calls'],
         summary: 'Statut de la conversation',
-        description: 'Récupère le statut d\'une conversation en cours',
+        description: "Récupère le statut d'une conversation en cours",
         params: {
           type: 'object',
           required: ['sessionId'],

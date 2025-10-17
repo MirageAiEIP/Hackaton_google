@@ -70,7 +70,7 @@ export class ElevenLabsAgentService {
         throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json() as { signed_url: string };
+      const data = (await response.json()) as { signed_url: string };
 
       logger.info('Signed URL generated successfully', {
         agentId: this.agentId,

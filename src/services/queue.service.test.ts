@@ -16,7 +16,8 @@ vi.mock('@/utils/logger', () => ({
 // Mock Prisma - must include ALL models accessed by the service
 vi.mock('@/utils/prisma', () => ({
   prisma: {
-    queueEntry: {  // Service uses queueEntry, not queue
+    queueEntry: {
+      // Service uses queueEntry, not queue
       create: vi.fn(),
       update: vi.fn(),
       findMany: vi.fn(),
@@ -323,11 +324,11 @@ describe('QueueService', () => {
       // Mock count by status - service calls count() 6 times (total + 5 statuses)
       vi.mocked(prisma.queueEntry.count)
         .mockResolvedValueOnce(17) // total
-        .mockResolvedValueOnce(5)  // WAITING
-        .mockResolvedValueOnce(2)  // CLAIMED
-        .mockResolvedValueOnce(8)  // IN_PROGRESS
+        .mockResolvedValueOnce(5) // WAITING
+        .mockResolvedValueOnce(2) // CLAIMED
+        .mockResolvedValueOnce(8) // IN_PROGRESS
         .mockResolvedValueOnce(10) // COMPLETED
-        .mockResolvedValueOnce(0);  // ABANDONED
+        .mockResolvedValueOnce(0); // ABANDONED
 
       // Mock findMany for waiting entries (avgWaitTime calculation)
       vi.mocked(prisma.queueEntry.findMany).mockResolvedValue([

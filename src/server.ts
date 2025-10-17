@@ -12,6 +12,7 @@ import { logger } from '@/utils/logger';
 import { testDatabaseConnection, prisma } from '@/utils/prisma';
 import { twilioRoutes } from '@/api/routes/twilio.routes';
 import { registerTestRoutes } from '@/api/routes/test.routes';
+import { callsRoutes } from '@/api/routes/calls.routes';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 
@@ -81,39 +82,13 @@ async function setupServer() {
     transformStaticCSP: (header) => header,
   });
 
-  app.get(
-    '/',
-    {
-      schema: {
-        description: 'Get application information and status',
-        tags: ['health'],
-        response: {
-          200: {
-            description: 'Application information',
-            type: 'object',
-            properties: {
-              name: { type: 'string', description: 'Application name' },
-              version: { type: 'string', description: 'Application version' },
-              status: { type: 'string', description: 'Current status' },
-              timestamp: {
-                type: 'string',
-                format: 'date-time',
-                description: 'Current server time',
-              },
-            },
-          },
-        },
-      },
-    },
-    async () => {
-      return {
-        name: config.agent.name,
-        version: config.agent.version,
-        status: 'running',
-        timestamp: new Date().toISOString(),
-      };
-    }
-  );
+  // Serve static files (frontend de test)
+  // MUST be registered before API routes but after Swagger
+  await app.register(fastifyStatic, {
+    root: path.join(__dirname, '..', 'public'),
+    prefix: '/test/',
+    decorateReply: false,
+  });
 
   app.get(
     '/health',
@@ -263,14 +238,11 @@ async function setupServer() {
   // Register Twilio webhook routes for ElevenLabs + Twilio integration
   await app.register(twilioRoutes, { prefix: '/api/v1/twilio' });
 
+  // Register calls routes (web conversations)
+  await app.register(callsRoutes, { prefix: '/api/v1/calls' });
+
   // Register test routes for development
   await app.register(registerTestRoutes, { prefix: '/api/v1/test' });
-
-  // Serve static files (frontend de test)
-  await app.register(fastifyStatic, {
-    root: path.join(__dirname, '../..', 'public'),
-    prefix: '/', // Servir directement à la racine
-  });
 
   app.setNotFoundHandler((_, reply) => {
     return reply.code(404).send({

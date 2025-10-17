@@ -43,7 +43,6 @@ interface AppConfig {
   database: { url: string };
   ai: {
     googleApiKey: string;
-    openaiApiKey: string;
     model: string;
     maxTokens: number;
     temperature: number;
@@ -100,7 +99,6 @@ export async function loadConfig(): Promise<AppConfig> {
 
     ai: {
       googleApiKey: secrets.googleApiKey,
-      openaiApiKey: secrets.openaiApiKey,
       model: 'gemini-2.0-flash-001',
       maxTokens: 2048,
       temperature: 0.7,

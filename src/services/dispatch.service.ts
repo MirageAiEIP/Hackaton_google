@@ -94,7 +94,9 @@ export class DispatchService {
 
       // Calculer le temps de réponse si complété
       if (status === 'COMPLETED' && completedAt && dispatch.requestedAt) {
-        const responseTime = Math.floor((completedAt.getTime() - dispatch.requestedAt.getTime()) / 1000);
+        const responseTime = Math.floor(
+          (completedAt.getTime() - dispatch.requestedAt.getTime()) / 1000
+        );
         await prisma.dispatch.update({
           where: { dispatchId },
           data: { responseTime },
