@@ -1,17 +1,22 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { callService } from '@/services/call.service';
+import { elevenlabsAgentService } from '@/services/elevenlabs-agent.service';
 import { logger } from '@/utils/logger';
 
 /**
- * Routes Twilio pour intégration téléphonique
+ * Routes Twilio pour intégration téléphonique avec ElevenLabs Conversational AI
  *
- * POST /inbound - Webhook Twilio pour appels entrants
+ * POST /inbound - Webhook Twilio pour appels entrants (retourne TwiML)
  * POST /outbound - API pour lancer des appels sortants
  * POST /post-call-webhook - Webhook post-appel pour analytics
  *
- * Note: Les Client Tools de l'ancien système ElevenLabs Agent ont été retirés.
- * La nouvelle architecture utilise ConversationOrchestrator avec nos propres agents.
+ * Architecture:
+ * 1. Twilio reçoit l'appel et appelle /inbound
+ * 2. Backend crée un call en DB et génère signed URL ElevenLabs
+ * 3. Backend retourne TwiML <Connect><Stream> pour connecter Twilio à ElevenLabs
+ * 4. ElevenLabs agent gère la conversation (TTS/STT/VAD/LLM)
+ * 5. Les tools de l'agent (dispatch_smur) appellent nos webhooks
  */
 
 export const twilioRoutes: FastifyPluginAsync = async (app) => {
@@ -25,7 +30,8 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         tags: ['twilio'],
         summary: 'Twilio inbound call webhook',
-        description: 'Handles incoming calls from Twilio',
+        description:
+          'Handles incoming calls from Twilio and returns TwiML to connect to ElevenLabs',
         body: {
           type: 'object',
           properties: {
@@ -37,12 +43,11 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
         },
         response: {
           200: {
-            type: 'object',
-            properties: {
-              success: { type: 'boolean' },
-              callId: { type: 'string' },
-              message: { type: 'string' },
-            },
+            description: 'TwiML response to connect Twilio to ElevenLabs',
+            type: 'string',
+            examples: [
+              '<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Connect>\n    <Stream url="wss://..." />\n  </Connect>\n</Response>',
+            ],
           },
         },
       },
@@ -73,27 +78,37 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
           callSid: body.CallSid,
         });
 
-        // TODO: Initialiser ConversationOrchestrator pour cet appel
-        // const orchestrator = new ConversationOrchestrator({
-        //   sessionId: call.id,
-        //   callId: call.id,
-        // });
-        // await orchestrator.start();
+        // Générer signed URL ElevenLabs pour cet appel
+        const signedUrl = await elevenlabsAgentService.getSignedUrl(true);
 
-        return reply.status(200).send({
-          success: true,
+        logger.info('Generated signed URL for phone call', {
           callId: call.id,
-          message: 'Call initialized successfully',
+          callSid: body.CallSid,
         });
+
+        // Retourner TwiML pour connecter Twilio à ElevenLabs WebSocket
+        // Le frontend (Twilio) utilisera le WebSocket de la signed URL
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <Stream url="${signedUrl.replace('https://', 'wss://')}" />
+  </Connect>
+</Response>`;
+
+        return reply.status(200).header('Content-Type', 'text/xml').send(twiml);
       } catch (error) {
         logger.error('Failed to handle inbound call', error as Error, {
           callSid: body.CallSid,
         });
 
-        return reply.status(500 as 200).send({
-          success: false,
-          error: 'Failed to initialize call',
-        });
+        // Retourner TwiML d'erreur
+        const errorTwiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say language="fr-FR">Désolé, le service est temporairement indisponible. Veuillez rappeler plus tard.</Say>
+  <Hangup />
+</Response>`;
+
+        return reply.status(200).header('Content-Type', 'text/xml').send(errorTwiml);
       }
     }
   );
