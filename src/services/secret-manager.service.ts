@@ -10,7 +10,7 @@ import path from 'path';
 export class SecretManagerService {
   private client: SecretManagerServiceClient;
   private projectId: string;
-  private envPrefix: string; // dev- ou prod-
+  private envPrefix: string; // dev-, staging- ou prod-
   private cache: Map<string, { value: string; timestamp: number }> = new Map();
   private cacheTTL = 300000; // 5 minutes
 
@@ -32,7 +32,13 @@ export class SecretManagerService {
 
     // Déterminer le préfixe selon l'environnement
     const nodeEnv = process.env.NODE_ENV || 'development';
-    this.envPrefix = nodeEnv === 'production' ? 'prod' : 'dev';
+    if (nodeEnv === 'production') {
+      this.envPrefix = 'prod';
+    } else if (nodeEnv === 'staging') {
+      this.envPrefix = 'staging';
+    } else {
+      this.envPrefix = 'dev';
+    }
 
     logger.info('Secret Manager service initialized', {
       projectId: this.projectId,
@@ -47,7 +53,7 @@ export class SecretManagerService {
    * @param version - Version du secret (par défaut: "latest")
    */
   async getSecret(secretName: string, version: string = 'latest'): Promise<string> {
-    // Ajouter le préfixe d'environnement (dev- ou prod-)
+    // Ajouter le préfixe d'environnement (dev-, staging- ou prod-)
     const fullSecretName = `${this.envPrefix}-${secretName}`;
     const cacheKey = `${fullSecretName}:${version}`;
 
