@@ -1,6 +1,4 @@
 import { logger } from '@/utils/logger';
-import { geminiService } from './analysis/gemini.service';
-import { whisperService } from './analysis/whisper.service';
 
 interface HealthStatus {
   service: string;
@@ -17,14 +15,15 @@ interface SystemHealth {
 }
 
 /**
- * Service pour vérifier la santé des APIs externes
+ * Service pour vérifier la santé des APIs externes (ElevenLabs)
+ * Note: Les services d'analyse audio/STT/TTS sont maintenant gérés par ElevenLabs
  */
 export class HealthCheckService {
   /**
    * Vérifie toutes les APIs externes
    */
   async checkAllServices(): Promise<SystemHealth> {
-    const results = await Promise.allSettled([this.checkGemini(), this.checkWhisper()]);
+    const results = await Promise.allSettled([this.checkElevenLabs()]);
 
     const services: HealthStatus[] = results.map((result) =>
       result.status === 'fulfilled' ? result.value : result.reason
@@ -40,72 +39,48 @@ export class HealthCheckService {
   }
 
   /**
-   * Vérifie l'API Gemini avec un prompt minimal
+   * Vérifie l'API ElevenLabs
    */
-  private async checkGemini(): Promise<HealthStatus> {
+  private async checkElevenLabs(): Promise<HealthStatus> {
     const startTime = Date.now();
 
     try {
-      await geminiService.analyzeText('test de santé');
+      // Vérifier que l'API key est disponible
+      const apiKey = process.env.ELEVENLABS_API_KEY;
 
-      const latency = Date.now() - startTime;
-
-      logger.info('Gemini health check passed', { latency });
-
-      return {
-        service: 'gemini',
-        status: latency < 5000 ? 'UP' : 'DEGRADED',
-        latency,
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      const latency = Date.now() - startTime;
-
-      logger.error('Gemini health check failed', error as Error, { latency });
-
-      return {
-        service: 'gemini',
-        status: 'DOWN',
-        latency,
-        error: (error as Error).message,
-        timestamp: new Date().toISOString(),
-      };
-    }
-  }
-
-  /**
-   * Vérifie l'API Whisper avec un fichier audio minimal
-   * Note: Nécessite un fichier audio de test valide
-   */
-  private async checkWhisper(): Promise<HealthStatus> {
-    const startTime = Date.now();
-
-    try {
-      // Pour l'instant on vérifie juste que le service existe
-      // En production, il faudrait un petit fichier audio de test
-      const isAvailable = typeof whisperService.transcribeWithTimestamps === 'function';
-
-      const latency = Date.now() - startTime;
-
-      if (!isAvailable) {
-        throw new Error('Whisper service not available');
+      if (!apiKey) {
+        throw new Error('ELEVENLABS_API_KEY not configured');
       }
 
-      logger.info('Whisper health check passed', { latency });
+      // Simple ping à l'API ElevenLabs
+      const response = await fetch('https://api.elevenlabs.io/v1/user', {
+        method: 'GET',
+        headers: {
+          'xi-api-key': apiKey,
+        },
+      });
+
+      const latency = Date.now() - startTime;
+
+      if (!response.ok) {
+        throw new Error(`ElevenLabs API returned ${response.status}`);
+      }
+
+      logger.info('ElevenLabs health check passed', { latency });
 
       return {
-        service: 'whisper',
-        status: 'UP',
+        service: 'elevenlabs',
+        status: latency < 2000 ? 'UP' : 'DEGRADED',
         latency,
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
       const latency = Date.now() - startTime;
 
-      logger.error('Whisper health check failed', error as Error, { latency });
+      logger.error('ElevenLabs health check failed', error as Error, { latency });
 
       return {
-        service: 'whisper',
+        service: 'elevenlabs',
         status: 'DOWN',
         latency,
         error: (error as Error).message,

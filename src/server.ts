@@ -5,11 +5,15 @@ import swaggerUi from '@fastify/swagger-ui';
 import sensible from '@fastify/sensible';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
+import websocket from '@fastify/websocket';
 
 import { config } from '@/config';
 import { logger } from '@/utils/logger';
 import { testDatabaseConnection, prisma } from '@/utils/prisma';
-import { sentimentRoutes } from '@/api/routes/sentiment.routes';
+import { twilioRoutes } from '@/api/routes/twilio.routes';
+import { registerTestRoutes } from '@/api/routes/test.routes';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
 
 const app = fastify({
   logger: false,
@@ -43,6 +47,9 @@ async function setupServer() {
     origin: true,
   });
 
+  // Register WebSocket support
+  await app.register(websocket);
+
   await app.register(swagger, {
     openapi: {
       info: {
@@ -58,9 +65,8 @@ async function setupServer() {
       ],
       tags: [
         { name: 'health', description: 'Health check endpoints' },
-        { name: 'Sentiment Analysis', description: 'Text and audio sentiment analysis' },
+        { name: 'twilio', description: 'Twilio webhook endpoints for phone calls' },
         { name: 'calls', description: 'Emergency call management' },
-        { name: 'triage', description: 'Triage operations' },
       ],
     },
   });
@@ -254,8 +260,17 @@ async function setupServer() {
     }
   );
 
-  // Register API routes
-  await app.register(sentimentRoutes, { prefix: '/api/v1/sentiment' });
+  // Register Twilio webhook routes for ElevenLabs + Twilio integration
+  await app.register(twilioRoutes, { prefix: '/api/v1/twilio' });
+
+  // Register test routes for development
+  await app.register(registerTestRoutes, { prefix: '/api/v1/test' });
+
+  // Serve static files (frontend de test)
+  await app.register(fastifyStatic, {
+    root: path.join(__dirname, '../..', 'public'),
+    prefix: '/', // Servir directement à la racine
+  });
 
   app.setNotFoundHandler((_, reply) => {
     return reply.code(404).send({
