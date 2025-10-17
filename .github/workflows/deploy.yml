@@ -2,11 +2,10 @@ name: Deploy to Google Cloud Run
 
 on:
   push:
-    branches: [main]
+    branches: [preprod, main]
 
 env:
   PROJECT_ID: samu-ai-474822
-  SERVICE_NAME: samu-ai-triage
   REGION: europe-west1
 
 jobs:
@@ -21,6 +20,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set environment variables
+        id: vars
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "SERVICE_NAME=samu-ai-triage-prod" >> $GITHUB_OUTPUT
+            echo "ENV=production" >> $GITHUB_OUTPUT
+            echo "MIN_INSTANCES=1" >> $GITHUB_OUTPUT
+          else
+            echo "SERVICE_NAME=samu-ai-triage-preprod" >> $GITHUB_OUTPUT
+            echo "ENV=preprod" >> $GITHUB_OUTPUT
+            echo "MIN_INSTANCES=0" >> $GITHUB_OUTPUT
+          fi
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -37,24 +49,24 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-                       -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:latest \
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:${{ github.sha }} \
+                       -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:latest \
                        -f Dockerfile.production .
 
       - name: Push Docker image to Artifact Registry
         run: |
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:latest
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:latest
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+          gcloud run deploy ${{ steps.vars.outputs.SERVICE_NAME }} \
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=production" \
-            --min-instances 1 \
+            --set-env-vars "NODE_ENV=${{ steps.vars.outputs.ENV }}" \
+            --min-instances ${{ steps.vars.outputs.MIN_INSTANCES }} \
             --max-instances 10 \
             --cpu 2 \
             --memory 2Gi \
@@ -64,5 +76,5 @@ jobs:
 
       - name: Show deployment URL
         run: |
-          echo "Service deployed to:"
-          gcloud run services describe ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)'
+          echo "Service deployed to ${{ steps.vars.outputs.ENV }}:"
+          gcloud run services describe ${{ steps.vars.outputs.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)'
