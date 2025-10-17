@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAMU AI - Architecture Backend Pure</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #e53935;
+            margin-bottom: 10px;
+            font-size: 32px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .info-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-box h3 {
+            margin-bottom: 10px;
+            color: #2e7d32;
+            font-size: 16px;
+        }
+
+        .info-box ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-box li {
+            padding: 5px 0;
+            color: #555;
+        }
+
+        .info-box li:before {
+            content: "✓ ";
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .status {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.idle { background: #999; }
+        .status-indicator.connecting { background: #FF9800; }
+        .status-indicator.connected { background: #4CAF50; }
+        .status-indicator.disconnected { background: #e53935; }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-start {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-stop {
+            background: #e53935;
+            color: white;
+        }
+
+        .logs {
+            background: #1e1e1e;
+            color: #00ff00;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+        }
+
+        .log-entry.info { color: #00ff00; }
+        .log-entry.warn { color: #ffeb3b; }
+        .log-entry.error { color: #f44336; }
+        .log-entry.success { color: #4CAF50; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚑 SAMU AI - Architecture Backend</h1>
+        <p class="subtitle">100% Backend - Le frontend ne connaît rien de l'agent</p>
+
+        <div class="info-box">
+            <h3>Architecture Signed URL</h3>
+            <ul>
+                <li>Frontend appelle: <code>POST /api/v1/calls/start-web</code></li>
+                <li>Backend génère une signed URL ElevenLabs (valide 15min)</li>
+                <li>Frontend se connecte directement à ElevenLabs</li>
+                <li>Backend reste en contrôle (tools, DB, webhooks)</li>
+            </ul>
+        </div>
+
+        <div class="status">
+            <span class="status-indicator idle" id="statusIndicator"></span>
+            <span id="statusText">En attente</span>
+        </div>
+
+        <div class="controls">
+            <button class="btn-start" id="startBtn" onclick="startCall()">
+                📞 Démarrer l'appel
+            </button>
+            <button class="btn-stop" id="stopBtn" onclick="stopCall()" disabled>
+                ⏹️ Terminer
+            </button>
+        </div>
+
+        <div class="logs" id="logs">
+            <div class="log-entry info">✅ Frontend prêt. Architecture 100% backend.</div>
+            <div class="log-entry info">ℹ️  Le frontend ne connaît ni l'agent ID, ni les tools.</div>
+            <div class="log-entry info">ℹ️  Appuyez sur "Démarrer l'appel" pour tester.</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { Conversation } from 'https://esm.sh/@elevenlabs/client';
+
+        let sessionId = null;
+        let callId = null;
+        let conversation = null;
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString('fr-FR');
+            entry.textContent = `[${timestamp}] ${message}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function updateStatus(text, state = 'idle') {
+            document.getElementById('statusText').textContent = text;
+            const indicator = document.getElementById('statusIndicator');
+            indicator.className = `status-indicator ${state}`;
+        }
+
+        window.startCall = async function() {
+            try {
+                log('📞 Démarrage de l\'appel...', 'info');
+                updateStatus('Initialisation...', 'connecting');
+
+                // Appel simple au backend - pas de config agent ici !
+                const response = await fetch('/api/v1/calls/start-web', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        phoneNumber: 'WEB_CALL',
+                        metadata: {
+                            source: 'web_interface',
+                            userAgent: navigator.userAgent,
+                        },
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to start call');
+                }
+
+                sessionId = data.sessionId;
+                callId = data.callId;
+
+                log(`✅ Appel créé - Call ID: ${callId}`, 'success');
+                log(`🆔 Session ID: ${sessionId}`, 'info');
+                log(`📡 Backend a généré une signed URL ElevenLabs`, 'info');
+
+                // Connexion directe à ElevenLabs avec signed URL
+                if (data.agentConfig && data.agentConfig.signedUrl) {
+                    log('🔌 Connexion à ElevenLabs...', 'info');
+                    connectToElevenLabs(data.agentConfig.signedUrl);
+                } else {
+                    throw new Error('Signed URL not received from backend');
+                }
+
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                updateStatus('Connecté à ElevenLabs', 'connected');
+
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                updateStatus('Erreur', 'disconnected');
+                console.error('Failed to start call:', error);
+            }
+        };
+
+        async function connectToElevenLabs(signedUrl) {
+            log(`🔗 Signed URL reçue (longueur: ${signedUrl.length})`, 'info');
+            log(`🎤 Demande accès au microphone...`, 'info');
+
+            try {
+                // Demander accès au micro d'abord
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('✅ Accès micro accordé', 'success');
+
+                // Utiliser le SDK ElevenLabs avec la signed URL
+                conversation = await Conversation.startSession({
+                    signedUrl: signedUrl,  // Utilise la signed URL du backend
+
+                    onConnect: () => {
+                        log('✅ Connecté à ElevenLabs Agent', 'success');
+                        log('🎤 Vous pouvez maintenant parler', 'success');
+                        updateStatus('Connecté - Agent en écoute', 'connected');
+                    },
+
+                    onDisconnect: () => {
+                        log('📞 Déconnecté de l\'agent', 'info');
+                        updateStatus('Déconnecté', 'idle');
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('stopBtn').disabled = true;
+                    },
+
+                    onMessage: (message) => {
+                        // Gérer les différents types de messages
+                        if (message.type === 'user_transcript' && message.text) {
+                            log(`👤 Vous: ${message.text}`, 'info');
+                        } else if (message.type === 'agent_response' && message.text) {
+                            log(`🤖 Agent: ${message.text}`, 'info');
+                        } else if (message.type === 'conversation_initiation_metadata') {
+                            log(`🤖 Agent initialisé`, 'info');
+                        }
+                    },
+
+                    onError: (error) => {
+                        log(`❌ Erreur: ${error.message || error}`, 'error');
+                        updateStatus('Erreur', 'disconnected');
+                    },
+
+                    onModeChange: (mode) => {
+                        // mode peut être 'speaking' ou 'listening'
+                        if (mode.mode === 'speaking') {
+                            updateStatus('Agent parle...', 'connected');
+                        } else if (mode.mode === 'listening') {
+                            updateStatus('Agent en écoute - Parlez!', 'connected');
+                        }
+                    }
+                });
+
+                log('🚀 Conversation démarrée avec succès!', 'success');
+
+            } catch (error) {
+                log(`❌ Erreur connexion: ${error.message}`, 'error');
+                console.error('Connection error:', error);
+                updateStatus('Erreur de connexion', 'disconnected');
+            }
+        }
+
+        window.stopCall = async function() {
+            if (!sessionId) {
+                log('⚠️  Aucune session active', 'warn');
+                return;
+            }
+
+            try {
+                log('⏹️  Arrêt de l\'appel...', 'info');
+                updateStatus('Fermeture...', 'connecting');
+
+                // Arrêter la conversation ElevenLabs avec le SDK
+                if (conversation) {
+                    await conversation.endSession();
+                    conversation = null;
+                    log('✅ Conversation ElevenLabs terminée', 'success');
+                }
+
+                // Appeler le backend pour terminer proprement (mise à jour DB)
+                const response = await fetch(`/api/v1/calls/${sessionId}/stop`, {
+                    method: 'POST',
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    log('✅ Appel terminé avec succès', 'success');
+                } else {
+                    log(`⚠️  ${data.error}`, 'warn');
+                }
+
+                sessionId = null;
+                callId = null;
+
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                updateStatus('Terminé', 'idle');
+
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                console.error('Failed to stop call:', error);
+            }
+        };
+
+        // Auto-scroll logs
+        const logsContainer = document.getElementById('logs');
+        const observer = new MutationObserver(() => {
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        });
+        observer.observe(logsContainer, { childList: true });
+    </script>
+</body>
+</html>
