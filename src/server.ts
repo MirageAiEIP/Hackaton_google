@@ -90,6 +90,16 @@ async function setupServer() {
     decorateReply: false,
   });
 
+  // Root route - Application info
+  app.get('/', async () => {
+    return {
+      name: config.agent.name,
+      version: config.agent.version,
+      status: 'running',
+      environment: config.env,
+    };
+  });
+
   app.get(
     '/health',
     {
