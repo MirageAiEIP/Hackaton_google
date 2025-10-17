@@ -6,7 +6,23 @@ import { queueService } from '@/services/queue.service';
 import { handoffService } from '@/services/handoff.service';
 import { callService } from '@/services/call.service';
 import { logger } from '@/utils/logger';
-import type { Prisma } from '@prisma/client';
+import {
+  ttsBodySchema,
+  dispatchSmurBodySchema,
+  analyzeAbcdBodySchema,
+  recordDataBodySchema,
+  saveConversationBodySchema,
+  conversationsQuerySchema,
+  conversationIdParamSchema,
+  queueQuerySchema,
+  queueClaimParamSchema,
+  queueClaimBodySchema,
+  handoffRequestBodySchema,
+  handoffAcceptParamSchema,
+  takeControlParamSchema,
+  takeControlBodySchema,
+  mapInterventionsQuerySchema,
+} from '@/api/validation/test.validation';
 
 /**
  * Routes de test pour développement
@@ -35,7 +51,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request, reply) => {
-      const { text } = request.body as { text: string };
+      const { text } = ttsBodySchema.parse(request.body);
 
       logger.info('Test TTS request', { text: text.substring(0, 50) + '...' });
 
@@ -147,13 +163,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request, reply) => {
-      const { priority, location, reason, patientPhone, callId } = request.body as {
-        priority: 'P0' | 'P1' | 'P2';
-        location: string;
-        reason: string;
-        patientPhone?: string;
-        callId?: string;
-      };
+      const { priority, location, reason, patientPhone, callId } = dispatchSmurBodySchema.parse(request.body);
 
       try {
         const result = await dispatchService.createDispatch({
@@ -212,10 +222,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request) => {
-      const { symptoms, abcdAssessment } = request.body as {
-        symptoms: Record<string, unknown>;
-        abcdAssessment?: Record<string, unknown>;
-      };
+      const { symptoms, abcdAssessment } = analyzeAbcdBodySchema.parse(request.body);
 
       logger.info('ABCD Analysis request', { symptoms, abcdAssessment });
 
@@ -272,10 +279,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request) => {
-      const { transcript, notes } = request.body as {
-        transcript?: string;
-        notes?: string;
-      };
+      const { transcript, notes } = recordDataBodySchema.parse(request.body);
 
       logger.info('Recording call data', {
         transcriptLength: transcript?.length || 0,
@@ -365,25 +369,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request) => {
-      const conversationData = request.body as {
-        conversationId: string;
-        agentId?: string;
-        startTime?: string;
-        endTime?: string;
-        transcript: Array<{
-          role: 'user' | 'agent';
-          message: string;
-          timestamp: string;
-        }>;
-        toolCalls?: Array<{
-          toolName: string;
-          timestamp: string;
-          parameters: Record<string, unknown>;
-          result?: Record<string, unknown>;
-          success: boolean;
-        }>;
-        metadata?: Record<string, unknown>;
-      };
+      const conversationData = saveConversationBodySchema.parse(request.body);
 
       logger.info('SAVE CONVERSATION REQUEST', {
         conversationId: conversationData.conversationId,
@@ -474,19 +460,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request) => {
-      const {
-        agent_id,
-        cursor,
-        page_size,
-        call_successful,
-        get_all,
-      } = request.query as {
-        agent_id?: string;
-        cursor?: string;
-        page_size?: number;
-        call_successful?: 'success' | 'failure' | 'unknown';
-        get_all?: boolean;
-      };
+      const { agent_id, cursor, page_size, call_successful, get_all } = conversationsQuerySchema.parse(request.query);
 
       try {
         const conversationsService = getElevenLabsConversationsService();
@@ -561,7 +535,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request) => {
-      const { conversationId } = request.params as { conversationId: string };
+      const { conversationId } = conversationIdParamSchema.parse(request.params);
 
       try {
         const conversationsService = getElevenLabsConversationsService();
@@ -620,7 +594,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request) => {
-      const { conversationId } = request.params as { conversationId: string };
+      const { conversationId } = conversationIdParamSchema.parse(request.params);
 
       try {
         const conversationsService = getElevenLabsConversationsService();
@@ -679,7 +653,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request, reply) => {
-      const { conversationId } = request.params as { conversationId: string };
+      const { conversationId } = conversationIdParamSchema.parse(request.params);
 
       try {
         const conversationsService = getElevenLabsConversationsService();
@@ -733,15 +707,12 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request) => {
-      const { status, priority } = request.query as {
-        status?: string;
-        priority?: string;
-      };
+      const { status, priority } = queueQuerySchema.parse(request.query);
 
       try {
         const queueEntries = await queueService.listQueue({
-          status: status as any,
-          priority: priority as any,
+          status,
+          priority,
         });
 
         return {
@@ -792,8 +763,8 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const { operatorId } = request.body as { operatorId: string };
+      const { id } = queueClaimParamSchema.parse(request.params);
+      const { operatorId } = queueClaimBodySchema.parse(request.body);
 
       try {
         const updatedEntry = await queueService.claimQueueEntry({
@@ -872,23 +843,8 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request, reply) => {
-      const {
-        callId,
-        toOperatorId,
-        reason,
-        conversationId,
-        transcript,
-        aiContext,
-        patientSummary,
-      } = request.body as {
-        callId: string;
-        toOperatorId: string;
-        reason: string;
-        conversationId?: string;
-        transcript: string;
-        aiContext: Prisma.InputJsonValue;
-        patientSummary: string;
-      };
+      const { callId, toOperatorId, reason, conversationId, transcript, aiContext, patientSummary } =
+        handoffRequestBodySchema.parse(request.body);
 
       try {
         const handoff = await handoffService.requestHandoff({
@@ -940,7 +896,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = handoffAcceptParamSchema.parse(request.params);
 
       try {
         const updatedHandoff = await handoffService.acceptHandoff(id);
@@ -1008,11 +964,8 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request, reply) => {
-      const { callId } = request.params as { callId: string };
-      const { operatorId, reason } = request.body as {
-        operatorId: string;
-        reason?: string;
-      };
+      const { callId } = takeControlParamSchema.parse(request.params);
+      const { operatorId, reason } = takeControlBodySchema.parse(request.body);
 
       try {
         const result = await handoffService.takeControl({
@@ -1111,16 +1064,12 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       },
     },
     async (request) => {
-      const { status, priority, last_hours } = request.query as {
-        status?: string;
-        priority?: string;
-        last_hours?: number;
-      };
+      const { status, priority, last_hours } = mapInterventionsQuerySchema.parse(request.query);
 
       try {
         const result = await dispatchService.getMapDispatches({
-          status: status as any,
-          priority: priority as any,
+          status,
+          priority,
           lastHours: last_hours,
         });
 
