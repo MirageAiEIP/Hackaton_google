@@ -13,7 +13,6 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:unit": "vitest run src/api src/server.test.ts",
-    "test:sentiment": "vitest run src/services/analysis",
     "test:integration": "vitest run src/services/health-check.service.integration.test.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
