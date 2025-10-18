@@ -17,6 +17,11 @@ import type {
   TriageDecision,
 } from '@/types/triage.types';
 import crypto from 'crypto';
+import { Container } from '@/infrastructure/di/Container';
+import { CallStartedEvent } from '@/domain/triage/events/CallStarted.event';
+import { CallCompletedEvent } from '@/domain/triage/events/CallCompleted.event';
+import { CallEscalatedEvent } from '@/domain/triage/events/CallEscalated.event';
+import { CallCancelledEvent } from '@/domain/triage/events/CallCancelled.event';
 
 /**
  * Service responsable des opérations CRUD sur les appels et entités liées
@@ -84,6 +89,12 @@ export class CallService {
       patientId: patient.id,
       status: call.status,
     });
+
+    // Publish CallStartedEvent for real-time dashboard
+    const container = Container.getInstance();
+    const eventBus = container.getEventBus();
+    const phoneHash = this.hashPhoneNumber(payload.phoneNumber);
+    await eventBus.publish(new CallStartedEvent(call.id, phoneHash));
 
     return call;
   }
@@ -157,12 +168,35 @@ export class CallService {
       Object.assign(updateData, metadata);
     }
 
+    // Get call with patient for phoneHash
+    const call = await prisma.call.findUnique({
+      where: { id: callId },
+      include: { patient: true },
+    });
+
+    if (!call) {
+      throw new Error(`Call not found: ${callId}`);
+    }
+
     await prisma.call.update({
       where: { id: callId },
       data: updateData,
     });
 
     logger.info('Call status updated', { callId, status });
+
+    // Publish lifecycle events for real-time dashboard
+    const container = Container.getInstance();
+    const eventBus = container.getEventBus();
+    const phoneHash = call.patient.phoneHash;
+
+    if (status === 'COMPLETED') {
+      await eventBus.publish(new CallCompletedEvent(callId, metadata?.duration || null, phoneHash));
+    } else if (status === 'ESCALATED') {
+      await eventBus.publish(new CallEscalatedEvent(callId, phoneHash, 'Escalation requested'));
+    } else if (status === 'CANCELLED') {
+      await eventBus.publish(new CallCancelledEvent(callId, phoneHash, 'Call cancelled'));
+    }
   }
 
   /**

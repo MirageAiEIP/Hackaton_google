@@ -211,6 +211,34 @@ model AuditLog {
 // SYSTEM DE QUEUE & HANDOFF
 // ============================================================================
 
+model Operator {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String
+  role         String         @default("operator")
+  status       OperatorStatus @default(OFFLINE)
+  lastActiveAt DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Stats
+  totalCallsHandled Int @default(0)
+  averageHandleTime Int @default(0)
+
+  // Current session
+  currentCallId String?
+
+  @@index([status])
+  @@index([email])
+  @@map("operators")
+}
+
+enum OperatorStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
 enum DispatchStatus {
   PENDING
   DISPATCHED

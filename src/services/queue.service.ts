@@ -1,6 +1,9 @@
 import { prisma } from '@/utils/prisma';
 import { logger } from '@/utils/logger';
 import { PriorityLevel, QueueStatus, Prisma } from '@prisma/client';
+import { Container } from '@/infrastructure/di/Container';
+import { QueueEntryAddedEvent } from '@/domain/triage/events/QueueEntryAdded.event';
+import { QueueEntryStatusChangedEvent } from '@/domain/triage/events/QueueEntryStatusChanged.event';
 
 export interface CreateQueueEntryInput {
   callId: string;
@@ -80,6 +83,11 @@ export class QueueService {
         callId,
         priority,
       });
+
+      // Publish QueueEntryAddedEvent for real-time dashboard
+      const container = Container.getInstance();
+      const eventBus = container.getEventBus();
+      await eventBus.publish(new QueueEntryAddedEvent(queueEntry.id, callId, priority, 0));
 
       return queueEntry;
     } catch (error) {
@@ -189,6 +197,17 @@ export class QueueService {
     });
 
     try {
+      // Get current entry to track previous status
+      const currentEntry = await prisma.queueEntry.findUnique({
+        where: { id: queueEntryId },
+      });
+
+      if (!currentEntry) {
+        throw new Error(`Queue entry not found: ${queueEntryId}`);
+      }
+
+      const previousStatus = currentEntry.status;
+
       const updatedEntry = await prisma.queueEntry.update({
         where: { id: queueEntryId },
         data: { status },
@@ -198,6 +217,19 @@ export class QueueService {
         queueEntryId,
         status,
       });
+
+      // Publish QueueEntryStatusChangedEvent for real-time dashboard
+      const container = Container.getInstance();
+      const eventBus = container.getEventBus();
+      await eventBus.publish(
+        new QueueEntryStatusChangedEvent(
+          queueEntryId,
+          currentEntry.callId,
+          previousStatus,
+          status,
+          currentEntry.assignedOperatorId
+        )
+      );
 
       return updatedEntry;
     } catch (error) {

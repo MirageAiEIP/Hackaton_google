@@ -7,8 +7,6 @@ import { callService } from '@/services/call.service';
 import { logger } from '@/utils/logger';
 import {
   dispatchSmurBodySchema,
-  analyzeAbcdBodySchema,
-  recordDataBodySchema,
   queueQuerySchema,
   queueClaimParamSchema,
   queueClaimBodySchema,
@@ -113,115 +111,6 @@ export const registerTestRoutes = (app: FastifyInstance) => {
           error: 'Failed to dispatch SMUR',
         };
       }
-    }
-  );
-
-  /**
-   * Analyse ABCD - Appelé par l'agent ElevenLabs via Client Tool
-   * Analyse les symptômes et retourne la priorité calculée
-   */
-  app.post(
-    '/analyze-abcd',
-    {
-      schema: {
-        tags: ['test'],
-        summary: 'Analyse ABCD',
-        description: 'Analyse médicale ABCD pour classification de priorité',
-        body: {
-          type: 'object',
-          required: ['symptoms'],
-          properties: {
-            symptoms: {
-              type: 'object',
-              description: 'Symptômes du patient',
-            },
-            abcdAssessment: {
-              type: 'object',
-              description: 'Évaluation ABCD complète',
-            },
-          },
-        },
-      },
-    },
-    async (request) => {
-      const { symptoms, abcdAssessment } = analyzeAbcdBodySchema.parse(request.body);
-
-      logger.info('ABCD Analysis request', { symptoms, abcdAssessment });
-
-      // TODO: Implémenter vraie analyse ABCD avec Claude/Gemini
-      // - Analyser les symptômes
-      // - Calculer le score ABCD
-      // - Déterminer la priorité (P0-P5)
-      // - Générer recommandations
-
-      // Simulation basique pour le moment
-      const priority = 'P1'; // À calculer avec l'IA
-      const confidence = 0.85;
-      const reasoning = 'Symptômes graves détectés: saignement important, traumatisme osseux';
-      const shouldEscalate = true;
-      const recommendation = 'Dispatch SMUR immédiat recommandé';
-
-      logger.info('ABCD Analysis result', { priority, confidence });
-
-      return {
-        success: true,
-        priority,
-        confidence,
-        reasoning,
-        shouldEscalate,
-        recommendation,
-      };
-    }
-  );
-
-  /**
-   * Enregistrement des données - Appelé par l'agent ElevenLabs via Client Tool
-   * Sauvegarde le transcript et les notes de l'appel
-   */
-  app.post(
-    '/record-data',
-    {
-      schema: {
-        tags: ['test'],
-        summary: 'Enregistrement données',
-        description: 'Enregistre les données de conversation et notes',
-        body: {
-          type: 'object',
-          properties: {
-            transcript: {
-              type: 'string',
-              description: 'Transcription de la conversation',
-            },
-            notes: {
-              type: 'string',
-              description: 'Notes médicales',
-            },
-          },
-        },
-      },
-    },
-    async (request) => {
-      const { transcript, notes } = recordDataBodySchema.parse(request.body);
-
-      logger.info('Recording call data', {
-        transcriptLength: transcript?.length || 0,
-        notesLength: notes?.length || 0,
-      });
-
-      // TODO: Enregistrer dans la DB
-      // - Table Call (transcription complète)
-      // - Table AuditLog (compliance GDPR)
-      // - Générer rapport de triage final
-
-      const recordId = `RECORD-${Date.now()}`;
-
-      logger.info('Data recorded', { recordId });
-
-      return {
-        success: true,
-        recordId,
-        message: 'Données enregistrées avec succès',
-      };
     }
   );
 

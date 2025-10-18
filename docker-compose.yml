@@ -34,6 +34,7 @@ services:
       NODE_ENV: development
       PORT: 3000
       DATABASE_URL: postgresql://samu:samu_password@postgres:5432/samu_triage
+      REDIS_URL: redis://redis:6379
       LOG_LEVEL: info
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-test_key_for_development}
       JWT_SECRET: ${JWT_SECRET:-test_jwt_secret_minimum_32_chars_required_for_security}
@@ -42,6 +43,8 @@ services:
       RATE_LIMIT_MAX_REQUESTS: 100
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - samu-network

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAMU AI - Architecture Backend Pure</title>
+    <title>🚑 SAMU AI - Test Appel</title>
     <style>
         * {
             margin: 0;
@@ -12,7 +12,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
@@ -44,36 +44,6 @@
             font-size: 14px;
         }
 
-        .info-box {
-            background: #e8f5e9;
-            border-left: 4px solid #4CAF50;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .info-box h3 {
-            margin-bottom: 10px;
-            color: #2e7d32;
-            font-size: 16px;
-        }
-
-        .info-box ul {
-            list-style: none;
-            padding-left: 0;
-        }
-
-        .info-box li {
-            padding: 5px 0;
-            color: #555;
-        }
-
-        .info-box li:before {
-            content: "✓ ";
-            color: #4CAF50;
-            font-weight: bold;
-        }
-
         .status {
             background: #f5f5f5;
             border-radius: 12px;
@@ -91,9 +61,14 @@
         }
 
         .status-indicator.idle { background: #999; }
-        .status-indicator.connecting { background: #FF9800; }
-        .status-indicator.connected { background: #4CAF50; }
+        .status-indicator.connecting { background: #FF9800; animation: pulse 2s infinite; }
+        .status-indicator.connected { background: #4CAF50; animation: pulse 2s infinite; }
         .status-indicator.disconnected { background: #e53935; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
 
         .controls {
             display: flex;
@@ -111,7 +86,6 @@
             cursor: pointer;
             transition: all 0.3s ease;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
         button:hover:not(:disabled) {
@@ -122,7 +96,6 @@
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
         }
 
         .btn-start {
@@ -159,18 +132,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚑 SAMU AI - Architecture Backend</h1>
-        <p class="subtitle">100% Backend - Le frontend ne connaît rien de l'agent</p>
-
-        <div class="info-box">
-            <h3>Architecture Signed URL</h3>
-            <ul>
-                <li>Frontend appelle: <code>POST /api/v1/calls/start-web</code></li>
-                <li>Backend génère une signed URL ElevenLabs (valide 15min)</li>
-                <li>Frontend se connecte directement à ElevenLabs</li>
-                <li>Backend reste en contrôle (tools, DB, webhooks)</li>
-            </ul>
-        </div>
+        <h1>🚑 SAMU AI - Test Appel</h1>
+        <p class="subtitle">Testez l'agent IA et les tools</p>
 
         <div class="status">
             <span class="status-indicator idle" id="statusIndicator"></span>
@@ -187,9 +150,8 @@
         </div>
 
         <div class="logs" id="logs">
-            <div class="log-entry info">✅ Frontend prêt. Architecture 100% backend.</div>
-            <div class="log-entry info">ℹ️  Le frontend ne connaît ni l'agent ID, ni les tools.</div>
-            <div class="log-entry info">ℹ️  Appuyez sur "Démarrer l'appel" pour tester.</div>
+            <div class="log-entry info">✅ Prêt à tester</div>
+            <div class="log-entry info">💡 Ouvre aussi le dashboard: http://localhost:3000/test/realtime-dashboard.html</div>
         </div>
     </div>
 
@@ -221,19 +183,14 @@
                 log('📞 Démarrage de l\'appel...', 'info');
                 updateStatus('Initialisation...', 'connecting');
 
-                // Appel simple au backend - pas de config agent ici !
+                // 1. Appeler le backend pour créer l'appel et obtenir signed URL
                 const response = await fetch('/api/v1/calls/start-web', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        phoneNumber: 'WEB_CALL',
-                        metadata: {
-                            source: 'web_interface',
-                            userAgent: navigator.userAgent,
-                        },
-                    }),
+                        phoneNumber: 'WEB_TEST',
+                        metadata: { source: 'test_interface' }
+                    })
                 });
 
                 if (!response.ok) {
@@ -241,7 +198,6 @@
                 }
 
                 const data = await response.json();
-
                 if (!data.success) {
                     throw new Error(data.error || 'Failed to start call');
                 }
@@ -251,61 +207,103 @@
 
                 log(`✅ Appel créé - Call ID: ${callId}`, 'success');
                 log(`🆔 Session ID: ${sessionId}`, 'info');
-                log(`📡 Backend a généré une signed URL ElevenLabs`, 'info');
 
-                // Connexion directe à ElevenLabs avec signed URL
-                if (data.agentConfig && data.agentConfig.signedUrl) {
-                    log('🔌 Connexion à ElevenLabs...', 'info');
-                    connectToElevenLabs(data.agentConfig.signedUrl);
-                } else {
-                    throw new Error('Signed URL not received from backend');
-                }
-
-                document.getElementById('startBtn').disabled = true;
-                document.getElementById('stopBtn').disabled = false;
-                updateStatus('Connecté à ElevenLabs', 'connected');
-
-            } catch (error) {
-                log(`❌ Erreur: ${error.message}`, 'error');
-                updateStatus('Erreur', 'disconnected');
-                console.error('Failed to start call:', error);
-            }
-        };
-
-        async function connectToElevenLabs(signedUrl) {
-            log(`🔗 Signed URL reçue (longueur: ${signedUrl.length})`, 'info');
-            log(`🎤 Demande accès au microphone...`, 'info');
-
-            try {
-                // Demander accès au micro d'abord
+                // 2. Demander accès micro
+                log('🎤 Demande accès au microphone...', 'info');
                 await navigator.mediaDevices.getUserMedia({ audio: true });
                 log('✅ Accès micro accordé', 'success');
 
-                // Utiliser le SDK ElevenLabs avec la signed URL
+                // 3. Se connecter à ElevenLabs avec signed URL
+                log('🔌 Connexion à ElevenLabs...', 'info');
                 conversation = await Conversation.startSession({
-                    signedUrl: signedUrl,  // Utilise la signed URL du backend
+                    signedUrl: data.agentConfig.signedUrl,
+
+                    // Client Tools - Enregistrés ici, appellent le backend
+                    clientTools: {
+                        // Tool: Get Patient History
+                        get_patient_history: async ({ phoneHash }) => {
+                            log(`📋 Tool: get_patient_history`, 'info');
+                            try {
+                                const res = await fetch('/api/v1/tools/get_patient_history', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ phoneHash })
+                                });
+                                const result = await res.json();
+                                log(`✅ Patient history: ${result.hasHistory}`, 'success');
+                                return result;
+                            } catch (error) {
+                                log(`❌ Error: ${error.message}`, 'error');
+                                return { success: false, error: error.message };
+                            }
+                        },
+
+                        // Tool: Get Pharmacy On Duty
+                        get_pharmacy_on_duty: async ({ postalCode, city, latitude, longitude }) => {
+                            log(`🏥 Tool: get_pharmacy_on_duty`, 'info');
+                            try {
+                                const res = await fetch('/api/v1/tools/get_pharmacy_on_duty', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ postalCode, city, latitude, longitude })
+                                });
+                                const result = await res.json();
+                                log(`✅ Pharmacies found: ${result.data?.count || 0}`, 'success');
+                                return result;
+                            } catch (error) {
+                                log(`❌ Error: ${error.message}`, 'error');
+                                return { success: false, error: error.message };
+                            }
+                        },
+
+                        // Tool: Request Human Handoff
+                        request_human_handoff: async ({ callId, conversationId, reason, transcript, patientSummary, aiContext }) => {
+                            log(`👤 Tool: request_human_handoff`, 'warn');
+                            log(`📝 Reason: ${reason}`, 'info');
+                            try {
+                                const res = await fetch('/api/v1/tools/request_human_handoff', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        callId,
+                                        conversationId,
+                                        reason,
+                                        transcript,
+                                        patientSummary,
+                                        aiContext
+                                    })
+                                });
+                                const result = await res.json();
+                                log(`✅ Handoff ID: ${result.handoffId}`, 'success');
+                                log(`📊 Status: ${result.status}`, 'success');
+                                return result;
+                            } catch (error) {
+                                log(`❌ Error: ${error.message}`, 'error');
+                                return { success: false, error: error.message };
+                            }
+                        }
+                    },
 
                     onConnect: () => {
-                        log('✅ Connecté à ElevenLabs Agent', 'success');
-                        log('🎤 Vous pouvez maintenant parler', 'success');
+                        log('✅ Connecté à ElevenLabs!', 'success');
+                        log('🎤 Vous pouvez parler maintenant', 'success');
                         updateStatus('Connecté - Agent en écoute', 'connected');
+                        document.getElementById('startBtn').disabled = true;
+                        document.getElementById('stopBtn').disabled = false;
                     },
 
                     onDisconnect: () => {
-                        log('📞 Déconnecté de l\'agent', 'info');
+                        log('📞 Déconnecté', 'info');
                         updateStatus('Déconnecté', 'idle');
                         document.getElementById('startBtn').disabled = false;
                         document.getElementById('stopBtn').disabled = true;
                     },
 
                     onMessage: (message) => {
-                        // Gérer les différents types de messages
                         if (message.type === 'user_transcript' && message.text) {
                             log(`👤 Vous: ${message.text}`, 'info');
                         } else if (message.type === 'agent_response' && message.text) {
                             log(`🤖 Agent: ${message.text}`, 'info');
-                        } else if (message.type === 'conversation_initiation_metadata') {
-                            log(`🤖 Agent initialisé`, 'info');
                         }
                     },
 
@@ -315,7 +313,6 @@
                     },
 
                     onModeChange: (mode) => {
-                        // mode peut être 'speaking' ou 'listening'
                         if (mode.mode === 'speaking') {
                             updateStatus('Agent parle...', 'connected');
                         } else if (mode.mode === 'listening') {
@@ -324,43 +321,40 @@
                     }
                 });
 
-                log('🚀 Conversation démarrée avec succès!', 'success');
+                log('🚀 Conversation démarrée!', 'success');
 
             } catch (error) {
-                log(`❌ Erreur connexion: ${error.message}`, 'error');
-                console.error('Connection error:', error);
-                updateStatus('Erreur de connexion', 'disconnected');
+                log(`❌ Erreur: ${error.message}`, 'error');
+                updateStatus('Erreur', 'disconnected');
+                console.error('Failed to start call:', error);
             }
-        }
+        };
 
         window.stopCall = async function() {
             if (!sessionId) {
-                log('⚠️  Aucune session active', 'warn');
+                log('⚠️ Aucune session active', 'warn');
                 return;
             }
 
             try {
-                log('⏹️  Arrêt de l\'appel...', 'info');
+                log('⏹️ Arrêt de l\'appel...', 'info');
                 updateStatus('Fermeture...', 'connecting');
 
-                // Arrêter la conversation ElevenLabs avec le SDK
+                // Arrêter la conversation ElevenLabs
                 if (conversation) {
                     await conversation.endSession();
                     conversation = null;
-                    log('✅ Conversation ElevenLabs terminée', 'success');
+                    log('✅ Conversation terminée', 'success');
                 }
 
-                // Appeler le backend pour terminer proprement (mise à jour DB)
+                // Informer le backend
                 const response = await fetch(`/api/v1/calls/${sessionId}/stop`, {
                     method: 'POST',
                 });
 
                 const data = await response.json();
-
                 if (data.success) {
-                    log('✅ Appel terminé avec succès', 'success');
-                } else {
-                    log(`⚠️  ${data.error}`, 'warn');
+                    log('✅ Appel terminé', 'success');
                 }
 
                 sessionId = null;

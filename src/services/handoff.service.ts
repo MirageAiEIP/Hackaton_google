@@ -1,6 +1,9 @@
 import { prisma } from '@/utils/prisma';
 import { logger } from '@/utils/logger';
-import { HandoffStatus, Prisma } from '@prisma/client';
+import { HandoffStatus, Prisma, OperatorStatus } from '@prisma/client';
+import { Container } from '@/infrastructure/di/Container';
+import { HandoffRequestedEvent } from '@/domain/operator/events/HandoffRequested.event';
+import { HandoffAcceptedEvent } from '@/domain/operator/events/HandoffAccepted.event';
 
 export interface CreateHandoffInput {
   callId: string;
@@ -18,7 +21,137 @@ export interface TakeControlInput {
   reason?: string;
 }
 
+export interface RequestHandoffFromAgentInput {
+  callId: string;
+  conversationId: string;
+  reason: string;
+  transcript: string;
+  patientSummary: string;
+  aiContext?: Record<string, unknown>;
+}
+
 export class HandoffService {
+  /**
+   * Request handoff from AI agent
+   * Auto-assigns to available operator if one exists, otherwise creates pending handoff
+   */
+  async requestHandoffFromAgent(input: RequestHandoffFromAgentInput) {
+    const { callId, conversationId, reason, transcript, patientSummary, aiContext } = input;
+
+    logger.info('AI requesting handoff', {
+      callId,
+      conversationId,
+      reason,
+    });
+
+    try {
+      // Try to find an available operator
+      const availableOperator = await prisma.operator.findFirst({
+        where: { status: OperatorStatus.AVAILABLE },
+        orderBy: { totalCallsHandled: 'asc' }, // Load balancing: assign to operator with least calls
+      });
+
+      const container = Container.getInstance();
+      const eventBus = container.getEventBus();
+
+      if (availableOperator) {
+        // Auto-assign to available operator
+        logger.info('Available operator found, auto-assigning', {
+          operatorId: availableOperator.id,
+          operatorName: availableOperator.name,
+        });
+
+        const handoff = await prisma.handoff.create({
+          data: {
+            callId,
+            toOperatorId: availableOperator.id,
+            fromAgent: true,
+            reason,
+            conversationId,
+            transcript,
+            aiContext: aiContext as Prisma.InputJsonValue,
+            patientSummary,
+            status: 'ACCEPTED',
+            acceptedAt: new Date(),
+          },
+        });
+
+        // Update operator status to BUSY
+        await prisma.operator.update({
+          where: { id: availableOperator.id },
+          data: { status: OperatorStatus.BUSY },
+        });
+
+        // Publish HandoffAcceptedEvent for real-time dashboard
+        await eventBus.publish(
+          new HandoffAcceptedEvent(
+            handoff.id,
+            '', // queueEntryId not applicable for direct assignment
+            availableOperator.id,
+            availableOperator.name,
+            callId
+          )
+        );
+
+        logger.info('Handoff auto-assigned successfully', {
+          handoffId: handoff.id,
+          operatorId: availableOperator.id,
+          operatorName: availableOperator.name,
+        });
+
+        return {
+          handoffId: handoff.id,
+          status: 'ACCEPTED' as const,
+          assignedOperatorId: availableOperator.id,
+          message: `Handoff assigned to operator ${availableOperator.name}`,
+        };
+      } else {
+        // No operators available - create pending handoff
+        logger.info('No operators available, creating pending handoff');
+
+        const handoff = await prisma.handoff.create({
+          data: {
+            callId,
+            fromAgent: true,
+            reason,
+            conversationId,
+            transcript,
+            aiContext: aiContext as Prisma.InputJsonValue,
+            patientSummary,
+            status: 'REQUESTED',
+          },
+        });
+
+        // Publish HandoffRequestedEvent for real-time dashboard
+        await eventBus.publish(
+          new HandoffRequestedEvent(
+            callId,
+            conversationId,
+            reason,
+            true, // fromAgent
+            'UNKNOWN' // priority - could be extracted from aiContext if available
+          )
+        );
+
+        logger.info('Handoff request queued (no operators available)', {
+          handoffId: handoff.id,
+        });
+
+        return {
+          handoffId: handoff.id,
+          status: 'REQUESTED' as const,
+          message: 'No operators available. Handoff request queued.',
+        };
+      }
+    } catch (error) {
+      logger.error('Failed to request handoff from agent', error as Error, {
+        callId,
+        conversationId,
+      });
+      throw error;
+    }
+  }
+
   async requestHandoff(input: CreateHandoffInput) {
     const { callId, toOperatorId, reason, conversationId, transcript, aiContext, patientSummary } =
       input;

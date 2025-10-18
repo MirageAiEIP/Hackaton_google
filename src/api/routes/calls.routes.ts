@@ -235,41 +235,4 @@ export const callsRoutes = (app: FastifyInstance) => {
       }
     }
   );
-
-  /**
-   * NOTE: WebSocket route désactivée avec l'approche Signed URL
-   * Le frontend se connecte directement à ElevenLabs avec la signed URL
-   * Cette route n'est plus nécessaire car pas de proxy
-   */
-
-  // Décommenter cette route si on revient à l'approche 2 (Proxy WebSocket)
-  /*
-  app.get(
-    '/:sessionId/stream',
-    { websocket: true },
-    async (connection, request) => {
-      const { sessionId } = request.params as { sessionId: string };
-      logger.info('WebSocket connection established', { sessionId });
-
-      const activeConv = activeConversations.get(sessionId);
-      if (!activeConv) {
-        connection.send(JSON.stringify({
-          type: 'error',
-          message: 'Session not found',
-        }));
-        connection.close();
-        return;
-      }
-
-      // Proxy entre frontend et ElevenLabs
-      connection.on('message', async (message: Buffer) => {
-        // Transférer vers ElevenLabs
-      });
-
-      connection.on('close', () => {
-        logger.info('WebSocket connection closed', { sessionId });
-      });
-    }
-  );
-  */
 };

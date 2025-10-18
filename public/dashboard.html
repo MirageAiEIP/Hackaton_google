@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚑 SAMU - Dashboard & Opérateurs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .tabs {
+            background: white;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            gap: 0;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px 30px;
+            background: #f3f4f6;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab:hover {
+            background: #e5e7eb;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            background: white;
+            border-radius: 0 0 12px 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Operators styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        .btn-danger {
+            background: #e53935;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        .operators-list {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .operator-card {
+            background: #f9fafb;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .operator-info {
+            flex: 1;
+        }
+
+        .operator-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .operator-email {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .operator-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .status-AVAILABLE {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-BUSY {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .status-OFFLINE {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+
+        .operator-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #4CAF50;
+        }
+
+        .message.error {
+            background: #fce4ec;
+            color: #c2185b;
+            border: 1px solid #e53935;
+        }
+
+        /* Dashboard styles */
+        .connection-status {
+            background: #f5f5f6;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.connected {
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .panel {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .panel-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .events-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border-left: 4px solid;
+            background: white;
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .event-item.queue {
+            border-color: #f59e0b;
+        }
+
+        .event-item.operators {
+            border-color: #3b82f6;
+        }
+
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .event-type {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .event-time {
+            color: #6b7280;
+            font-size: 0.85rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid, .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚑 SAMU Dashboard & Opérateurs</h1>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('operators')">👥 Opérateurs</button>
+            <button class="tab" onclick="switchTab('dashboard')">📊 Dashboard Temps Réel</button>
+        </div>
+
+        <!-- Operators Tab -->
+        <div id="operators-tab" class="tab-content active">
+            <h2 style="margin-bottom: 20px;">➕ Créer un Opérateur</h2>
+            <div id="createMessage"></div>
+            <form id="createOperatorForm" class="form-grid">
+                <div class="form-group">
+                    <label>Nom complet *</label>
+                    <input type="text" id="name" placeholder="Dr. Jean Dupont" required>
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="email" placeholder="jean.dupont@samu.fr" required>
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <button type="submit" class="btn-primary">Créer l'opérateur</button>
+                </div>
+            </form>
+
+            <h2 style="margin: 30px 0 20px;">📋 Liste des Opérateurs</h2>
+            <button onclick="loadOperators()" class="btn-primary" style="margin-bottom: 15px;">🔄 Rafraîchir</button>
+            <div id="operatorsList" class="operators-list">
+                <div class="empty-state">Chargement...</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard-tab" class="tab-content">
+            <div class="connection-status">
+                <div>
+                    <span class="status-indicator disconnected" id="statusDot"></span>
+                    <span id="statusText">Déconnecté</span>
+                </div>
+                <button class="btn-primary" onclick="connectWebSocket()">🔌 Connecter</button>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">📋 Queue Events</h2>
+                        <span class="badge" id="queueCount">0</span>
+                    </div>
+                    <div class="events-list" id="queueEvents">
+                        <div class="empty-state">Aucun événement</div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">👥 Operator Events</h2>
+                        <span class="badge" id="operatorCount">0</span>
+                    </div>
+                    <div class="events-list" id="operatorEvents">
+                        <div class="empty-state">Aucun événement</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+
+        // ========== OPERATORS TAB ==========
+
+        // Create Operator
+        document.getElementById('createOperatorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const messageDiv = document.getElementById('createMessage');
+            messageDiv.innerHTML = '';
+
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+
+            try {
+                const response = await fetch('/api/v1/operators', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    messageDiv.innerHTML = `<div class="message success">✅ Opérateur créé avec succès! ID: ${result.data.operator.id.substring(0, 8)}...</div>`;
+                    document.getElementById('createOperatorForm').reset();
+
+                    // Auto-set to AVAILABLE
+                    setTimeout(async () => {
+                        await updateOperatorStatus(result.data.operator.id, 'AVAILABLE');
+                        loadOperators();
+                    }, 500);
+                } else {
+                    messageDiv.innerHTML = `<div class="message error">❌ Erreur: ${result.error?.message || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                messageDiv.innerHTML = `<div class="message error">❌ Erreur: ${error.message}</div>`;
+            }
+        });
+
+        // Load Operators
+        async function loadOperators() {
+            const listDiv = document.getElementById('operatorsList');
+            listDiv.innerHTML = '<div class="empty-state">Chargement...</div>';
+
+            try {
+                const response = await fetch('/api/v1/operators');
+                const result = await response.json();
+
+                if (result.success && result.data.operators.length > 0) {
+                    listDiv.innerHTML = result.data.operators.map(op => `
+                        <div class="operator-card">
+                            <div class="operator-info">
+                                <div class="operator-name">${op.name}</div>
+                                <div class="operator-email">${op.email}</div>
+                            </div>
+                            <div class="operator-actions">
+                                <span class="operator-status status-${op.status}">${op.status}</span>
+                                ${op.status !== 'AVAILABLE' ? `<button class="btn-success" onclick="updateOperatorStatus('${op.id}', 'AVAILABLE')">✅ Available</button>` : ''}
+                                ${op.status !== 'OFFLINE' ? `<button class="btn-danger" onclick="updateOperatorStatus('${op.id}', 'OFFLINE')">⛔ Offline</button>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    listDiv.innerHTML = '<div class="empty-state">Aucun opérateur. Créez-en un ci-dessus!</div>';
+                }
+            } catch (error) {
+                listDiv.innerHTML = `<div class="empty-state">❌ Erreur: ${error.message}</div>`;
+            }
+        }
+
+        // Update Operator Status
+        async function updateOperatorStatus(operatorId, status) {
+            try {
+                const response = await fetch(`/api/v1/operators/${operatorId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    console.log(`✅ Status updated to ${status}`);
+                    loadOperators();
+                } else {
+                    alert(`❌ Erreur: ${result.error?.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                alert(`❌ Erreur: ${error.message}`);
+            }
+        }
+
+        // ========== DASHBOARD TAB ==========
+
+        let ws = null;
+        let eventCounts = { queue: 0, operators: 0 };
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const wsUrl = `${protocol}//${host}/ws/dashboard`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                updateConnectionStatus(true);
+
+                // Subscribe to rooms
+                ws.send(JSON.stringify({ type: 'subscribe', room: 'queue' }));
+                ws.send(JSON.stringify({ type: 'subscribe', room: 'operators' }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('Received:', data);
+
+                if (data.type === 'event') {
+                    addEvent(data.room, data.event);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                updateConnectionStatus(false);
+            };
+        }
+
+        function updateConnectionStatus(connected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+
+            if (connected) {
+                dot.classList.add('connected');
+                dot.classList.remove('disconnected');
+                text.textContent = 'Connecté';
+            } else {
+                dot.classList.add('disconnected');
+                dot.classList.remove('connected');
+                text.textContent = 'Déconnecté';
+            }
+        }
+
+        function addEvent(room, event) {
+            const eventType = event.eventName || 'Event';
+            const timestamp = new Date(event.occurredAt || Date.now()).toLocaleTimeString();
+
+            eventCounts[room] = (eventCounts[room] || 0) + 1;
+
+            // Map room names to HTML element IDs
+            const roomToId = {
+                'queue': 'queueEvents',
+                'operators': 'operatorEvents',  // Note: singular in HTML
+                'dispatches': 'dispatchEvents'
+            };
+
+            const containerId = roomToId[room] || `${room}Events`;
+
+            // Update counter
+            const counterElement = document.getElementById(`${room}Count`);
+            if (counterElement) {
+                counterElement.textContent = eventCounts[room];
+            }
+
+            const eventHTML = `
+                <div class="event-item ${room}">
+                    <div class="event-header">
+                        <span class="event-type">${eventType}</span>
+                        <span class="event-time">${timestamp}</span>
+                    </div>
+                    <div style="color: #666; font-size: 0.85rem;">${JSON.stringify(event.data || event, null, 2)}</div>
+                </div>
+            `;
+
+            const container = document.getElementById(containerId);
+            if (container) {
+                if (container.querySelector('.empty-state')) {
+                    container.innerHTML = '';
+                }
+                container.insertAdjacentHTML('afterbegin', eventHTML);
+            } else {
+                console.error(`Container not found for room: ${room} (tried ${containerId})`);
+            }
+        }
+
+        // Load operators on page load
+        window.addEventListener('load', () => {
+            loadOperators();
+        });
+    </script>
+</body>
+</html>

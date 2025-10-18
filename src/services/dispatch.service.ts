@@ -1,6 +1,9 @@
 import { prisma } from '@/utils/prisma';
 import { logger } from '@/utils/logger';
 import { PriorityLevel, DispatchStatus, Prisma } from '@prisma/client';
+import { Container } from '@/infrastructure/di/Container';
+import { DispatchCreatedEvent } from '@/domain/dispatch/events/DispatchCreated.event';
+import { DispatchStatusChangedEvent } from '@/domain/dispatch/events/DispatchStatusChanged.event';
 
 export interface CreateDispatchInput {
   priority: PriorityLevel;
@@ -63,6 +66,20 @@ export class DispatchService {
 
       logger.info('SMUR dispatch created', { dispatchId, id: dispatch.id, callId: finalCallId });
 
+      // Publish DispatchCreatedEvent for real-time dashboard (map markers)
+      const container = Container.getInstance();
+      const eventBus = container.getEventBus();
+      const locationCoords = latitude && longitude ? { latitude, longitude } : null;
+      await eventBus.publish(
+        new DispatchCreatedEvent(
+          dispatchId,
+          finalCallId,
+          priority,
+          locationCoords,
+          null // estimatedArrival
+        )
+      );
+
       return {
         dispatch,
         callId: finalCallId,
@@ -82,6 +99,17 @@ export class DispatchService {
     });
 
     try {
+      // Get current dispatch to track previous status
+      const currentDispatch = await prisma.dispatch.findUnique({
+        where: { dispatchId },
+      });
+
+      if (!currentDispatch) {
+        throw new Error(`Dispatch not found: ${dispatchId}`);
+      }
+
+      const previousStatus = currentDispatch.status;
+
       const dispatch = await prisma.dispatch.update({
         where: { dispatchId },
         data: {
@@ -107,6 +135,23 @@ export class DispatchService {
         dispatchId,
         status,
       });
+
+      // Publish DispatchStatusChangedEvent for real-time dashboard (ambulance tracking)
+      const container = Container.getInstance();
+      const eventBus = container.getEventBus();
+      const locationCoords =
+        currentDispatch.latitude && currentDispatch.longitude
+          ? { latitude: currentDispatch.latitude, longitude: currentDispatch.longitude }
+          : null;
+      await eventBus.publish(
+        new DispatchStatusChangedEvent(
+          dispatchId,
+          currentDispatch.callId,
+          previousStatus,
+          status,
+          locationCoords
+        )
+      );
 
       return dispatch;
     } catch (error) {

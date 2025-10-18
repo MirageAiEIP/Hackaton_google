@@ -10,11 +10,18 @@ import websocket from '@fastify/websocket';
 import { config } from '@/config';
 import { logger } from '@/utils/logger';
 import { testDatabaseConnection, prisma } from '@/utils/prisma';
+import { Container } from '@/infrastructure/di/Container';
+import { RealtimeDashboardGateway } from '@/presentation/websocket/RealtimeDashboard.gateway';
 import { twilioRoutes } from '@/api/routes/twilio.routes';
 import { registerTestRoutes } from '@/api/routes/test.routes';
 import { callsRoutes } from '@/api/routes/calls.routes';
+import { operatorsRoutes } from '@/api/routes/operators.routes';
+import { toolsRoutes } from '@/api/routes/tools.routes';
+import { handoffRoutes } from '@/api/routes/handoff.routes';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
+
+let dashboardGateway: RealtimeDashboardGateway | null = null;
 
 const app = fastify({
   logger: false,
@@ -251,8 +258,25 @@ async function setupServer() {
   // Register calls routes (web conversations)
   await app.register(callsRoutes, { prefix: '/api/v1/calls' });
 
+  // Register operators routes (operator management)
+  await app.register(operatorsRoutes, { prefix: '/api/v1/operators' });
+
+  // Register ElevenLabs Client Tools routes (webhooks)
+  await app.register(toolsRoutes, { prefix: '/api/v1/tools' });
+
+  // Register handoff routes (AI to human handoff management)
+  await app.register(handoffRoutes, { prefix: '/api/v1/handoff' });
+
   // Register test routes for development
   await app.register(registerTestRoutes, { prefix: '/api/v1/test' });
+
+  // WebSocket stats endpoint
+  app.get('/api/v1/dashboard/stats', async () => {
+    if (!dashboardGateway) {
+      return { error: 'Dashboard gateway not initialized' };
+    }
+    return dashboardGateway.getStats();
+  });
 
   app.setNotFoundHandler((_, reply) => {
     return reply.code(404).send({
@@ -295,7 +319,19 @@ async function startServer() {
       );
     }
 
+    // Initialize DI Container (Repositories, Handlers, Controllers)
+    logger.info('Initializing DI Container...');
+    const container = Container.getInstance();
+    await container.initialize();
+    logger.info('DI Container initialized successfully');
+
     await setupServer();
+
+    // Initialize Real-Time Dashboard WebSocket Gateway
+    logger.info('Initializing Real-Time Dashboard Gateway...');
+    dashboardGateway = new RealtimeDashboardGateway(app);
+    await dashboardGateway.initialize();
+    logger.info('Real-Time Dashboard Gateway initialized successfully');
 
     const port = config.server.port;
     await app.listen({ port, host: '0.0.0.0' });
@@ -314,12 +350,28 @@ async function startServer() {
 
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received. Shutting down gracefully...');
+
+  // Shutdown WebSocket gateway
+  if (dashboardGateway) {
+    await dashboardGateway.shutdown();
+  }
+
+  const container = Container.getInstance();
+  await container.shutdown();
   await app.close();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received. Shutting down gracefully...');
+
+  // Shutdown WebSocket gateway
+  if (dashboardGateway) {
+    await dashboardGateway.shutdown();
+  }
+
+  const container = Container.getInstance();
+  await container.shutdown();
   await app.close();
   process.exit(0);
 });
