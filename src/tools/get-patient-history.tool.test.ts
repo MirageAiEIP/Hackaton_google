@@ -11,54 +11,54 @@ vi.mock('@/infrastructure/di/Container', () => ({
 }));
 
 describe('Get Patient History Tool', () => {
-  let mockPrisma: any;
+  let mockCallRepository: ICallRepository;
 
   beforeEach(() => {
-    mockPrisma = {
-      patient: {
-        findUnique: vi.fn(),
-      },
+    mockCallRepository = {
+      findById: vi.fn(),
+      findByPhoneHash: vi.fn(),
+      save: vi.fn(),
+      findAll: vi.fn(),
+      updateStatus: vi.fn(),
     };
 
     vi.mocked(Container.getInstance).mockReturnValue({
-      getPrisma: () => mockPrisma,
+      getCallRepository: () => mockCallRepository,
     } as any);
   });
 
   describe('successful history retrieval', () => {
     it('should return patient history with multiple calls', async () => {
-      const mockPatient = {
-        phoneHash: 'hash123',
-        chronicConditions: ['Diabetes'],
-        allergies: ['Penicillin'],
-        medications: ['Metformin'],
-        calls: [
-          {
-            id: 'call-1',
-            status: 'COMPLETED',
-            startedAt: new Date('2025-01-10'),
-            duration: 300,
-            triageReport: {
-              priorityLevel: 'P3',
-              chiefComplaint: 'Headache',
-              recommendedAction: 'GP_REFERRAL',
-            },
+      const previousCalls = [
+        {
+          id: 'call-1',
+          phoneHash: 'hash123',
+          status: 'COMPLETED',
+          startedAt: new Date('2025-01-10'),
+          duration: 300,
+          triageReport: {
+            priorityLevel: 'P3',
+            chiefComplaint: 'Headache',
+            recommendedAction: 'GP_REFERRAL',
           },
-          {
-            id: 'call-2',
-            status: 'COMPLETED',
-            startedAt: new Date('2025-01-15'),
-            duration: 600,
-            triageReport: {
-              priorityLevel: 'P2',
-              chiefComplaint: 'Chest pain',
-              recommendedAction: 'URGENT_CARE',
-            },
+          patient: null,
+        },
+        {
+          id: 'call-2',
+          phoneHash: 'hash123',
+          status: 'COMPLETED',
+          startedAt: new Date('2025-01-15'),
+          duration: 600,
+          triageReport: {
+            priorityLevel: 'P2',
+            chiefComplaint: 'Chest pain',
+            recommendedAction: 'URGENT_CARE',
           },
-        ],
-      };
+          patient: null,
+        },
+      ];
 
-      vi.mocked(mockPrisma.patient.findUnique).mockResolvedValue(mockPatient);
+      vi.mocked(mockCallRepository.findByPhoneHash).mockResolvedValue(previousCalls);
 
       const result = await executeGetPatientHistory({ phoneHash: 'hash123' });
 
@@ -71,7 +71,7 @@ describe('Get Patient History Tool', () => {
         priority: 'P3',
         chiefComplaint: 'Headache',
       });
-      expect(mockPrisma.patient.findUnique).toHaveBeenCalledWith('hash123');
+      expect(mockCallRepository.findByPhoneHash).toHaveBeenCalledWith('hash123');
     });
 
     it('should format call history with dates', async () => {
@@ -91,7 +91,7 @@ describe('Get Patient History Tool', () => {
         },
       ];
 
-      vi.mocked(mockPrisma.patient.findUnique).mockResolvedValue(previousCalls);
+      vi.mocked(mockCallRepository.findByPhoneHash).mockResolvedValue(previousCalls);
 
       const result = await executeGetPatientHistory({ phoneHash: 'hash123' });
 
@@ -116,7 +116,7 @@ describe('Get Patient History Tool', () => {
         },
       ];
 
-      vi.mocked(mockPrisma.patient.findUnique).mockResolvedValue(previousCalls);
+      vi.mocked(mockCallRepository.findByPhoneHash).mockResolvedValue(previousCalls);
 
       const result = await executeGetPatientHistory({ phoneHash: 'hash123' });
 
@@ -130,7 +130,7 @@ describe('Get Patient History Tool', () => {
 
   describe('no history found', () => {
     it('should return not found when no previous calls exist', async () => {
-      vi.mocked(mockPrisma.patient.findUnique).mockResolvedValue([]);
+      vi.mocked(mockCallRepository.findByPhoneHash).mockResolvedValue([]);
 
       const result = await executeGetPatientHistory({ phoneHash: 'hash123' });
 
@@ -144,7 +144,7 @@ describe('Get Patient History Tool', () => {
 
   describe('error handling', () => {
     it('should handle database errors gracefully', async () => {
-      vi.mocked(mockPrisma.patient.findUnique).mockRejectedValue(
+      vi.mocked(mockCallRepository.findByPhoneHash).mockRejectedValue(
         new Error('Database connection failed')
       );
 
@@ -156,7 +156,7 @@ describe('Get Patient History Tool', () => {
     });
 
     it('should handle invalid phone hash', async () => {
-      vi.mocked(mockPrisma.patient.findUnique).mockRejectedValue(
+      vi.mocked(mockCallRepository.findByPhoneHash).mockRejectedValue(
         new Error('Invalid phone hash format')
       );
 
@@ -188,7 +188,7 @@ describe('Get Patient History Tool', () => {
         },
       ];
 
-      vi.mocked(mockPrisma.patient.findUnique).mockResolvedValue(previousCalls);
+      vi.mocked(mockCallRepository.findByPhoneHash).mockResolvedValue(previousCalls);
 
       const result = await executeGetPatientHistory({ phoneHash: 'hash123' });
 
@@ -233,7 +233,7 @@ describe('Get Patient History Tool', () => {
         },
       ];
 
-      vi.mocked(mockPrisma.patient.findUnique).mockResolvedValue(previousCalls);
+      vi.mocked(mockCallRepository.findByPhoneHash).mockResolvedValue(previousCalls);
 
       const result = await executeGetPatientHistory({ phoneHash: 'hash123' });
 

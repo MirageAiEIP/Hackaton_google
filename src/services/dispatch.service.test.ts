@@ -33,17 +33,6 @@ vi.mock('@/utils/prisma', () => ({
   },
 }));
 
-// Mock Container
-vi.mock('@/infrastructure/di/Container', () => ({
-  Container: {
-    getInstance: vi.fn(() => ({
-      getEventBus: vi.fn(() => ({
-        publish: vi.fn(),
-      })),
-    })),
-  },
-}));
-
 describe('DispatchService', () => {
   let dispatchService: DispatchService;
 
