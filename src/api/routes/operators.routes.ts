@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { operatorService } from '@/services/operator.service';
 import { logger } from '@/utils/logger';
 import { z } from 'zod';
-import { OperatorStatus } from '@prisma/client';
+import { OperatorStatus } from '@/domain/operator/entities/Operator.entity';
 
 /**
  * Operators Routes

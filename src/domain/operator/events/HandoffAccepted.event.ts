@@ -5,8 +5,6 @@ import { DomainEvent } from '@/domain/shared/DomainEvent';
  * Published when an operator accepts a handoff request
  */
 export class HandoffAcceptedEvent extends DomainEvent {
-  public readonly eventName = 'HandoffAcceptedEvent';
-
   constructor(
     public readonly handoffId: string,
     public readonly queueEntryId: string,

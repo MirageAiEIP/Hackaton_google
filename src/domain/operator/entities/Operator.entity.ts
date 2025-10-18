@@ -7,6 +7,7 @@ export enum OperatorStatus {
   AVAILABLE = 'AVAILABLE',
   BUSY = 'BUSY',
   OFFLINE = 'OFFLINE',
+  ON_BREAK = 'ON_BREAK',
 }
 
 export interface OperatorProps {

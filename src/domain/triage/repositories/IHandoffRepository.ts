@@ -7,7 +7,7 @@ export interface Handoff {
   id: string;
   callId: string;
   fromAgent: boolean;
-  toOperatorId: string;
+  toOperatorId?: string | null;
   reason: string;
   conversationId?: string;
   transcript: string;

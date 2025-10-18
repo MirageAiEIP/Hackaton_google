@@ -1,4 +1,4 @@
-import { PrismaClient, CallStatus } from '@prisma/client';
+import { PrismaClient, CallStatus, Call as PrismaCall } from '@prisma/client';
 import { ICallRepository } from '@/domain/triage/repositories/ICallRepository';
 import { Call } from '@/domain/triage/entities/Call.entity';
 import { logger } from '@/utils/logger';
@@ -152,7 +152,7 @@ export class PrismaCallRepository implements ICallRepository {
   /**
    * Map Prisma model to domain entity
    */
-  private toDomain(prismaCall: unknown): Call {
+  private toDomain(prismaCall: PrismaCall): Call {
     return new Call(
       prismaCall.id,
       prismaCall.createdAt,

@@ -227,7 +227,7 @@ export class QueueService {
           currentEntry.callId,
           previousStatus,
           status,
-          currentEntry.assignedOperatorId
+          currentEntry.claimedBy
         )
       );
 

@@ -5,8 +5,6 @@ import { DomainEvent } from '@/domain/shared/DomainEvent';
  * Published when a new call is added to the operator queue
  */
 export class QueueEntryAddedEvent extends DomainEvent {
-  public readonly eventName = 'QueueEntryAddedEvent';
-
   constructor(
     public readonly queueEntryId: string,
     public readonly callId: string,

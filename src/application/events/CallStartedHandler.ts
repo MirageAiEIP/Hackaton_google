@@ -7,8 +7,7 @@ import { logger } from '@/utils/logger';
  * Example: Enqueue background job for triage analysis
  */
 export class CallStartedHandler implements IEventHandler<CallStartedEvent> {
-  constructor() // private readonly triageQueue: Queue // TODO: Inject BullMQ queue when implemented
-  {}
+  constructor() {} // private readonly triageQueue: Queue // TODO: Inject BullMQ queue when implemented
 
   async handle(event: CallStartedEvent): Promise<void> {
     logger.info('Handling CallStarted event', {

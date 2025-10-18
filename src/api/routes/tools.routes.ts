@@ -80,8 +80,7 @@ export const toolsRoutes = (app: FastifyInstance) => {
         return reply.send(result);
       } catch (error) {
         logger.error('Tool webhook failed: get_patient_history', error as Error);
-        (reply as unknown).status(400);
-        return reply.send({
+        return reply.status(400 as 200).send({
           success: false,
           error: 'Invalid input',
           message: (error as Error).message,
@@ -161,8 +160,7 @@ export const toolsRoutes = (app: FastifyInstance) => {
         return reply.send(result);
       } catch (error) {
         logger.error('Tool webhook failed: get_pharmacy_on_duty', error as Error);
-        (reply as unknown).status(400);
-        return reply.send({
+        return reply.status(400 as 200).send({
           success: false,
           error: 'Invalid input',
           message: (error as Error).message,
@@ -246,8 +244,7 @@ export const toolsRoutes = (app: FastifyInstance) => {
         return reply.send(result);
       } catch (error) {
         logger.error('Tool webhook failed: request_human_handoff', error as Error);
-        (reply as unknown).status(400);
-        return reply.send({
+        return reply.status(400 as 200).send({
           success: false,
           error: 'Invalid input',
           message: (error as Error).message,

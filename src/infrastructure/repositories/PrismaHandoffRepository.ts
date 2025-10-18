@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Handoff as PrismaHandoff, HandoffStatus, Prisma } from '@prisma/client';
 import { IHandoffRepository, Handoff } from '@/domain/triage/repositories/IHandoffRepository';
 
 /**
@@ -53,16 +53,16 @@ export class PrismaHandoffRepository implements IHandoffRepository {
         reason: handoff.reason,
         conversationId: handoff.conversationId,
         transcript: handoff.transcript,
-        aiContext: handoff.aiContext,
+        aiContext: handoff.aiContext as Prisma.InputJsonValue,
         patientSummary: handoff.patientSummary,
-        status: handoff.status as unknown,
+        status: handoff.status as HandoffStatus,
         requestedAt: handoff.requestedAt,
         acceptedAt: handoff.acceptedAt,
         completedAt: handoff.completedAt,
         handoffDuration: handoff.handoffDuration,
       },
       update: {
-        status: handoff.status as unknown,
+        status: handoff.status as HandoffStatus,
         acceptedAt: handoff.acceptedAt,
         completedAt: handoff.completedAt,
         handoffDuration: handoff.handoffDuration,
@@ -126,12 +126,12 @@ export class PrismaHandoffRepository implements IHandoffRepository {
   /**
    * Convert Prisma model to domain object
    */
-  private toDomain(prismaHandoff: unknown): Handoff {
+  private toDomain(prismaHandoff: PrismaHandoff): Handoff {
     return {
       id: prismaHandoff.id,
       callId: prismaHandoff.callId,
       fromAgent: prismaHandoff.fromAgent,
-      toOperatorId: prismaHandoff.toOperatorId,
+      toOperatorId: prismaHandoff.toOperatorId ?? undefined,
       reason: prismaHandoff.reason,
       conversationId: prismaHandoff.conversationId ?? undefined,
       transcript: prismaHandoff.transcript,

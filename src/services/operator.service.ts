@@ -133,7 +133,12 @@ export class OperatorService {
       const container = Container.getInstance();
       const eventBus = container.getEventBus();
       await eventBus.publish(
-        new OperatorStatusChangedEvent(operatorId, previousStatus, status, operator.name)
+        new OperatorStatusChangedEvent(
+          operatorId,
+          operator.email,
+          previousStatus as import('@/domain/operator/entities/Operator.entity').OperatorStatus,
+          status as import('@/domain/operator/entities/Operator.entity').OperatorStatus
+        )
       );
 
       return operator;
@@ -207,8 +212,14 @@ export class OperatorService {
       // Publish CallClaimedEvent for real-time dashboard
       const container = Container.getInstance();
       const eventBus = container.getEventBus();
+
+      // Calculate queue wait time in seconds
+      const queueWaitTime = Math.floor(
+        (new Date().getTime() - queueEntry.waitingSince.getTime()) / 1000
+      );
+
       await eventBus.publish(
-        new CallClaimedEvent(queueEntryId, queueEntry.callId, operatorId, operator.name)
+        new CallClaimedEvent(queueEntry.callId, operatorId, operator.email, queueWaitTime)
       );
 
       return updatedEntry;

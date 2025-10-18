@@ -1,4 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import {
+  PrismaClient,
+  QueueEntry as PrismaQueueEntry,
+  PriorityLevel,
+  QueueStatus,
+} from '@prisma/client';
 import { IQueueRepository, QueueEntry } from '@/domain/triage/repositories/IQueueRepository';
 
 /**
@@ -50,7 +55,7 @@ export class PrismaQueueRepository implements IQueueRepository {
       create: {
         id: entry.id,
         callId: entry.callId,
-        priority: entry.priority as unknown,
+        priority: entry.priority as PriorityLevel,
         chiefComplaint: entry.chiefComplaint,
         patientAge: entry.patientAge,
         patientGender: entry.patientGender,
@@ -59,7 +64,7 @@ export class PrismaQueueRepository implements IQueueRepository {
         aiRecommendation: entry.aiRecommendation,
         keySymptoms: entry.keySymptoms,
         redFlags: entry.redFlags,
-        status: entry.status as unknown,
+        status: entry.status as QueueStatus,
         waitingSince: entry.waitingSince,
         claimedBy: entry.claimedBy,
         claimedAt: entry.claimedAt,
@@ -67,7 +72,7 @@ export class PrismaQueueRepository implements IQueueRepository {
         conversationId: entry.conversationId,
       },
       update: {
-        status: entry.status as unknown,
+        status: entry.status as QueueStatus,
         claimedBy: entry.claimedBy,
         claimedAt: entry.claimedAt,
         updatedAt: new Date(),
@@ -95,7 +100,7 @@ export class PrismaQueueRepository implements IQueueRepository {
   /**
    * Convert Prisma model to domain object
    */
-  private toDomain(prismaEntry: unknown): QueueEntry {
+  private toDomain(prismaEntry: PrismaQueueEntry): QueueEntry {
     return {
       id: prismaEntry.id,
       callId: prismaEntry.callId,

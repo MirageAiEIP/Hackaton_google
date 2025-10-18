@@ -28,6 +28,15 @@ interface IEventHandler {
   handle(event: DomainEvent): Promise<void>;
 }
 
+interface ClientMessage {
+  type: string;
+  room?: string;
+  userId?: string;
+  userRole?: 'operator' | 'doctor' | 'admin';
+}
+
+type BroadcastEvent = DomainEvent | { type: string; [key: string]: unknown };
+
 export class RealtimeDashboardGateway {
   private clients: Map<string, WebSocketClient> = new Map();
   private roomSubscriptions: Map<string, Set<string>> = new Map();
@@ -127,7 +136,13 @@ export class RealtimeDashboardGateway {
    * Handle client messages (subscribe, unsubscribe, ping)
    */
   private handleClientMessage(client: WebSocketClient, message: unknown): void {
-    const { type, room, userId, userRole } = message;
+    // Type guard to ensure message has the expected structure
+    if (typeof message !== 'object' || message === null) {
+      logger.warn('Invalid message received', { clientId: client.id });
+      return;
+    }
+
+    const { type, room, userId, userRole } = message as ClientMessage;
 
     switch (type) {
       case 'subscribe':
@@ -229,12 +244,14 @@ export class RealtimeDashboardGateway {
   /**
    * Broadcast event to room
    */
-  public broadcastToRoom(room: string, event: unknown): void {
+  public broadcastToRoom(room: string, event: BroadcastEvent): void {
     const roomClients = this.roomSubscriptions.get(room);
     if (!roomClients || roomClients.size === 0) {
+      const eventName =
+        'eventName' in event ? event.eventName : 'type' in event ? event.type : 'unknown';
       logger.warn('📭 No clients subscribed to room', {
         room,
-        event: event.eventName || event.type,
+        event: eventName,
       });
       return;
     }
@@ -262,9 +279,11 @@ export class RealtimeDashboardGateway {
       }
     });
 
+    const eventType =
+      'eventName' in event ? event.eventName : 'type' in event ? event.type : 'unknown';
     logger.debug('Broadcast to room', {
       room,
-      eventType: event.eventName || event.type,
+      eventType,
       successCount,
       failureCount,
     });
@@ -273,7 +292,7 @@ export class RealtimeDashboardGateway {
   /**
    * Broadcast to all connected clients
    */
-  public broadcastToAll(event: unknown): void {
+  public broadcastToAll(event: BroadcastEvent): void {
     this.broadcastToRoom('all', event);
   }
 
@@ -300,6 +319,7 @@ export class RealtimeDashboardGateway {
         });
 
         this.broadcastToRoom(room, {
+          type: 'domain_event',
           eventName: event.eventName,
           eventId: event.id,
           occurredAt: event.occurredAt,

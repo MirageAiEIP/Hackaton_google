@@ -188,7 +188,7 @@ export class CallService {
     // Publish lifecycle events for real-time dashboard
     const container = Container.getInstance();
     const eventBus = container.getEventBus();
-    const phoneHash = call.patient.phoneHash;
+    const phoneHash = call.patient?.phoneHash || 'unknown';
 
     if (status === 'COMPLETED') {
       await eventBus.publish(new CallCompletedEvent(callId, metadata?.duration || null, phoneHash));

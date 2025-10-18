@@ -29,14 +29,24 @@ export async function executeGetPatientHistory(input: GetPatientHistoryInput) {
   });
 
   try {
-    // Use CQRS query handler from DI container
+    // Use Prisma directly to get calls with patient and triage report relations
     const container = Container.getInstance();
+    const prisma = container.getPrisma();
 
-    // Execute query using repository
-    // Note: Could use GetPatientHistoryHandler for caching in production
-    const calls = await container.getCallRepository().findByPhoneHash(phoneHash);
+    // Find patient by phone hash
+    const patient = await prisma.patient.findUnique({
+      where: { phoneHash },
+      include: {
+        calls: {
+          include: {
+            triageReport: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
 
-    if (calls.length === 0) {
+    if (!patient || patient.calls.length === 0) {
       return {
         success: true,
         hasHistory: false,
@@ -51,28 +61,15 @@ export async function executeGetPatientHistory(input: GetPatientHistoryInput) {
       };
     }
 
-    // Extract medical history from calls
-    const chronicConditions: string[] = [];
-    const allergies: string[] = [];
-    const medications: string[] = [];
+    // Extract medical history from patient
+    const chronicConditions = patient.chronicConditions || [];
+    const allergies = patient.allergies || [];
+    const medications = patient.medications || [];
 
-    // Aggregate data from all calls
-    calls.forEach((call: unknown) => {
-      if (call.patient) {
-        if (call.patient.chronicConditions) {
-          chronicConditions.push(...call.patient.chronicConditions);
-        }
-        if (call.patient.allergies) {
-          allergies.push(...call.patient.allergies);
-        }
-        if (call.patient.medications) {
-          medications.push(...call.patient.medications);
-        }
-      }
-    });
+    const calls = patient.calls;
 
     // Format calls for AI agent
-    const callHistory = calls.map((call: unknown) => ({
+    const callHistory = calls.map((call: (typeof calls)[0]) => ({
       id: call.id,
       date: call.startedAt,
       duration: call.duration,

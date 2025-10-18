@@ -1,4 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import {
+  PrismaClient,
+  Operator as PrismaOperator,
+  Prisma,
+  OperatorStatus as PrismaOperatorStatus,
+} from '@prisma/client';
 import { IOperatorRepository } from '@/domain/operator/repositories/IOperatorRepository';
 import { Operator, OperatorStatus } from '@/domain/operator/entities/Operator.entity';
 
@@ -98,7 +103,7 @@ export class PrismaOperatorRepository implements IOperatorRepository {
   /**
    * Convert Prisma model to domain entity
    */
-  private toDomain(prismaOperator: unknown): Operator {
+  private toDomain(prismaOperator: PrismaOperator): Operator {
     return new Operator({
       id: prismaOperator.id,
       email: prismaOperator.email,
@@ -117,14 +122,14 @@ export class PrismaOperatorRepository implements IOperatorRepository {
   /**
    * Convert domain entity to Prisma model
    */
-  private toPrisma(operator: Operator): unknown {
+  private toPrisma(operator: Operator): Prisma.OperatorCreateInput {
     const props = operator.toObject();
     return {
       id: props.id,
       email: props.email,
       name: props.name,
       role: props.role,
-      status: props.status,
+      status: props.status as PrismaOperatorStatus,
       lastActiveAt: props.lastActiveAt,
       totalCallsHandled: props.totalCallsHandled,
       averageHandleTime: props.averageHandleTime,
