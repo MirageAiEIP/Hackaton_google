@@ -29,6 +29,16 @@ vi.mock('@/utils/prisma', () => ({
   },
 }));
 
+vi.mock('@/infrastructure/di/Container', () => ({
+  Container: {
+    getInstance: vi.fn(() => ({
+      getEventBus: vi.fn(() => ({
+        publish: vi.fn(),
+      })),
+    })),
+  },
+}));
+
 describe('CallService', () => {
   let callService: CallService;
 
