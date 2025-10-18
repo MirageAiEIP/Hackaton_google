@@ -93,6 +93,16 @@ jobs:
         ports:
           - 5432:5432
 
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -118,6 +128,7 @@ jobs:
         run: npm run test:coverage
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/samu_triage_test
+          REDIS_URL: redis://localhost:6379
           NODE_ENV: test
 
       - name: Upload coverage to Codecov
