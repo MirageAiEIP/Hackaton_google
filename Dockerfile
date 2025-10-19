@@ -42,6 +42,7 @@ COPY --from=builder --chown=samuai:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=samuai:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=samuai:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=samuai:nodejs /app/public ./public
+COPY --from=builder --chown=samuai:nodejs /app/config ./config
 
 USER samuai
 

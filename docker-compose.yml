@@ -41,6 +41,18 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-test_encryption_key_32_chars_min}
       RATE_LIMIT_WINDOW_MS: 60000
       RATE_LIMIT_MAX_REQUESTS: 100
+      # Google Cloud
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+      USE_SECRET_MANAGER: true
+      # Twilio
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
+      # ElevenLabs
+      ELEVENLABS_AGENT_ID: ${ELEVENLABS_AGENT_ID}
+      # Public URL for webhooks
+      PUBLIC_API_URL: ${PUBLIC_API_URL}
     depends_on:
       postgres:
         condition: service_healthy
