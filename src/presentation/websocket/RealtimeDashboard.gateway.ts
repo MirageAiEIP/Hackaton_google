@@ -71,6 +71,8 @@ export class RealtimeDashboardGateway {
     await eventBus.subscribe('QueueEntryStatusChangedEvent', this.createEventHandler('queue'));
     await eventBus.subscribe('HandoffRequestedEvent', this.createEventHandler('queue'));
     await eventBus.subscribe('HandoffAcceptedEvent', this.createEventHandler('queue'));
+    await eventBus.subscribe('WebSessionStartedEvent', this.createEventHandler('queue'));
+    await eventBus.subscribe('WebSessionEndedEvent', this.createEventHandler('queue'));
 
     // OPERATORS ROOM - Operator status changes
     await eventBus.subscribe('OperatorStatusChangedEvent', this.createEventHandler('operators'));

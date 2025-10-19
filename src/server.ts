@@ -5,6 +5,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import sensible from '@fastify/sensible';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
+import formbody from '@fastify/formbody';
 import websocket from '@fastify/websocket';
 
 import { config } from '@/config';
@@ -13,6 +14,7 @@ import { testDatabaseConnection, prisma } from '@/utils/prisma';
 import { Container } from '@/infrastructure/di/Container';
 import { RealtimeDashboardGateway } from '@/presentation/websocket/RealtimeDashboard.gateway';
 import { twilioRoutes } from '@/api/routes/twilio.routes';
+import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 import { registerTestRoutes } from '@/api/routes/test.routes';
 import { callsRoutes } from '@/api/routes/calls.routes';
 import { operatorsRoutes } from '@/api/routes/operators.routes';
@@ -35,6 +37,9 @@ async function setupServer() {
       fileSize: 50 * 1024 * 1024, // 50MB max file size
     },
   });
+
+  // Support for application/x-www-form-urlencoded (Twilio webhooks)
+  await app.register(formbody);
 
   await app.register(rateLimit, {
     max: config.rateLimit.maxRequests,
@@ -91,8 +96,11 @@ async function setupServer() {
 
   // Serve static files (frontend de test)
   // MUST be registered before API routes but after Swagger
+  const publicPath = path.join(process.cwd(), 'public');
+  logger.info('📁 Serving static files', { publicPath, prefix: '/test/' });
+
   await app.register(fastifyStatic, {
-    root: path.join(__dirname, '..', 'public'),
+    root: publicPath,
     prefix: '/test/',
     decorateReply: false,
   });
@@ -332,6 +340,27 @@ async function startServer() {
     dashboardGateway = new RealtimeDashboardGateway(app);
     await dashboardGateway.initialize();
     logger.info('Real-Time Dashboard Gateway initialized successfully');
+
+    // Register Twilio Media Stream WebSocket proxy
+    logger.info('Registering Twilio-ElevenLabs WebSocket proxy...');
+    app.get('/ws/twilio-media', { websocket: true }, (socket, request) => {
+      twilioElevenLabsProxyService.handleTwilioConnection(socket, request);
+    });
+    logger.info('Twilio-ElevenLabs WebSocket proxy registered at /ws/twilio-media');
+
+    // Register Web Conversation WebSocket proxy
+    logger.info('Registering Web Conversation WebSocket proxy...');
+    app.get('/ws/web-conversation', { websocket: true }, (socket, request) => {
+      twilioElevenLabsProxyService.handleWebConnection(socket, request);
+    });
+    logger.info('Web Conversation WebSocket proxy registered at /ws/web-conversation');
+
+    // Register Operator WebSocket for handoffs
+    logger.info('Registering Operator WebSocket...');
+    app.get('/ws/operator', { websocket: true }, (socket, request) => {
+      twilioElevenLabsProxyService.handleOperatorConnection(socket, request);
+    });
+    logger.info('Operator WebSocket registered at /ws/operator');
 
     const port = config.server.port;
     await app.listen({ port, host: '0.0.0.0' });
