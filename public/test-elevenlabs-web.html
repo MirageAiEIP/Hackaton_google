@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test ElevenLabs Web Conversation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      margin: 20px 0;
+      padding: 15px;
+      border-radius: 5px;
+      background: #e9ecef;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    .log {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    .indicator.active {
+      background: #28a745;
+      animation: pulse 2s infinite;
+    }
+    .indicator.inactive {
+      background: #dc3545;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎤 Test ElevenLabs Web Conversation</h1>
+
+    <div class="status info">
+      <span class="indicator inactive" id="indicator"></span>
+      <span id="status">Prêt à démarrer</span>
+    </div>
+
+    <div id="callIdContainer" style="display: none; background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+      <h3 style="margin: 0 0 10px 0; color: #856404;">📞 Call ID actif</h3>
+      <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0; border: 2px dashed #ffc107;">
+        <code id="callIdDisplay" style="font-size: 18px; font-weight: bold; color: #333; user-select: all; letter-spacing: 1px;"></code>
+      </div>
+      <button onclick="copyCallId()" style="background: #28a745; color: white; border: none; padding: 10px 25px; font-size: 14px; border-radius: 5px; cursor: pointer; margin-top: 5px;">
+        📋 Copier le Call ID
+      </button>
+      <p style="margin: 10px 0 0 0; font-size: 12px; color: #856404;">
+        Utilisez ce Call ID pour prendre le contrôle depuis l'interface opérateur
+      </p>
+    </div>
+
+    <div>
+      <button id="startBtn" onclick="startConversation()">
+        Démarrer la conversation
+      </button>
+      <button id="stopBtn" onclick="stopConversation()" disabled>
+        Arrêter la conversation
+      </button>
+    </div>
+
+    <div class="log" id="log">
+      <div class="log-entry">📋 Logs de la conversation...</div>
+    </div>
+  </div>
+
+  <script>
+    let mediaRecorder = null;
+    let audioContext = null;
+    let ws = null;
+    let sessionId = null;
+    let callId = null;
+    let audioQueue = [];
+    let isPlaying = false;
+
+    const API_BASE = 'http://localhost:3000';
+
+    function copyCallId() {
+      const callIdText = document.getElementById('callIdDisplay').textContent;
+      navigator.clipboard.writeText(callIdText).then(() => {
+        log('✅ Call ID copié dans le presse-papier!', 'success');
+      }).catch(err => {
+        log('❌ Erreur lors de la copie: ' + err.message, 'error');
+      });
+    }
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `[${timestamp}] ${type === 'error' ? '❌' : type === 'success' ? '✅' : '📝'} ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(`[${type}]`, message);
+    }
+
+    function updateStatus(message, type = 'info', active = false) {
+      const statusDiv = document.getElementById('status');
+      const indicator = document.getElementById('indicator');
+      const container = statusDiv.parentElement;
+
+      statusDiv.textContent = message;
+      container.className = `status ${type}`;
+      indicator.className = `indicator ${active ? 'active' : 'inactive'}`;
+    }
+
+    async function startConversation() {
+      try {
+        log('Démarrage de la conversation...', 'info');
+        updateStatus('Initialisation...', 'info');
+
+        document.getElementById('startBtn').disabled = true;
+
+        // 1. Appeler l'API pour obtenir la signed URL
+        log('Appel de /api/v1/calls/start-web', 'info');
+
+        const response = await fetch(`${API_BASE}/api/v1/calls/start-web`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            phoneNumber: 'WEB_TEST',
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        }
+
+        const data = await response.json();
+        log(`✅ Configuration reçue! CallID: ${data.callId}`, 'success');
+        log(`SessionID: ${data.sessionId}`, 'info');
+
+        // Stocker et afficher le Call ID
+        callId = data.callId;
+        sessionId = data.sessionId;
+
+        // Afficher le Call ID sur la page
+        document.getElementById('callIdDisplay').textContent = callId;
+        document.getElementById('callIdContainer').style.display = 'block';
+
+        const wsUrl = data.agentConfig.wsUrl;
+
+        // 2. Connexion à NOTRE WebSocket (qui fait proxy vers ElevenLabs)
+        log(`Connexion au WebSocket backend...`, 'info');
+        log(`URL: ${wsUrl}`, 'info');
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          log('✅ WebSocket connecté à ElevenLabs!', 'success');
+          updateStatus('Connecté à l\'agent IA - Parlez maintenant!', 'success', true);
+          document.getElementById('stopBtn').disabled = false;
+
+          // Démarrer la capture audio du micro
+          startAudioCapture();
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            log(`📩 Message reçu: ${message.type}`, 'info');
+
+            // Message de connexion du backend
+            if (message.type === 'connected') {
+              log(`✅ Backend connecté à ElevenLabs!`, 'success');
+            }
+
+            // Métadonnées d'initialisation ElevenLabs
+            if (message.type === 'conversation_initiation_metadata') {
+              log(`Agent ID: ${message.conversation_initiation_metadata_event?.agent_id}`, 'info');
+            }
+
+            // Audio de l'agent
+            if (message.type === 'audio') {
+              log(`Audio event reçu, a audio_event: ${!!message.audio_event}`, 'info');
+              if (message.audio_event && message.audio_event.audio_base_64) {
+                log(`Audio base64 length: ${message.audio_event.audio_base_64.length}`, 'info');
+                playAudioResponse(message.audio_event.audio_base_64);
+              } else {
+                log(`⚠️ Audio event sans audio_base_64`, 'error');
+                console.log('Message audio complet:', message);
+              }
+            }
+
+            // Audio de l'opérateur (quand un humain a pris le contrôle)
+            if (message.type === 'operator_audio' && message.audio_base_64) {
+              log(`🎵 Audio opérateur reçu (${message.audio_base_64.length} chars)`, 'info');
+              playAudioResponse(message.audio_base_64);
+            }
+
+            // Transcription utilisateur
+            if (message.type === 'user_transcript' && message.user_transcription_event) {
+              const text = message.user_transcription_event.user_transcript;
+              log(`💬 Vous: ${text}`, 'success');
+            }
+
+            // Réponse de l'agent
+            if (message.type === 'agent_response' && message.agent_response_event) {
+              const text = message.agent_response_event.agent_response;
+              log(`🤖 Agent: ${text}`, 'success');
+            }
+
+            // Correction de réponse
+            if (message.type === 'agent_response_correction' && message.agent_response_correction_event) {
+              const corrected = message.agent_response_correction_event.corrected_agent_response;
+              log(`🔄 Agent (corrigé): ${corrected}`, 'success');
+            }
+
+            // Interruption
+            if (message.type === 'interruption' && message.interruption_event) {
+              log(`⏸️ Interruption: ${message.interruption_event.reason}`, 'info');
+            }
+
+            // AI terminée - Opérateur a pris le contrôle
+            if (message.type === 'ai_terminated') {
+              log(`🚑 ${message.message}`, 'success');
+              updateStatus('Opérateur humain en ligne - Vous pouvez parler maintenant', 'success', true);
+
+              // Afficher une notification visible
+              const callIdContainer = document.getElementById('callIdContainer');
+              callIdContainer.style.background = '#d4edda';
+              callIdContainer.style.borderColor = '#28a745';
+
+              const callIdTitle = callIdContainer.querySelector('h3');
+              callIdTitle.innerHTML = '🚑 Opérateur SAMU connecté';
+              callIdTitle.style.color = '#155724';
+
+              const callIdDisplay = document.getElementById('callIdDisplay');
+              callIdDisplay.parentElement.innerHTML = `
+                <p style="font-size: 16px; margin: 10px 0; color: #155724;">
+                  <strong>Un opérateur humain a pris le contrôle de l'appel.</strong><br>
+                  Vous pouvez maintenant parler directement avec un professionnel du SAMU.
+                </p>
+              `;
+            }
+          } catch (err) {
+            log(`Erreur parsing message: ${err.message}`, 'error');
+          }
+        };
+
+        ws.onerror = (error) => {
+          log(`❌ WebSocket error: ${error}`, 'error');
+          updateStatus('Erreur de connexion', 'error');
+        };
+
+        ws.onclose = () => {
+          log('WebSocket fermé', 'info');
+          updateStatus('Conversation terminée', 'info');
+          document.getElementById('startBtn').disabled = false;
+          document.getElementById('stopBtn').disabled = true;
+        };
+
+      } catch (error) {
+        log(`❌ Erreur: ${error.message}`, 'error');
+        updateStatus(`Erreur: ${error.message}`, 'error');
+        document.getElementById('startBtn').disabled = false;
+      }
+    }
+
+    async function startAudioCapture() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        log('✅ Microphone activé', 'success');
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        const source = audioContext.createMediaStreamSource(stream);
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+
+        processor.onaudioprocess = (e) => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            const audioData = e.inputBuffer.getChannelData(0);
+
+            // Convertir Float32Array en Int16Array
+            const pcm16 = new Int16Array(audioData.length);
+            for (let i = 0; i < audioData.length; i++) {
+              const s = Math.max(-1, Math.min(1, audioData[i]));
+              pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+
+            // Convertir en base64
+            const base64Audio = btoa(String.fromCharCode.apply(null, new Uint8Array(pcm16.buffer)));
+
+            // Envoyer au backend (format simple, le backend transforme pour ElevenLabs)
+            ws.send(JSON.stringify({
+              type: 'audio',
+              audio_base_64: base64Audio,
+            }));
+          }
+        };
+
+        log('🎙️ Capture audio démarrée', 'success');
+      } catch (error) {
+        log(`❌ Erreur microphone: ${error.message}`, 'error');
+      }
+    }
+
+    async function playAudioResponse(base64Audio) {
+      try {
+        log(`🎵 playAudioResponse appelée, queue size: ${audioQueue.length}`, 'info');
+
+        // Ajouter à la queue
+        audioQueue.push(base64Audio);
+
+        // Si on est déjà en train de jouer, sortir
+        if (isPlaying) {
+          log(`⏸️ Déjà en lecture, ajouté à la queue`, 'info');
+          return;
+        }
+
+        // Commencer la lecture
+        log(`▶️ Démarrage lecture audio`, 'info');
+        isPlaying = true;
+        await playNextInQueue();
+      } catch (error) {
+        log(`❌ Erreur ajout audio: ${error.message}`, 'error');
+        console.error('Erreur playAudioResponse:', error);
+        isPlaying = false;
+      }
+    }
+
+    async function playNextInQueue() {
+      log(`📥 playNextInQueue appelée, queue: ${audioQueue.length}`, 'info');
+
+      if (audioQueue.length === 0) {
+        log(`✅ Queue vide, arrêt lecture`, 'info');
+        isPlaying = false;
+        return;
+      }
+
+      const base64Audio = audioQueue.shift();
+      log(`🎬 Processing chunk, base64 length: ${base64Audio.length}`, 'info');
+
+      try {
+        // Décoder le base64
+        const binaryString = atob(base64Audio);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        log(`✔️ Base64 décodé: ${bytes.length} bytes`, 'info');
+
+        // ElevenLabs envoie du PCM 16-bit, on doit le convertir en Float32
+        const pcm16 = new Int16Array(bytes.buffer);
+        const float32 = new Float32Array(pcm16.length);
+        for (let i = 0; i < pcm16.length; i++) {
+          float32[i] = pcm16[i] / 32768.0;
+        }
+        log(`✔️ Converti en Float32: ${float32.length} samples`, 'info');
+
+        // Créer un AudioBuffer (mono, 16kHz par défaut pour ElevenLabs)
+        const audioBuffer = audioContext.createBuffer(1, float32.length, 16000);
+        audioBuffer.getChannelData(0).set(float32);
+        log(`✔️ AudioBuffer créé: ${audioBuffer.duration.toFixed(2)}s`, 'info');
+
+        // Créer une source et jouer
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+
+        // Quand ce chunk est fini, jouer le suivant
+        source.onended = () => {
+          log(`✅ Chunk terminé`, 'info');
+          playNextInQueue();
+        };
+
+        source.start(0);
+        log('🔊 Audio joué!', 'success');
+      } catch (error) {
+        log(`❌ Erreur lecture audio: ${error.message}`, 'error');
+        console.error('Erreur playNextInQueue:', error);
+        // Continuer avec le prochain chunk même si celui-ci a échoué
+        playNextInQueue();
+      }
+    }
+
+    function stopConversation() {
+      log('Arrêt de la conversation...', 'info');
+
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+
+      // Réinitialiser la queue audio
+      audioQueue = [];
+      isPlaying = false;
+
+      // Masquer le Call ID
+      document.getElementById('callIdContainer').style.display = 'none';
+      callId = null;
+      sessionId = null;
+
+      updateStatus('Conversation arrêtée', 'info');
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+    }
+  </script>
+</body>
+</html>
