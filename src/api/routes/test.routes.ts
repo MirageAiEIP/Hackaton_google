@@ -4,6 +4,7 @@ import { dispatchService } from '@/services/dispatch.service';
 import { queueService } from '@/services/queue.service';
 import { handoffService } from '@/services/handoff.service';
 import { callService } from '@/services/call.service';
+import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 import { logger } from '@/utils/logger';
 import {
   dispatchSmurBodySchema,
@@ -637,6 +638,37 @@ export const registerTestRoutes = (app: FastifyInstance) => {
         };
       } catch (error) {
         logger.error('Failed to retrieve active calls', error as Error);
+        return {
+          success: false,
+          error: (error as Error).message,
+        };
+      }
+    }
+  );
+
+  /**
+   * ACTIVE SESSIONS - Liste des sessions WebSocket actives
+   */
+  app.get(
+    '/active-sessions',
+    {
+      schema: {
+        tags: ['calls'],
+        summary: 'Sessions WebSocket actives',
+        description: 'Liste toutes les sessions WebSocket actives (conversations web en cours)',
+      },
+    },
+    async () => {
+      try {
+        const activeSessions = twilioElevenLabsProxyService.getActiveSessions();
+
+        return {
+          success: true,
+          count: activeSessions.length,
+          sessions: activeSessions,
+        };
+      } catch (error) {
+        logger.error('Failed to retrieve active sessions', error as Error);
         return {
           success: false,
           error: (error as Error).message,

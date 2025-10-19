@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { callService } from '@/services/call.service';
-import { elevenlabsAgentService } from '@/services/elevenlabs-agent.service';
 import { logger } from '@/utils/logger';
 
 /**
@@ -68,30 +67,28 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
       });
 
       try {
-        // Créer l'appel en base de données
-        const call = await callService.createCall({
-          phoneNumber: body.From,
-        });
+        // Construire l'URL du WebSocket proxy (notre serveur)
+        const publicUrl = process.env.PUBLIC_API_URL || `http://localhost:3000`;
+        const wsUrl = publicUrl.replace('http://', 'wss://').replace('https://', 'wss://');
+        const mediaStreamUrl = `${wsUrl}/ws/twilio-media?callSid=${body.CallSid}`;
 
-        logger.info('Call created in database', {
-          callId: call.id,
+        logger.info('Twilio call incoming, connecting to proxy WebSocket', {
           callSid: body.CallSid,
+          from: body.From,
+          to: body.To,
+          mediaStreamUrl,
         });
 
-        // Générer signed URL ElevenLabs pour cet appel
-        const signedUrl = await elevenlabsAgentService.getSignedUrl(true);
-
-        logger.info('Generated signed URL for phone call', {
-          callId: call.id,
-          callSid: body.CallSid,
-        });
-
-        // Retourner TwiML pour connecter Twilio à ElevenLabs WebSocket
-        // Le frontend (Twilio) utilisera le WebSocket de la signed URL
+        // Retourner TwiML pour connecter Twilio à notre WebSocket proxy
+        // Notre proxy va ensuite forward à ElevenLabs
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <Stream url="${signedUrl.replace('https://', 'wss://')}" />
+    <Stream url="${mediaStreamUrl}">
+      <Parameter name="From" value="${body.From}" />
+      <Parameter name="To" value="${body.To}" />
+      <Parameter name="CallSid" value="${body.CallSid}" />
+    </Stream>
   </Connect>
 </Response>`;
 
