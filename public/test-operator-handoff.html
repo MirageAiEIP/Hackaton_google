@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Opérateur SAMU - Interface Handoff</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .status {
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 5px;
+      background: #e9ecef;
+    }
+    .status.connected {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .input-group {
+      margin: 20px 0;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    button.danger {
+      background: #dc3545;
+    }
+    button.danger:hover {
+      background: #c82333;
+    }
+    .context-box {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 5px;
+      margin: 20px 0;
+      border-left: 4px solid #007bff;
+    }
+    .context-box h3 {
+      margin-top: 0;
+      color: #007bff;
+    }
+    .transcript {
+      white-space: pre-wrap;
+      background: #fff;
+      padding: 15px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .log {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 20px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    .indicator.active {
+      background: #28a745;
+      animation: pulse 2s infinite;
+    }
+    .indicator.inactive {
+      background: #dc3545;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚑 Opérateur SAMU - Interface de Prise en Charge</h1>
+
+    <div class="status" id="statusDiv">
+      <span class="indicator inactive" id="indicator"></span>
+      <span id="statusText">Déconnecté</span>
+    </div>
+
+    <!-- STEP 1: Take Control -->
+    <div class="context-box" style="border-left-color: #28a745;">
+      <h3>Étape 1: Prendre le contrôle d'un appel</h3>
+      <div class="input-group">
+        <label for="callId">Call ID (appel en cours avec l'IA)</label>
+        <input type="text" id="callId" placeholder="Entrez le Call ID...">
+      </div>
+      <div class="input-group">
+        <label for="operatorId">Operator ID</label>
+        <input type="text" id="operatorId" value="operator-test-123" placeholder="Votre ID opérateur">
+      </div>
+      <button onclick="takeControl()">🎯 Prendre le contrôle</button>
+
+      <div id="takeControlResult" style="display: none; margin-top: 15px; padding: 15px; background: #d4edda; border-radius: 5px;">
+        <p><strong>✅ Contrôle pris avec succès !</strong></p>
+        <p><strong>Handoff ID:</strong> <code id="resultHandoffId" style="font-size: 14px; background: white; padding: 5px; border-radius: 3px;"></code></p>
+        <p><strong>Session ID:</strong> <code id="resultSessionId" style="font-size: 14px; background: white; padding: 5px; border-radius: 3px;"></code></p>
+        <p style="margin-top: 10px; color: #155724;"><em>Le handoffId a été automatiquement copié ci-dessous 👇</em></p>
+      </div>
+    </div>
+
+    <!-- STEP 2: Connect (AUTO) -->
+    <div class="context-box" style="border-left-color: #28a745;">
+      <h3>Étape 2: Connexion au patient <span style="color: #28a745; font-weight: normal;">(Automatique)</span></h3>
+      <p style="color: #666; font-size: 14px; margin: 10px 0;">
+        La connexion se fait automatiquement après avoir pris le contrôle.
+        Vous pouvez maintenant parler avec le patient!
+      </p>
+
+      <div>
+        <button id="disconnectBtn" onclick="disconnect()" disabled class="danger">Terminer l'appel</button>
+      </div>
+    </div>
+
+    <div id="contextContainer" style="display: none;">
+      <div class="context-box">
+        <h3>📋 Contexte Patient</h3>
+        <p><strong>Raison du transfert:</strong> <span id="reason"></span></p>
+        <p><strong>Résumé AI:</strong></p>
+        <div id="patientSummary"></div>
+      </div>
+
+      <div class="context-box">
+        <h3>💬 Transcript de la conversation</h3>
+        <div class="transcript" id="transcript"></div>
+      </div>
+    </div>
+
+    <div class="log" id="log">
+      <div class="log-entry">📋 Logs...</div>
+    </div>
+  </div>
+
+  <script>
+    let ws = null;
+    let audioContext = null;
+    let audioQueue = [];
+    let isPlaying = false;
+    const WS_URL = 'ws://localhost:3000/ws/operator';
+    const API_URL = 'http://localhost:3000/api/v1';
+
+    async function takeControl() {
+      const callId = document.getElementById('callId').value.trim();
+      const operatorId = document.getElementById('operatorId').value.trim();
+
+      if (!callId) {
+        alert('Veuillez entrer un Call ID');
+        return;
+      }
+
+      if (!operatorId) {
+        alert('Veuillez entrer un Operator ID');
+        return;
+      }
+
+      log(`Appel de l'API /take-control pour callId: ${callId}`, 'info');
+
+      try {
+        const response = await fetch(`${API_URL}/handoff/take-control`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            callId,
+            operatorId,
+            reason: 'Test operator takeover from dashboard',
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to take control');
+        }
+
+        const result = await response.json();
+        log(`✅ Contrôle pris avec succès! HandoffId: ${result.handoffId}`, 'success');
+
+        // Afficher le résultat
+        document.getElementById('takeControlResult').style.display = 'block';
+        document.getElementById('resultHandoffId').textContent = result.handoffId;
+        document.getElementById('resultSessionId').textContent = result.sessionId || 'N/A';
+
+        log(`Session ID: ${result.sessionId}`, 'info');
+        log(`AI Terminated: ${result.aiTerminated}`, 'info');
+
+        // Connexion automatique au WebSocket avec le handoffId!
+        log('🚀 Connexion automatique au patient...', 'info');
+        setTimeout(() => {
+          connectToPatient(result.handoffId);
+        }, 500);
+
+      } catch (error) {
+        log(`❌ Erreur lors de la prise de contrôle: ${error.message}`, 'error');
+        alert(`Erreur: ${error.message}`);
+      }
+    }
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `[${timestamp}] ${type === 'error' ? '❌' : type === 'success' ? '✅' : '📝'} ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(`[${type}]`, message);
+    }
+
+    function updateStatus(message, connected = false) {
+      const statusDiv = document.getElementById('statusDiv');
+      const statusText = document.getElementById('statusText');
+      const indicator = document.getElementById('indicator');
+
+      statusText.textContent = message;
+
+      if (connected) {
+        statusDiv.className = 'status connected';
+        indicator.className = 'indicator active';
+      } else {
+        statusDiv.className = 'status';
+        indicator.className = 'indicator inactive';
+      }
+    }
+
+    function connectToPatient(handoffId) {
+      if (!handoffId) {
+        alert('Handoff ID manquant');
+        return;
+      }
+
+      log(`Connexion avec handoffId: ${handoffId}`, 'info');
+      updateStatus('Connexion en cours...');
+
+      // Créer AudioContext IMMÉDIATEMENT (pas besoin de permission micro)
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        log('✅ AudioContext créé (lecture audio patient activée)', 'success');
+      }
+
+      ws = new WebSocket(`${WS_URL}?handoffId=${handoffId}`);
+
+      ws.onopen = () => {
+        log('✅ WebSocket connecté', 'success');
+        updateStatus('Connecté - En attente du contexte...', true);
+        document.getElementById('disconnectBtn').disabled = false;
+
+        // Démarrer la capture audio du microphone de l'opérateur
+        startAudioCapture();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          log(`Message reçu: ${message.type}`, 'info');
+
+          if (message.type === 'handoff_context') {
+            log('📋 Contexte patient reçu', 'success');
+
+            // Afficher le contexte
+            document.getElementById('contextContainer').style.display = 'block';
+            document.getElementById('reason').textContent = message.data.reason;
+            document.getElementById('patientSummary').textContent = message.data.patientSummary;
+            document.getElementById('transcript').textContent = message.data.transcript;
+          }
+
+          if (message.type === 'connected') {
+            log('✅ Prêt à parler avec le patient', 'success');
+            updateStatus('Connecté - Vous pouvez parler avec le patient', true);
+          }
+
+          // Audio du patient → Jouer dans les haut-parleurs
+          if (message.type === 'patient_audio' && message.audio_base_64) {
+            log('🎵 Audio patient reçu', 'info');
+            playAudioResponse(message.audio_base_64);
+          }
+
+          // Transcription en temps réel
+          if (message.type === 'transcript') {
+            const prefix = message.speaker === 'operator' ? '👨‍⚕️ Vous' : '🤕 Patient';
+            const transcriptDiv = document.getElementById('transcript');
+            transcriptDiv.textContent += `\n[${new Date().toLocaleTimeString()}] ${prefix}: ${message.text}`;
+            transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+            log(`${prefix}: ${message.text}`, 'success');
+          }
+
+          if (message.type === 'error') {
+            log(`❌ Erreur: ${message.message}`, 'error');
+            updateStatus(`Erreur: ${message.message}`);
+          }
+        } catch (err) {
+          log(`Erreur parsing message: ${err.message}`, 'error');
+        }
+      };
+
+      ws.onerror = (error) => {
+        log(`❌ WebSocket error`, 'error');
+        updateStatus('Erreur de connexion');
+      };
+
+      ws.onclose = () => {
+        log('WebSocket fermé', 'info');
+        updateStatus('Déconnecté');
+        document.getElementById('disconnectBtn').disabled = true;
+      };
+    }
+
+    async function startAudioCapture() {
+      try {
+        log('🎤 Demande autorisation microphone...', 'info');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        log('✅ Microphone opérateur activé', 'success');
+
+        // Utiliser l'audioContext déjà créé
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+          log('⚠️ AudioContext créé tardivement', 'info');
+        }
+
+        const source = audioContext.createMediaStreamSource(stream);
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        source.connect(processor);
+        // NE PAS connecter à destination (sinon écho de son propre micro)
+        // processor.connect(audioContext.destination);
+
+        processor.onaudioprocess = (e) => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            const audioData = e.inputBuffer.getChannelData(0);
+
+            // Convertir Float32Array en Int16Array (PCM 16-bit)
+            const pcm16 = new Int16Array(audioData.length);
+            for (let i = 0; i < audioData.length; i++) {
+              const s = Math.max(-1, Math.min(1, audioData[i]));
+              pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+
+            // Convertir en base64
+            const base64Audio = btoa(String.fromCharCode.apply(null, new Uint8Array(pcm16.buffer)));
+
+            // Envoyer au backend
+            ws.send(JSON.stringify({
+              type: 'audio',
+              audio_base_64: base64Audio,
+            }));
+          }
+        };
+
+        log('🎙️ Capture audio opérateur démarrée', 'success');
+      } catch (error) {
+        log(`❌ Erreur microphone: ${error.message}`, 'error');
+      }
+    }
+
+    async function playAudioResponse(base64Audio) {
+      try {
+        log(`🎵 playAudioResponse appelée, queue size: ${audioQueue.length}`, 'info');
+
+        // Ajouter à la queue
+        audioQueue.push(base64Audio);
+
+        // Si on est déjà en train de jouer, sortir
+        if (isPlaying) {
+          log(`⏸️ Déjà en lecture, ajouté à la queue`, 'info');
+          return;
+        }
+
+        // Commencer la lecture
+        log(`▶️ Démarrage lecture audio patient`, 'info');
+        isPlaying = true;
+        await playNextInQueue();
+      } catch (error) {
+        log(`❌ Erreur ajout audio: ${error.message}`, 'error');
+        console.error('Erreur playAudioResponse:', error);
+        isPlaying = false;
+      }
+    }
+
+    async function playNextInQueue() {
+      log(`📥 playNextInQueue appelée, queue: ${audioQueue.length}`, 'info');
+
+      if (audioQueue.length === 0) {
+        log(`✅ Queue vide, arrêt lecture`, 'info');
+        isPlaying = false;
+        return;
+      }
+
+      const base64Audio = audioQueue.shift();
+      log(`🎬 Processing chunk, base64 length: ${base64Audio.length}`, 'info');
+
+      try {
+        // Décoder le base64
+        const binaryString = atob(base64Audio);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        log(`✔️ Base64 décodé: ${bytes.length} bytes`, 'info');
+
+        // Convertir PCM 16-bit en Float32
+        const pcm16 = new Int16Array(bytes.buffer);
+        const float32 = new Float32Array(pcm16.length);
+        for (let i = 0; i < pcm16.length; i++) {
+          float32[i] = pcm16[i] / 32768.0;
+        }
+        log(`✔️ Converti en Float32: ${float32.length} samples`, 'info');
+
+        // Créer un AudioBuffer (mono, 16kHz)
+        const audioBuffer = audioContext.createBuffer(1, float32.length, 16000);
+        audioBuffer.getChannelData(0).set(float32);
+        log(`✔️ AudioBuffer créé: ${audioBuffer.duration.toFixed(2)}s`, 'info');
+
+        // Créer une source et jouer
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+
+        // Quand ce chunk est fini, jouer le suivant
+        source.onended = () => {
+          log(`✅ Chunk audio patient terminé`, 'info');
+          playNextInQueue();
+        };
+
+        source.start(0);
+        log('🔊 Audio patient joué!', 'success');
+      } catch (error) {
+        log(`❌ Erreur lecture audio patient: ${error.message}`, 'error');
+        console.error('Erreur playNextInQueue:', error);
+        // Continuer avec le prochain chunk même si celui-ci a échoué
+        playNextInQueue();
+      }
+    }
+
+    function disconnect() {
+      if (!ws) return;
+
+      log('Envoi de la demande de fin d\'appel', 'info');
+
+      ws.send(JSON.stringify({
+        type: 'end_handoff'
+      }));
+
+      setTimeout(() => {
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+
+        // Fermer l'audio context
+        if (audioContext) {
+          audioContext.close();
+          audioContext = null;
+        }
+
+        // Vider la queue audio
+        audioQueue = [];
+        isPlaying = false;
+      }, 500);
+    }
+  </script>
+</body>
+</html>
