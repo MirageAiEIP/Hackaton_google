@@ -12,6 +12,13 @@ const envSchema = z.object({
   GOOGLE_API_KEY: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(32).optional(),
   ENCRYPTION_KEY: z.string().min(32).optional(),
+  // Twilio
+  TWILIO_ACCOUNT_SID: z.string().startsWith('AC').optional(),
+  TWILIO_AUTH_TOKEN: z.string().min(32).optional(),
+  TWILIO_PHONE_NUMBER: z
+    .string()
+    .regex(/^\+\d{10,15}$/)
+    .optional(),
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z.string().transform(Number).default('60000'),
   RATE_LIMIT_MAX_REQUESTS: z.string().transform(Number).default('100'),
@@ -66,6 +73,12 @@ export const config = {
   rateLimit: {
     windowMs: env.RATE_LIMIT_WINDOW_MS,
     maxRequests: env.RATE_LIMIT_MAX_REQUESTS,
+  },
+
+  twilio: {
+    accountSid: env.TWILIO_ACCOUNT_SID || '',
+    authToken: env.TWILIO_AUTH_TOKEN || '',
+    phoneNumber: env.TWILIO_PHONE_NUMBER || '',
   },
 
   agent: {
