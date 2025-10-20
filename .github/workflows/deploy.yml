@@ -3,6 +3,15 @@ name: Deploy to Google Cloud Run
 on:
   push:
     branches: [staging, production]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
 
 env:
   PROJECT_ID: samu-ai-474822
@@ -24,14 +33,29 @@ jobs:
       - name: Set environment variables
         id: vars
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/production" ]; then
-            echo "SERVICE_NAME=samu-ai-triage-prod" >> $GITHUB_OUTPUT
-            echo "ENV=production" >> $GITHUB_OUTPUT
-            echo "MIN_INSTANCES=1" >> $GITHUB_OUTPUT
+          # Determine environment from branch or manual input
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref }}" = "refs/heads/production" ]; then
+            ENV="production"
           else
-            echo "SERVICE_NAME=samu-ai-triage-staging" >> $GITHUB_OUTPUT
-            echo "ENV=staging" >> $GITHUB_OUTPUT
+            ENV="staging"
+          fi
+
+          echo "ENV=${ENV}" >> $GITHUB_OUTPUT
+          echo "SERVICE_NAME=samu-ai-triage-${ENV}" >> $GITHUB_OUTPUT
+
+          # Production-specific settings
+          if [ "$ENV" = "production" ]; then
+            echo "MIN_INSTANCES=1" >> $GITHUB_OUTPUT
+            echo "MAX_INSTANCES=20" >> $GITHUB_OUTPUT
+            echo "CPU=4" >> $GITHUB_OUTPUT
+            echo "MEMORY=4Gi" >> $GITHUB_OUTPUT
+          else
             echo "MIN_INSTANCES=0" >> $GITHUB_OUTPUT
+            echo "MAX_INSTANCES=5" >> $GITHUB_OUTPUT
+            echo "CPU=2" >> $GITHUB_OUTPUT
+            echo "MEMORY=2Gi" >> $GITHUB_OUTPUT
           fi
 
       - name: Authenticate to Google Cloud
@@ -43,15 +67,31 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Build application
+        run: npm run build
+
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:${{ github.sha }} \
-                       -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:latest \
-                       -f Dockerfile.production .
+          docker build \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:latest \
+            -f Dockerfile.production .
 
       - name: Push Docker image to Artifact Registry
         run: |
@@ -65,16 +105,74 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=${{ steps.vars.outputs.ENV }}" \
             --min-instances ${{ steps.vars.outputs.MIN_INSTANCES }} \
-            --max-instances 10 \
-            --cpu 2 \
-            --memory 2Gi \
-            --timeout 300 \
+            --max-instances ${{ steps.vars.outputs.MAX_INSTANCES }} \
+            --cpu ${{ steps.vars.outputs.CPU }} \
+            --memory ${{ steps.vars.outputs.MEMORY }} \
+            --timeout 300s \
             --concurrency 80 \
-            --port 3000
+            --port 3000 \
+            --set-env-vars NODE_ENV=${{ steps.vars.outputs.ENV }},LOG_LEVEL=info,PORT=3000 \
+            --set-secrets DATABASE_URL=${{ steps.vars.outputs.ENV }}-database-url:latest \
+            --set-secrets ELEVENLABS_API_KEY=${{ steps.vars.outputs.ENV }}-elevenlabs-api-key:latest \
+            --set-secrets ELEVENLABS_AGENT_ID=${{ steps.vars.outputs.ENV }}-elevenlabs-agent-id:latest \
+            --set-secrets GOOGLE_API_KEY=${{ steps.vars.outputs.ENV }}-google-api-key:latest \
+            --set-secrets TWILIO_ACCOUNT_SID=${{ steps.vars.outputs.ENV }}-twilio-account-sid:latest \
+            --set-secrets TWILIO_AUTH_TOKEN=${{ steps.vars.outputs.ENV }}-twilio-auth-token:latest \
+            --set-secrets TWILIO_PHONE_NUMBER=${{ steps.vars.outputs.ENV }}-twilio-phone-number:latest
 
-      - name: Show deployment URL
+      - name: Run database migrations
         run: |
-          echo "Service deployed to ${{ steps.vars.outputs.ENV }}:"
-          gcloud run services describe ${{ steps.vars.outputs.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)'
+          # Get database connection details
+          DB_PASSWORD=$(gcloud secrets versions access latest \
+            --secret="${{ steps.vars.outputs.ENV }}-database-password")
+
+          DB_HOST=$(gcloud sql instances describe samu-ai-db-${{ steps.vars.outputs.ENV }} \
+            --format="value(ipAddresses[0].ipAddress)")
+
+          export DATABASE_URL="postgresql://samu_app:${DB_PASSWORD}@${DB_HOST}:5432/samu_triage"
+
+          # Run migrations
+          npm run db:migrate:prod
+
+      - name: Health check
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ steps.vars.outputs.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+
+          echo "🏥 Health check: ${SERVICE_URL}/health"
+
+          # Wait for service to be ready
+          for i in {1..30}; do
+            if curl -f -s "${SERVICE_URL}/health" > /dev/null; then
+              echo "✅ Service is healthy!"
+              break
+            fi
+            echo "⏳ Waiting for service to be ready... (${i}/30)"
+            sleep 10
+          done
+
+      - name: Show deployment summary
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ steps.vars.outputs.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+
+          echo "═══════════════════════════════════════════════════════"
+          echo "  🚀 Deployment successful!"
+          echo "═══════════════════════════════════════════════════════"
+          echo ""
+          echo "📍 Environment: ${{ steps.vars.outputs.ENV }}"
+          echo "📍 Service URL: ${SERVICE_URL}"
+          echo "📍 Region: ${{ env.REGION }}"
+          echo ""
+          echo "🔍 Endpoints:"
+          echo "   Health: ${SERVICE_URL}/health"
+          echo "   API Docs: ${SERVICE_URL}/docs"
+          echo ""
+          echo "📊 Monitoring:"
+          echo "   Logs: https://console.cloud.google.com/run/detail/${{ env.REGION }}/${{ steps.vars.outputs.SERVICE_NAME }}/logs"
+          echo "   Metrics: https://console.cloud.google.com/run/detail/${{ env.REGION }}/${{ steps.vars.outputs.SERVICE_NAME }}/metrics"
+          echo ""
+          echo "═══════════════════════════════════════════════════════"
