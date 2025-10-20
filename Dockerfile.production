@@ -19,6 +19,7 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 RUN ls -la /app/dist
+RUN ls -la /app/dist/src || echo "No dist/src folder"
 
 # Stage 3: Production
 FROM base AS runner
@@ -45,4 +46,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:8080/health/live', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/src/server.js"]
