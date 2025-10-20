@@ -1,18 +1,28 @@
 # Staging Environment Configuration
 
-terraform {
-  backend "gcs" {
-    bucket = "samu-ai-terraform-state"
-    prefix = "staging"
-  }
+variable "project_id" {
+  type        = string
+  description = "GCP Project ID"
+}
+
+variable "region" {
+  type        = string
+  description = "GCP Region"
+  default     = "europe-west1"
+}
+
+variable "environment" {
+  type        = string
+  description = "Environment name"
+  default     = "staging"
 }
 
 module "samu_staging" {
   source = "../../"
 
-  project_id  = "samu-ai-474822"
-  region      = "europe-west1"
-  environment = "staging"
+  project_id  = var.project_id
+  region      = var.region
+  environment = var.environment
 }
 
 # Outputs

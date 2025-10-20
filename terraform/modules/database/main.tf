@@ -58,8 +58,8 @@ resource "google_sql_database_instance" "postgres" {
 
     # IP configuration (Public IP with SSL)
     ip_configuration {
-      ipv4_enabled    = true
-      require_ssl     = true
+      ipv4_enabled = true
+      ssl_mode     = "ENCRYPTED_ONLY"
 
       # Allow connections from Cloud Run
       authorized_networks {

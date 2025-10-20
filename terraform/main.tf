@@ -14,9 +14,6 @@ terraform {
       version = "~> 5.0"
     }
   }
-
-  # Backend configuré par environnement (voir environments/)
-  backend "gcs" {}
 }
 
 provider "google" {
