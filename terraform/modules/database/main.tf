@@ -96,12 +96,6 @@ resource "google_sql_database_instance" "postgres" {
       name  = "maintenance_work_mem"
       value = "524288" # 512MB
     }
-
-    # pgvector extension
-    database_flags {
-      name  = "cloudsql.enable_pgvector"
-      value = "on"
-    }
   }
 }
 
