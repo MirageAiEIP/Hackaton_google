@@ -10,6 +10,8 @@ interface AppSecrets {
   googleApiKey: string;
   elevenlabsApiKey: string;
   jwtSecret: string;
+  jwtAccessSecret: string;
+  jwtRefreshSecret: string;
   encryptionKey: string;
   databaseUrl: string;
 }
@@ -37,6 +39,8 @@ export async function loadSecrets(): Promise<AppSecrets> {
       googleApiKey: process.env.GOOGLE_API_KEY || '',
       elevenlabsApiKey: process.env.ELEVENLABS_API_KEY || '',
       jwtSecret: process.env.JWT_SECRET || '',
+      jwtAccessSecret: process.env.JWT_SECRET || '', // Fallback to JWT_SECRET for dev
+      jwtRefreshSecret: process.env.JWT_SECRET || '', // Fallback to JWT_SECRET for dev
       encryptionKey: process.env.ENCRYPTION_KEY || '',
       databaseUrl: process.env.DATABASE_URL || '',
     };
@@ -52,6 +56,8 @@ export async function loadSecrets(): Promise<AppSecrets> {
       'google-api-key',
       'elevenlabs-api-key',
       'jwt-secret',
+      'jwt-access-secret',
+      'jwt-refresh-secret',
       'encryption-key',
       'database-url',
     ]);
@@ -60,6 +66,8 @@ export async function loadSecrets(): Promise<AppSecrets> {
       googleApiKey: secrets['google-api-key'] || process.env.GOOGLE_API_KEY || '',
       elevenlabsApiKey: secrets['elevenlabs-api-key'] || process.env.ELEVENLABS_API_KEY || '',
       jwtSecret: secrets['jwt-secret'] || process.env.JWT_SECRET || '',
+      jwtAccessSecret: secrets['jwt-access-secret'] || process.env.JWT_SECRET || '',
+      jwtRefreshSecret: secrets['jwt-refresh-secret'] || process.env.JWT_SECRET || '',
       encryptionKey: secrets['encryption-key'] || process.env.ENCRYPTION_KEY || '',
       databaseUrl: secrets['database-url'] || process.env.DATABASE_URL || '',
     };
@@ -79,6 +87,8 @@ export async function loadSecrets(): Promise<AppSecrets> {
       googleApiKey: process.env.GOOGLE_API_KEY || '',
       elevenlabsApiKey: process.env.ELEVENLABS_API_KEY || '',
       jwtSecret: process.env.JWT_SECRET || '',
+      jwtAccessSecret: process.env.JWT_SECRET || '',
+      jwtRefreshSecret: process.env.JWT_SECRET || '',
       encryptionKey: process.env.ENCRYPTION_KEY || '',
       databaseUrl: process.env.DATABASE_URL || '',
     };
