@@ -112,7 +112,7 @@ resource "google_monitoring_alert_policy" "high_memory" {
 
       aggregations {
         alignment_period   = "60s"
-        per_series_aligner = "ALIGN_MAX"
+        per_series_aligner = "ALIGN_DELTA"
       }
     }
   }
