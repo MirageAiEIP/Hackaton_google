@@ -133,6 +133,9 @@ jobs:
           DB_PASSWORD=$(gcloud secrets versions access latest \
             --secret="${{ steps.vars.outputs.ENV }}-database-password")
 
+          # URL-encode the password to handle special characters like @ # % etc
+          DB_PASSWORD_ENCODED=$(node -e "console.log(encodeURIComponent('${DB_PASSWORD}'))")
+
           # Get Cloud SQL connection name
           CONNECTION_NAME=$(gcloud sql instances describe samu-ai-db-${{ steps.vars.outputs.ENV }} \
             --format="value(connectionName)")
@@ -144,8 +147,8 @@ jobs:
           # Wait for proxy to be ready
           sleep 5
 
-          # Set DATABASE_URL for migrations
-          export DATABASE_URL="postgresql://samu_app:${DB_PASSWORD}@127.0.0.1:5432/samu_triage?sslmode=disable"
+          # Set DATABASE_URL for migrations (with encoded password)
+          export DATABASE_URL="postgresql://samu_app:${DB_PASSWORD_ENCODED}@127.0.0.1:5432/samu_triage?sslmode=disable"
 
           # Run migrations
           npm run db:migrate:prod
