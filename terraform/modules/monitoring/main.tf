@@ -112,7 +112,7 @@ resource "google_monitoring_alert_policy" "high_memory" {
 
       aggregations {
         alignment_period   = "60s"
-        per_series_aligner = "ALIGN_MEAN"
+        per_series_aligner = "ALIGN_MAX"
       }
     }
   }
@@ -186,6 +186,8 @@ resource "google_monitoring_dashboard" "samu_dashboard" {
       tiles = [
         # Request Count
         {
+          xPos   = 0
+          yPos   = 0
           width  = 6
           height = 4
           widget = {
@@ -208,6 +210,8 @@ resource "google_monitoring_dashboard" "samu_dashboard" {
 
         # Error Rate
         {
+          xPos   = 6
+          yPos   = 0
           width  = 6
           height = 4
           widget = {
@@ -230,6 +234,8 @@ resource "google_monitoring_dashboard" "samu_dashboard" {
 
         # Latency
         {
+          xPos   = 0
+          yPos   = 4
           width  = 6
           height = 4
           widget = {
@@ -253,6 +259,8 @@ resource "google_monitoring_dashboard" "samu_dashboard" {
 
         # Instance Count
         {
+          xPos   = 6
+          yPos   = 4
           width  = 6
           height = 4
           widget = {
