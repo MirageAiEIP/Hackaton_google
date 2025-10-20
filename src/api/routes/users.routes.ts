@@ -6,12 +6,13 @@ import { Role } from '@/domain/user/entities/User.entity.js';
 import { logger } from '@/utils/logger.js';
 
 // Type definitions for request bodies and queries
+// Note: Query parameters come as strings from URLs, even if they represent other types
 interface ListUsersQuery {
   role?: 'OPERATOR' | 'ADMIN';
-  isActive?: boolean;
+  isActive?: string; // Will be "true" or "false" as string from query param
   search?: string;
-  page?: number;
-  limit?: number;
+  page?: string; // Will be converted to number
+  limit?: string; // Will be converted to number
 }
 
 interface UpdateUserInput {
@@ -54,9 +55,14 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { role, isActive, search, page, limit } = request.query;
 
+        // Convert query params to correct types (query params are always strings)
+        const pageNum = page ? Number(page) : 1;
+        const limitNum = limit ? Number(limit) : 20;
+        const isActiveBool = isActive !== undefined ? isActive === 'true' : undefined;
+
         const result = await userService.listUsers(
-          { role, isActive, search },
-          { page: page || 1, limit: limit || 20 }
+          { role, isActive: isActiveBool, search },
+          { page: pageNum, limit: limitNum }
         );
 
         // Convert users to safe objects (exclude passwords)
