@@ -36,8 +36,8 @@ resource "google_cloud_run_v2_service" "samu_api" {
     service_account = google_service_account.cloud_run_sa.email
 
     containers {
-      # Image sera mise à jour par CI/CD
-      image = "europe-west1-docker.pkg.dev/${var.project_id}/samu-ai-triage/samu-ai-triage-${var.environment}:latest"
+      # Image placeholder, sera remplacée par CI/CD
+      image = "gcr.io/cloudrun/hello"
 
       ports {
         container_port = 3000
