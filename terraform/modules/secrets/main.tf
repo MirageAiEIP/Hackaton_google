@@ -17,6 +17,7 @@ locals {
     twilio-account-sid  = "Twilio Account SID"
     twilio-auth-token   = "Twilio Auth Token"
     twilio-phone-number = "Twilio Phone Number"
+    redis-url           = "Redis connection URL (Upstash)"
   }
 }
 
@@ -70,4 +71,8 @@ output "twilio_auth_token_name" {
 
 output "twilio_phone_number_name" {
   value = google_secret_manager_secret.secrets["twilio-phone-number"].secret_id
+}
+
+output "redis_url_name" {
+  value = google_secret_manager_secret.secrets["redis-url"].secret_id
 }

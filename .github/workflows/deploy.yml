@@ -114,6 +114,7 @@ jobs:
             --port 3000 \
             --set-env-vars NODE_ENV=${{ steps.vars.outputs.ENV }},LOG_LEVEL=info \
             --set-secrets DATABASE_URL=${{ steps.vars.outputs.ENV }}-database-url:latest \
+            --set-secrets REDIS_URL=${{ steps.vars.outputs.ENV }}-redis-url:latest \
             --set-secrets ELEVENLABS_API_KEY=${{ steps.vars.outputs.ENV }}-elevenlabs-api-key:latest \
             --set-secrets ELEVENLABS_AGENT_ID=${{ steps.vars.outputs.ENV }}-elevenlabs-agent-id:latest \
             --set-secrets GOOGLE_API_KEY=${{ steps.vars.outputs.ENV }}-google-api-key:latest \
