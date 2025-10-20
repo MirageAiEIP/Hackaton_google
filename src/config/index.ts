@@ -4,7 +4,7 @@ import { z } from 'zod';
 dotenv.config();
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default('3000'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   // Secrets loaded from Google Secret Manager (optional in .env)
@@ -41,6 +41,7 @@ const env = parseEnv();
 export const config = {
   env: env.NODE_ENV,
   isDevelopment: env.NODE_ENV === 'development',
+  isStaging: env.NODE_ENV === 'staging',
   isProduction: env.NODE_ENV === 'production',
   isTest: env.NODE_ENV === 'test',
 
