@@ -1,6 +1,34 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { createApp } from '@/server';
 import { FastifyInstance } from 'fastify';
+
+// Mock the Container
+vi.mock('@/infrastructure/di/Container', () => {
+  const mockAuthService = {
+    login: vi.fn(),
+    register: vi.fn(),
+    refreshAccessToken: vi.fn(),
+    logout: vi.fn(),
+    logoutAllDevices: vi.fn(),
+  };
+  const mockUserService = {
+    getUserById: vi.fn(),
+    listUsers: vi.fn(),
+    updateUser: vi.fn(),
+    deactivateUser: vi.fn(),
+    resetPassword: vi.fn(),
+    changePassword: vi.fn(),
+  };
+
+  return {
+    Container: {
+      getInstance: vi.fn(() => ({
+        getAuthService: vi.fn(() => mockAuthService),
+        getUserService: vi.fn(() => mockUserService),
+      })),
+    },
+  };
+});
 
 describe('Twilio Routes', () => {
   let app: FastifyInstance;
