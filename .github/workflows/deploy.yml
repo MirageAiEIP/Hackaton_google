@@ -122,19 +122,36 @@ jobs:
             --set-secrets TWILIO_AUTH_TOKEN=${{ steps.vars.outputs.ENV }}-twilio-auth-token:latest \
             --set-secrets TWILIO_PHONE_NUMBER=${{ steps.vars.outputs.ENV }}-twilio-phone-number:latest
 
+      - name: Install Cloud SQL Auth Proxy
+        run: |
+          wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
+          chmod +x cloud_sql_proxy
+
       - name: Run database migrations
         run: |
-          # Get database connection details
+          # Get database password
           DB_PASSWORD=$(gcloud secrets versions access latest \
             --secret="${{ steps.vars.outputs.ENV }}-database-password")
 
-          DB_HOST=$(gcloud sql instances describe samu-ai-db-${{ steps.vars.outputs.ENV }} \
-            --format="value(ipAddresses[0].ipAddress)")
+          # Get Cloud SQL connection name
+          CONNECTION_NAME=$(gcloud sql instances describe samu-ai-db-${{ steps.vars.outputs.ENV }} \
+            --format="value(connectionName)")
 
-          export DATABASE_URL="postgresql://samu_app:${DB_PASSWORD}@${DB_HOST}:5432/samu_triage"
+          # Start Cloud SQL Proxy in background
+          ./cloud_sql_proxy -instances=${CONNECTION_NAME}=tcp:5432 &
+          PROXY_PID=$!
+
+          # Wait for proxy to be ready
+          sleep 5
+
+          # Set DATABASE_URL for migrations
+          export DATABASE_URL="postgresql://samu_app:${DB_PASSWORD}@127.0.0.1:5432/samu_triage?sslmode=disable"
 
           # Run migrations
           npm run db:migrate:prod
+
+          # Stop proxy
+          kill $PROXY_PID
 
       - name: Health check
         run: |
