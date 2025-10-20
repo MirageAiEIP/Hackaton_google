@@ -2,6 +2,16 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { createApp } from '@/server';
 import { FastifyInstance } from 'fastify';
 
+// Mock Google Cloud Secret Manager
+vi.mock('@google-cloud/secret-manager', () => ({
+  SecretManagerServiceClient: vi.fn(() => ({
+    accessSecretVersion: vi.fn(),
+    getSecret: vi.fn(),
+    createSecret: vi.fn(),
+    addSecretVersion: vi.fn(),
+  })),
+}));
+
 // Mock the Container
 vi.mock('@/infrastructure/di/Container', () => {
   const mockAuthService = {
@@ -25,6 +35,8 @@ vi.mock('@/infrastructure/di/Container', () => {
       getInstance: vi.fn(() => ({
         getAuthService: vi.fn(() => mockAuthService),
         getUserService: vi.fn(() => mockUserService),
+        shutdown: vi.fn().mockResolvedValue(undefined),
+        initialize: vi.fn().mockResolvedValue(undefined),
       })),
     },
   };

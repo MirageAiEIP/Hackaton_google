@@ -3,6 +3,16 @@ import type { FastifyInstance } from 'fastify';
 
 import { createApp } from './server';
 
+// Mock Google Cloud Secret Manager
+vi.mock('@google-cloud/secret-manager', () => ({
+  SecretManagerServiceClient: vi.fn(() => ({
+    accessSecretVersion: vi.fn(),
+    getSecret: vi.fn(),
+    createSecret: vi.fn(),
+    addSecretVersion: vi.fn(),
+  })),
+}));
+
 vi.mock('@/utils/prisma', () => ({
   prisma: {
     $queryRaw: vi.fn(),
@@ -35,6 +45,8 @@ vi.mock('@/infrastructure/di/Container', () => {
       getInstance: vi.fn(() => ({
         getAuthService: vi.fn(() => mockAuthService),
         getUserService: vi.fn(() => mockUserService),
+        shutdown: vi.fn().mockResolvedValue(undefined),
+        initialize: vi.fn().mockResolvedValue(undefined),
       })),
     },
   };
