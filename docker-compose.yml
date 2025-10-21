@@ -28,10 +28,10 @@ services:
     container_name: samu-ai-backend
     restart: unless-stopped
     ports:
-      - '8000:8000'
+      - '8080:8080'
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      PORT: 8000
+      PORT: 8080
       # CORS origins for staging/production (comma-separated)
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       DATABASE_URL: postgresql://samu:samu_password@postgres:5432/samu_triage
@@ -79,7 +79,7 @@ services:
           '--no-verbose',
           '--tries=1',
           '--spider',
-          'http://localhost:8000/health/live',
+          'http://localhost:8080/health/live',
         ]
       interval: 30s
       timeout: 3s
