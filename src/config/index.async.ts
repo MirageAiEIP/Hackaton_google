@@ -17,6 +17,13 @@ const envSchema = z.object({
     .default('false'),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
   GCS_BUCKET_NAME: z.string().default('samu-ai-audio-files'),
+  JWT_ACCESS_TOKEN_EXPIRY: z.string().default('15m'),
+  JWT_REFRESH_TOKEN_EXPIRY: z.string().default('7d'),
+  COOKIE_DOMAIN: z.string().default('localhost'),
+  COOKIE_SECURE: z
+    .string()
+    .transform((val) => val === 'true')
+    .default('false'),
 });
 
 const parseEnv = (): z.infer<typeof envSchema> => {
@@ -50,6 +57,16 @@ interface AppConfig {
   security: {
     jwtSecret: string | undefined;
     encryptionKey: string | undefined;
+  };
+  jwt: {
+    accessTokenSecret: string;
+    refreshTokenSecret: string;
+    accessTokenExpiry: string;
+    refreshTokenExpiry: string;
+  };
+  cookie: {
+    domain: string;
+    secure: boolean;
   };
   rateLimit: {
     windowMs: number;
@@ -107,6 +124,18 @@ export async function loadConfig(): Promise<AppConfig> {
     security: {
       jwtSecret: secrets.jwtSecret,
       encryptionKey: secrets.encryptionKey,
+    },
+
+    jwt: {
+      accessTokenSecret: secrets.jwtAccessSecret,
+      refreshTokenSecret: secrets.jwtRefreshSecret,
+      accessTokenExpiry: env.JWT_ACCESS_TOKEN_EXPIRY,
+      refreshTokenExpiry: env.JWT_REFRESH_TOKEN_EXPIRY,
+    },
+
+    cookie: {
+      domain: env.COOKIE_DOMAIN,
+      secure: env.COOKIE_SECURE,
     },
 
     rateLimit: {

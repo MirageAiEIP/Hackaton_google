@@ -228,6 +228,9 @@ model Operator {
   // Current session
   currentCallId String?
 
+  // Auth relationship
+  user User?
+
   @@index([status])
   @@index([email])
   @@map("operators")
@@ -238,6 +241,11 @@ enum OperatorStatus {
   BUSY
   OFFLINE
   ON_BREAK
+}
+
+enum Role {
+  OPERATOR
+  ADMIN
 }
 
 enum DispatchStatus {
@@ -405,4 +413,36 @@ model ElevenLabsConversation {
   @@index([status])
   @@index([startTime])
   @@map("elevenlabs_conversations")
+}
+
+// ============================================================================
+// AUTHENTICATION & USER MANAGEMENT
+// ============================================================================
+
+model User {
+  id         String   @id @default(cuid())
+  employeeId String   @unique
+  fullName   String
+  password   String
+  role       Role     @default(OPERATOR)
+  isActive   Boolean  @default(true)
+
+  // Relations
+  operatorId String?   @unique
+  operator   Operator? @relation(fields: [operatorId], references: [id])
+
+  createdBy   String?
+  createdByUser User?  @relation("UserCreatedBy", fields: [createdBy], references: [id])
+  createdUsers User[] @relation("UserCreatedBy")
+
+  // Timestamps
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([role])
+  @@index([isActive])
+  @@index([createdBy])
+  @@map("users")
 }

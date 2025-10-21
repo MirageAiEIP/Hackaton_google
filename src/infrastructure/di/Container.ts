@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { Redis } from 'ioredis';
 import { RedisConfig } from '@/infrastructure/config/redis.config';
 import { RedisEventBus } from '@/infrastructure/messaging/RedisEventBus';
 import { RedisCacheService } from '@/infrastructure/caching/RedisCacheService';
@@ -6,7 +7,12 @@ import { PrismaCallRepository } from '@/infrastructure/repositories/PrismaCallRe
 import { PrismaOperatorRepository } from '@/infrastructure/repositories/PrismaOperatorRepository';
 import { PrismaQueueRepository } from '@/infrastructure/repositories/PrismaQueueRepository';
 import { PrismaHandoffRepository } from '@/infrastructure/repositories/PrismaHandoffRepository';
+import { PrismaUserRepository } from '@/infrastructure/repositories/PrismaUserRepository';
+import { RedisTokenStore } from '@/infrastructure/auth/RedisTokenStore';
+import { AuthService } from '@/services/auth.service';
+import { UserService } from '@/services/user.service';
 import { CallStartedHandler } from '@/application/events/CallStartedHandler';
+import { loadConfig } from '@/config/index.async';
 import { logger } from '@/utils/logger';
 
 /**
@@ -28,6 +34,14 @@ export class Container {
   private operatorRepository!: PrismaOperatorRepository;
   private queueRepository!: PrismaQueueRepository;
   private handoffRepository!: PrismaHandoffRepository;
+  private userRepository!: PrismaUserRepository;
+
+  // Auth Infrastructure
+  private tokenStore!: RedisTokenStore;
+
+  // Services
+  private authService!: AuthService;
+  private userService!: UserService;
 
   // Event Handlers
   private callStartedHandler!: CallStartedHandler;
@@ -59,7 +73,10 @@ export class Container {
       // 2. Initialize repositories
       this.initializeRepositories();
 
-      // 3. Initialize event handlers
+      // 3. Initialize services
+      await this.initializeServices();
+
+      // 4. Initialize event handlers
       await this.initializeEventHandlers();
 
       this.initialized = true;
@@ -95,6 +112,33 @@ export class Container {
     this.operatorRepository = new PrismaOperatorRepository(this.prisma);
     this.queueRepository = new PrismaQueueRepository(this.prisma);
     this.handoffRepository = new PrismaHandoffRepository(this.prisma);
+    this.userRepository = new PrismaUserRepository(this.prisma);
+
+    // Auth infrastructure - create separate Redis client for token store
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    const redisClient = new Redis(redisUrl);
+    this.tokenStore = new RedisTokenStore(redisClient);
+  }
+
+  /**
+   * Initialize services
+   */
+  private async initializeServices(): Promise<void> {
+    const config = await loadConfig();
+
+    this.authService = new AuthService(
+      this.userRepository,
+      this.tokenStore,
+      this.eventBus,
+      config.jwt.accessTokenSecret,
+      config.jwt.refreshTokenSecret,
+      config.jwt.accessTokenExpiry,
+      config.jwt.refreshTokenExpiry
+    );
+
+    this.userService = new UserService(this.userRepository);
+
+    logger.info('Services initialized');
   }
 
   /**
@@ -146,6 +190,26 @@ export class Container {
   getHandoffRepository(): PrismaHandoffRepository {
     this.ensureInitialized();
     return this.handoffRepository;
+  }
+
+  getUserRepository(): PrismaUserRepository {
+    this.ensureInitialized();
+    return this.userRepository;
+  }
+
+  getTokenStore(): RedisTokenStore {
+    this.ensureInitialized();
+    return this.tokenStore;
+  }
+
+  getAuthService(): AuthService {
+    this.ensureInitialized();
+    return this.authService;
+  }
+
+  getUserService(): UserService {
+    this.ensureInitialized();
+    return this.userService;
   }
 
   /**

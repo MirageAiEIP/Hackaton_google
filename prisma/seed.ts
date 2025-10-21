@@ -1,9 +1,35 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
   console.log('🌱 Starting database seeding...');
+
+  // Seed Default Admin User
+  console.log('👤 Seeding default admin user...');
+
+  const adminExists = await prisma.user.findUnique({
+    where: { employeeId: 'ADMIN001' },
+  });
+
+  if (!adminExists) {
+    const hashedPassword = await bcrypt.hash('Admin123!', 12);
+
+    await prisma.user.create({
+      data: {
+        employeeId: 'ADMIN001',
+        fullName: 'System Administrator',
+        password: hashedPassword,
+        role: 'ADMIN',
+        isActive: true,
+      },
+    });
+
+    console.log('✅ Default admin user created (ADMIN001 / Admin123!)');
+  } else {
+    console.log('ℹ️  Default admin user already exists');
+  }
 
   // Seed Medical Knowledge Base
   console.log('📚 Seeding medical knowledge...');

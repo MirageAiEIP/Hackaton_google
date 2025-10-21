@@ -7,11 +7,13 @@ import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
 import formbody from '@fastify/formbody';
 import websocket from '@fastify/websocket';
+import cookie from '@fastify/cookie';
 
 import { config } from '@/config';
 import { logger } from '@/utils/logger';
 import { testDatabaseConnection, prisma } from '@/utils/prisma';
 import { Container } from '@/infrastructure/di/Container';
+import { getCorsConfig } from '@/config/cors.config';
 import { RealtimeDashboardGateway } from '@/presentation/websocket/RealtimeDashboard.gateway';
 import { twilioRoutes } from '@/api/routes/twilio.routes';
 import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
@@ -20,6 +22,8 @@ import { callsRoutes } from '@/api/routes/calls.routes';
 import { operatorsRoutes } from '@/api/routes/operators.routes';
 import { toolsRoutes } from '@/api/routes/tools.routes';
 import { handoffRoutes } from '@/api/routes/handoff.routes';
+import { authRoutes } from '@/api/routes/auth.routes';
+import { usersRoutes } from '@/api/routes/users.routes';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 
@@ -41,6 +45,9 @@ async function setupServer() {
   // Support for application/x-www-form-urlencoded (Twilio webhooks)
   await app.register(formbody);
 
+  // Cookie support for refresh tokens
+  await app.register(cookie);
+
   await app.register(rateLimit, {
     max: config.rateLimit.maxRequests,
     timeWindow: config.rateLimit.windowMs,
@@ -56,9 +63,9 @@ async function setupServer() {
     }),
   });
 
-  await app.register(cors, {
-    origin: true,
-  });
+  // Register CORS with environment-specific configuration
+  const corsConfig = getCorsConfig(config.env);
+  await app.register(cors, corsConfig);
 
   // Register WebSocket support
   await app.register(websocket);
@@ -78,24 +85,25 @@ async function setupServer() {
       ],
       tags: [
         { name: 'health', description: 'Health check endpoints' },
+        { name: 'Authentication', description: 'User authentication and authorization' },
+        { name: 'User Management', description: 'User management (Admin only)' },
         { name: 'twilio', description: 'Twilio webhook endpoints for phone calls' },
         { name: 'calls', description: 'Emergency call management' },
       ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+        },
+      },
     },
-  });
-
-  await app.register(swaggerUi, {
-    routePrefix: '/docs',
-    uiConfig: {
-      docExpansion: 'list',
-      deepLinking: true,
-    },
-    staticCSP: true,
-    transformStaticCSP: (header) => header,
   });
 
   // Serve static files (frontend de test)
-  // MUST be registered before API routes but after Swagger
+  // MUST be registered after Swagger but before routes
   const publicPath = path.join(process.cwd(), 'public');
   logger.info('📁 Serving static files', { publicPath, prefix: '/test/' });
 
@@ -260,6 +268,12 @@ async function setupServer() {
     }
   );
 
+  // Register authentication routes
+  await app.register(authRoutes, { prefix: '/api/v1/auth' });
+
+  // Register user management routes
+  await app.register(usersRoutes, { prefix: '/api/v1/users' });
+
   // Register Twilio webhook routes for ElevenLabs + Twilio integration
   await app.register(twilioRoutes, { prefix: '/api/v1/twilio' });
 
@@ -284,6 +298,17 @@ async function setupServer() {
       return { error: 'Dashboard gateway not initialized' };
     }
     return dashboardGateway.getStats();
+  });
+
+  // Register Swagger UI AFTER all routes are registered
+  await app.register(swaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: {
+      docExpansion: 'list',
+      deepLinking: true,
+    },
+    staticCSP: true,
+    transformStaticCSP: (header) => header,
   });
 
   app.setNotFoundHandler((_, reply) => {
