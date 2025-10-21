@@ -64,6 +64,8 @@ services:
       PUBLIC_API_URL: ${PUBLIC_API_URL}
     env_file:
       - .env
+    volumes:
+      - ./logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
