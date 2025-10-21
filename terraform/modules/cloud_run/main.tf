@@ -40,7 +40,7 @@ resource "google_cloud_run_v2_service" "samu_api" {
       image = "gcr.io/cloudrun/hello"
 
       ports {
-        container_port = 3000
+        container_port = 8080
         name           = "http1"
       }
 
@@ -140,11 +140,22 @@ resource "google_cloud_run_v2_service" "samu_api" {
         }
       }
 
+      # Redis (secret)
+      env {
+        name = "REDIS_URL"
+        value_source {
+          secret_key_ref {
+            secret  = "${var.environment}-redis-url"
+            version = "latest"
+          }
+        }
+      }
+
       # Liveness probe
       liveness_probe {
         http_get {
           path = "/health/live"
-          port = 3000
+          port = 8080
         }
         initial_delay_seconds = 10
         timeout_seconds       = 3
@@ -156,7 +167,7 @@ resource "google_cloud_run_v2_service" "samu_api" {
       startup_probe {
         http_get {
           path = "/health/ready"
-          port = 3000
+          port = 8080
         }
         initial_delay_seconds = 5
         timeout_seconds       = 3
