@@ -62,6 +62,11 @@ resource "google_cloud_run_v2_service" "samu_api" {
       }
 
       env {
+        name  = "PORT"
+        value = "8080"
+      }
+
+      env {
         name  = "LOG_LEVEL"
         value = var.environment == "production" ? "info" : "debug"
       }
@@ -135,6 +140,17 @@ resource "google_cloud_run_v2_service" "samu_api" {
         value_source {
           secret_key_ref {
             secret  = "${var.environment}-twilio-phone-number"
+            version = "latest"
+          }
+        }
+      }
+
+      # Redis (secret)
+      env {
+        name = "REDIS_URL"
+        value_source {
+          secret_key_ref {
+            secret  = "${var.environment}-redis-url"
             version = "latest"
           }
         }
