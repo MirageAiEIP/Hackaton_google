@@ -1,4 +1,3 @@
-
 services:
   # PostgreSQL Database
   postgres:
@@ -14,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U samu']
+      test: ['CMD-SHELL', 'pg_isready -U samu -d samu_triage']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,10 +28,12 @@ services:
     container_name: samu-ai-backend
     restart: unless-stopped
     ports:
-      - '3000:3000'
+      - '8000:8000'
     environment:
-      NODE_ENV: development
-      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 8000
+      # CORS origins for staging/production (comma-separated)
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       DATABASE_URL: postgresql://samu:samu_password@postgres:5432/samu_triage
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: info
@@ -44,7 +45,15 @@ services:
       # Google Cloud
       GCP_PROJECT_ID: ${GCP_PROJECT_ID}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
-      USE_SECRET_MANAGER: true
+      USE_SECRET_MANAGER: false
+      # JWT tokens
+      JWT_ACCESS_TOKEN_SECRET: ${JWT_ACCESS_TOKEN_SECRET}
+      JWT_REFRESH_TOKEN_SECRET: ${JWT_REFRESH_TOKEN_SECRET}
+      JWT_ACCESS_TOKEN_EXPIRY: ${JWT_ACCESS_TOKEN_EXPIRY:-15m}
+      JWT_REFRESH_TOKEN_EXPIRY: ${JWT_REFRESH_TOKEN_EXPIRY:-7d}
+      # Cookie configuration
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-localhost}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # Twilio
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
@@ -53,6 +62,8 @@ services:
       ELEVENLABS_AGENT_ID: ${ELEVENLABS_AGENT_ID}
       # Public URL for webhooks
       PUBLIC_API_URL: ${PUBLIC_API_URL}
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,7 +72,15 @@ services:
     networks:
       - samu-network
     healthcheck:
-      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health/live']
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:8000/health/live',
+        ]
       interval: 30s
       timeout: 3s
       retries: 3

@@ -29,8 +29,8 @@ FROM node:20-alpine AS runner
 RUN apk add --no-cache dumb-init openssl
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV PORT=8080
+ENV NODE_ENV=development
+ENV PORT=8000
 
 # Security: non-root user
 RUN addgroup --system --gid 1001 nodejs && \
@@ -42,7 +42,6 @@ COPY --from=builder --chown=samuai:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=samuai:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=samuai:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=samuai:nodejs /app/public ./public
-COPY --from=builder --chown=samuai:nodejs /app/config ./config
 
 USER samuai
 

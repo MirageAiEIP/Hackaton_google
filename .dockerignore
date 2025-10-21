@@ -5,7 +5,7 @@ coverage
 .git
 .github
 .env*
-!.env.example
+!.env
 .vscode
 .idea
 *.md
