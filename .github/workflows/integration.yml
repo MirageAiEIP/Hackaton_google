@@ -243,34 +243,8 @@ jobs:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    needs: [setup, test-unit, test-coverage]
+    needs: [setup]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Restore node_modules cache
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            node-modules-${{ runner.os }}-
-
-      - name: Generate Prisma Client
-        run: npm run db:generate
-
-      - name: Run tests with coverage
-        run: npm run test:coverage
-        env:
-          NODE_ENV: test
-
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
