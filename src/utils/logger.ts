@@ -40,7 +40,9 @@ const winstonLogger = winston.createLogger({
   ],
 });
 
-if (config.isProduction) {
+// File logging disabled in production (Cloud Run captures stdout/stderr automatically)
+// Only log to files in development for local debugging
+if (config.isDevelopment) {
   winstonLogger.add(
     new winston.transports.File({
       filename: 'logs/error.log',
