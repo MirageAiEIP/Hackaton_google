@@ -135,6 +135,26 @@ resource "google_secret_manager_secret_version" "db_password" {
   secret_data = random_password.db_password.result
 }
 
+# Store DATABASE_URL in Secret Manager (for Cloud Run)
+resource "google_secret_manager_secret" "database_url" {
+  secret_id = "${var.environment}-database-url"
+  project   = var.project_id
+
+  labels = {
+    environment = var.environment
+    managed_by  = "terraform"
+  }
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "database_url" {
+  secret      = google_secret_manager_secret.database_url.id
+  secret_data = "postgresql://${google_sql_user.db_user.name}:${urlencode(random_password.db_password.result)}@${google_sql_database_instance.postgres.public_ip_address}:5432/${google_sql_database.samu_db.name}?sslmode=require"
+}
+
 # Outputs
 output "connection_name" {
   value       = google_sql_database_instance.postgres.connection_name
@@ -158,4 +178,9 @@ output "database_url" {
   value       = "postgresql://${google_sql_user.db_user.name}:${random_password.db_password.result}@${google_sql_database_instance.postgres.public_ip_address}:5432/${google_sql_database.samu_db.name}?sslmode=require"
   sensitive   = true
   description = "Full DATABASE_URL connection string"
+}
+
+output "database_url_secret_name" {
+  value       = google_secret_manager_secret.database_url.secret_id
+  description = "Secret Manager name for DATABASE_URL"
 }
