@@ -8,11 +8,6 @@ on:
     branches:
       - '**'
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-
 jobs:
   # Setup job - installs dependencies once and caches them
   setup:
@@ -259,23 +254,6 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: Comment PR with SonarCloud results
-        uses: actions/github-script@v7
-        if: always()
-        with:
-          script: |
-            const projectKey = 'BitBricoleurs_backend-google-hackathon';
-            const org = 'bitbricoleurs';
-            const prNumber = context.payload.pull_request.number;
-            const sonarUrl = `https://sonarcloud.io/dashboard?id=${projectKey}&pullRequest=${prNumber}`;
-
-            github.rest.issues.createComment({
-              issue_number: prNumber,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## SonarCloud Analysis Complete\n\n[View detailed analysis results on SonarCloud](${sonarUrl})`
-            });
 
   build:
     name: Build Application
