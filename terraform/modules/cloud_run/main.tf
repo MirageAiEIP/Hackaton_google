@@ -62,11 +62,6 @@ resource "google_cloud_run_v2_service" "samu_api" {
       }
 
       env {
-        name  = "PORT"
-        value = "8080"
-      }
-
-      env {
         name  = "LOG_LEVEL"
         value = var.environment == "production" ? "info" : "debug"
       }
