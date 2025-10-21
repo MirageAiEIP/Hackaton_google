@@ -98,29 +98,17 @@ jobs:
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:${{ github.sha }}
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:latest
 
+      # Deploy to Cloud Run
+      # Note: Terraform gère l'infrastructure (scaling, resources, permissions)
+      # GitHub Actions met à jour SEULEMENT l'image Docker et les secrets
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ steps.vars.outputs.SERVICE_NAME }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.REGION }} \
-            --allow-unauthenticated \
-            --min-instances ${{ steps.vars.outputs.MIN_INSTANCES }} \
-            --max-instances ${{ steps.vars.outputs.MAX_INSTANCES }} \
-            --cpu ${{ steps.vars.outputs.CPU }} \
-            --memory ${{ steps.vars.outputs.MEMORY }} \
-            --timeout 300s \
-            --concurrency 80 \
-            --port 3000 \
-            --set-env-vars NODE_ENV=${{ steps.vars.outputs.ENV }},LOG_LEVEL=info \
-            --set-secrets DATABASE_URL=${{ steps.vars.outputs.ENV }}-database-url:latest \
-            --set-secrets REDIS_URL=${{ steps.vars.outputs.ENV }}-redis-url:latest \
-            --set-secrets ELEVENLABS_API_KEY=${{ steps.vars.outputs.ENV }}-elevenlabs-api-key:latest \
-            --set-secrets ELEVENLABS_AGENT_ID=${{ steps.vars.outputs.ENV }}-elevenlabs-agent-id:latest \
-            --set-secrets GOOGLE_API_KEY=${{ steps.vars.outputs.ENV }}-google-api-key:latest \
-            --set-secrets TWILIO_ACCOUNT_SID=${{ steps.vars.outputs.ENV }}-twilio-account-sid:latest \
-            --set-secrets TWILIO_AUTH_TOKEN=${{ steps.vars.outputs.ENV }}-twilio-auth-token:latest \
-            --set-secrets TWILIO_PHONE_NUMBER=${{ steps.vars.outputs.ENV }}-twilio-phone-number:latest
+            --update-env-vars NODE_ENV=${{ steps.vars.outputs.ENV }},LOG_LEVEL=info \
+            --update-secrets DATABASE_URL=${{ steps.vars.outputs.ENV }}-database-url:latest,REDIS_URL=${{ steps.vars.outputs.ENV }}-redis-url:latest,ELEVENLABS_API_KEY=${{ steps.vars.outputs.ENV }}-elevenlabs-api-key:latest,ELEVENLABS_AGENT_ID=${{ steps.vars.outputs.ENV }}-elevenlabs-agent-id:latest,GOOGLE_API_KEY=${{ steps.vars.outputs.ENV }}-google-api-key:latest,TWILIO_ACCOUNT_SID=${{ steps.vars.outputs.ENV }}-twilio-account-sid:latest,TWILIO_AUTH_TOKEN=${{ steps.vars.outputs.ENV }}-twilio-auth-token:latest,TWILIO_PHONE_NUMBER=${{ steps.vars.outputs.ENV }}-twilio-phone-number:latest
 
       - name: Install Cloud SQL Auth Proxy
         run: |
