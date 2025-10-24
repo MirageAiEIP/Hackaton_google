@@ -5,7 +5,7 @@ import { loadSecrets } from './secrets.config';
 dotenv.config();
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default('3000'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   RATE_LIMIT_WINDOW_MS: z.string().transform(Number).default('60000'),
@@ -43,6 +43,7 @@ const env = parseEnv();
 interface AppConfig {
   env: string;
   isDevelopment: boolean;
+  isStaging: boolean;
   isProduction: boolean;
   isTest: boolean;
   server: { port: number };
@@ -99,6 +100,7 @@ export async function loadConfig(): Promise<AppConfig> {
   configCache = {
     env: env.NODE_ENV,
     isDevelopment: env.NODE_ENV === 'development',
+    isStaging: env.NODE_ENV === 'staging',
     isProduction: env.NODE_ENV === 'production',
     isTest: env.NODE_ENV === 'test',
 
