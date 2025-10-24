@@ -44,12 +44,16 @@ export class QueueDashboardGateway {
       const container = Container.getInstance();
       const eventBus = container.getEventBus();
 
-      await eventBus.subscribe('QueueEntryAddedEvent', (event) =>
-        this.handleQueueEntryAdded(event as QueueEntryAddedEvent)
-      );
-      await eventBus.subscribe('QueueEntryStatusChangedEvent', (event) =>
-        this.handleQueueEntryStatusChanged(event as QueueEntryStatusChangedEvent)
-      );
+      await eventBus.subscribe('QueueEntryAddedEvent', {
+        handle: async (event) => {
+          await this.handleQueueEntryAdded(event as QueueEntryAddedEvent);
+        },
+      });
+      await eventBus.subscribe('QueueEntryStatusChangedEvent', {
+        handle: async (event) => {
+          await this.handleQueueEntryStatusChanged(event as QueueEntryStatusChangedEvent);
+        },
+      });
 
       logger.info('QueueDashboardGateway initialized', {
         connectedClients: this.connections.size,
