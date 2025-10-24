@@ -10,12 +10,10 @@ datasource db {
 }
 
 enum PriorityLevel {
-  P0
-  P1
-  P2
-  P3
-  P4
-  P5
+  P0 // Urgence absolue
+  P1 // Urgence vitale
+  P2 // Urgence
+  P3 // Conseil médical
 }
 
 enum CallStatus {
@@ -74,6 +72,16 @@ model Call {
   symptoms          Symptom[]
   redFlags          RedFlag[]
 
+  // NEW: Priorité définie par l'agent (P0-P3)
+  priority       PriorityLevel?
+  priorityReason String?        @db.Text
+
+  // NEW: Informations de l'appel actuel
+  chiefComplaint  String? @db.Text // Motif d'appel
+  currentSymptoms String? @db.Text // Symptômes détaillés actuels
+  vitalSigns      Json? // Signes vitaux actuels
+  contextInfo     Json? // Contexte symptômes (durée, évolution, etc.)
+
   // Relations avec les nouvelles tables
   dispatch               Dispatch?
   queueEntry             QueueEntry?
@@ -81,6 +89,7 @@ model Call {
   elevenLabsConversation ElevenLabsConversation?
 
   @@index([status])
+  @@index([priority])
   @@index([createdAt])
   @@index([patientId])
   @@map("calls")
@@ -420,20 +429,20 @@ model ElevenLabsConversation {
 // ============================================================================
 
 model User {
-  id         String   @id @default(cuid())
-  employeeId String   @unique
+  id         String  @id @default(cuid())
+  employeeId String  @unique
   fullName   String
   password   String
-  role       Role     @default(OPERATOR)
-  isActive   Boolean  @default(true)
+  role       Role    @default(OPERATOR)
+  isActive   Boolean @default(true)
 
   // Relations
   operatorId String?   @unique
   operator   Operator? @relation(fields: [operatorId], references: [id])
 
-  createdBy   String?
-  createdByUser User?  @relation("UserCreatedBy", fields: [createdBy], references: [id])
-  createdUsers User[] @relation("UserCreatedBy")
+  createdBy     String?
+  createdByUser User?   @relation("UserCreatedBy", fields: [createdBy], references: [id])
+  createdUsers  User[]  @relation("UserCreatedBy")
 
   // Timestamps
   lastLoginAt DateTime?
