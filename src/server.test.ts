@@ -3,6 +3,16 @@ import type { FastifyInstance } from 'fastify';
 
 import { createApp } from './server';
 
+// Mock Google Cloud Secret Manager
+vi.mock('@google-cloud/secret-manager', () => ({
+  SecretManagerServiceClient: vi.fn(() => ({
+    accessSecretVersion: vi.fn(),
+    getSecret: vi.fn(),
+    createSecret: vi.fn(),
+    addSecretVersion: vi.fn(),
+  })),
+}));
+
 vi.mock('@/utils/prisma', () => ({
   prisma: {
     $queryRaw: vi.fn(),
@@ -11,6 +21,36 @@ vi.mock('@/utils/prisma', () => ({
   },
   testDatabaseConnection: vi.fn().mockResolvedValue(true),
 }));
+
+// Mock the Container
+vi.mock('@/infrastructure/di/Container', () => {
+  const mockAuthService = {
+    login: vi.fn(),
+    register: vi.fn(),
+    refreshAccessToken: vi.fn(),
+    logout: vi.fn(),
+    logoutAllDevices: vi.fn(),
+  };
+  const mockUserService = {
+    getUserById: vi.fn(),
+    listUsers: vi.fn(),
+    updateUser: vi.fn(),
+    deactivateUser: vi.fn(),
+    resetPassword: vi.fn(),
+    changePassword: vi.fn(),
+  };
+
+  return {
+    Container: {
+      getInstance: vi.fn(() => ({
+        getAuthService: vi.fn(() => mockAuthService),
+        getUserService: vi.fn(() => mockUserService),
+        shutdown: vi.fn().mockResolvedValue(undefined),
+        initialize: vi.fn().mockResolvedValue(undefined),
+      })),
+    },
+  };
+});
 
 describe('Fastify Server', () => {
   let app: FastifyInstance;

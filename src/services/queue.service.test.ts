@@ -35,6 +35,18 @@ vi.mock('@/utils/prisma', () => ({
   },
 }));
 
+// Mock Container
+vi.mock('@/infrastructure/di/Container', () => ({
+  Container: {
+    getInstance: vi.fn(() => ({
+      getEventBus: vi.fn(() => ({
+        publish: vi.fn().mockResolvedValue(undefined),
+        subscribe: vi.fn(),
+      })),
+    })),
+  },
+}));
+
 describe('QueueService', () => {
   let queueService: QueueService;
 
@@ -91,11 +103,11 @@ describe('QueueService', () => {
       });
     });
 
-    it.skip('should add P3 call to queue', async () => {
+    it.skip('should add P2 call to queue', async () => {
       const mockQueue: Queue = {
         id: 'queue_456',
         callId: 'call_456',
-        priority: 'P3' as PriorityLevel,
+        priority: 'P2' as PriorityLevel,
         chiefComplaint: 'Fièvre persistante',
         aiSummary: 'Enfant 3 ans avec fièvre 39°C depuis 2 jours',
         aiRecommendation: 'Avis médical nécessaire',
@@ -115,39 +127,97 @@ describe('QueueService', () => {
 
       const result = await queueService.addToQueue({
         callId: 'call_456',
-        priority: 'P3',
+        priority: 'P2',
         chiefComplaint: 'Fièvre persistante',
         aiSummary: 'Enfant 3 ans avec fièvre 39°C depuis 2 jours',
         aiRecommendation: 'Avis médical nécessaire',
         keySymptoms: ['fever', 'fatigue'],
       });
 
-      expect(result.priority).toBe('P3');
+      expect(result.priority).toBe('P2');
       expect(result.status).toBe('WAITING');
     });
 
-    it('should throw error for P0/P1 priority (should be dispatched)', async () => {
-      await expect(
-        queueService.addToQueue({
-          callId: 'call_789',
-          priority: 'P0',
-          chiefComplaint: 'Arrêt cardiaque',
-          aiSummary: 'Emergency',
-          aiRecommendation: 'Dispatch SMUR',
-        })
-      ).rejects.toThrow('P0 and P1 should be dispatched immediately, not queued');
+    it('should accept P0 priority (can be queued if no operator)', async () => {
+      const mockQueue: Queue = {
+        id: 'queue_789',
+        callId: 'call_789',
+        priority: 'P0' as PriorityLevel,
+        chiefComplaint: 'Arrêt cardiaque',
+        aiSummary: 'Emergency',
+        aiRecommendation: 'Dispatch SMUR',
+        keySymptoms: ['unconscious', 'not breathing'],
+        redFlags: [],
+        status: 'WAITING',
+        waitingSince: new Date(),
+        addedAt: new Date(),
+        claimedAt: null,
+        claimedBy: null,
+        completedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      vi.mocked(prisma.queueEntry.create).mockResolvedValue(mockQueue);
+
+      const result = await queueService.addToQueue({
+        callId: 'call_789',
+        priority: 'P0',
+        chiefComplaint: 'Arrêt cardiaque',
+        aiSummary: 'Emergency',
+        aiRecommendation: 'Dispatch SMUR',
+        keySymptoms: ['unconscious', 'not breathing'],
+      });
+
+      expect(result.priority).toBe('P0');
+      expect(result.status).toBe('WAITING');
     });
 
-    it('should throw error for P5 priority (should be advised)', async () => {
+    it('should accept P1 priority (can be queued if no operator)', async () => {
+      const mockQueue: Queue = {
+        id: 'queue_790',
+        callId: 'call_790',
+        priority: 'P1' as PriorityLevel,
+        chiefComplaint: 'Douleur thoracique sévère',
+        aiSummary: 'Suspicion SCA',
+        aiRecommendation: 'Urgent',
+        keySymptoms: ['chest pain', 'sweating'],
+        redFlags: [],
+        status: 'WAITING',
+        waitingSince: new Date(),
+        addedAt: new Date(),
+        claimedAt: null,
+        claimedBy: null,
+        completedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      vi.mocked(prisma.queueEntry.create).mockResolvedValue(mockQueue);
+
+      const result = await queueService.addToQueue({
+        callId: 'call_790',
+        priority: 'P1',
+        chiefComplaint: 'Douleur thoracique sévère',
+        aiSummary: 'Suspicion SCA',
+        aiRecommendation: 'Urgent',
+        keySymptoms: ['chest pain', 'sweating'],
+      });
+
+      expect(result.priority).toBe('P1');
+      expect(result.status).toBe('WAITING');
+    });
+
+    it('should throw error for P3 priority (should receive direct advice)', async () => {
       await expect(
         queueService.addToQueue({
           callId: 'call_999',
-          priority: 'P5',
+          priority: 'P3',
           chiefComplaint: 'Question médicale',
           aiSummary: 'Simple question',
           aiRecommendation: 'Conseil donné',
         })
-      ).rejects.toThrow('P5 should receive direct advice, not be queued');
+      ).rejects.toThrow('P3 should receive direct advice from Agent 1, not be queued');
     });
   });
 
@@ -176,8 +246,8 @@ describe('QueueService', () => {
         {
           id: 'queue_2',
           callId: 'call_2',
-          priority: 'P3' as PriorityLevel,
-          chiefComplaint: 'Semi-urgent case',
+          priority: 'P1' as PriorityLevel,
+          chiefComplaint: 'Vital emergency case',
           aiSummary: 'Summary 2',
           aiRecommendation: 'Recommendation 2',
           keySymptoms: ['symptom2'],
