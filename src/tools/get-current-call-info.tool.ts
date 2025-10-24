@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { callService } from '@/services/call.service';
 import { logger } from '@/utils/logger';
 import { executeGetPatientHistory } from '@/tools/get-patient-history.tool';
+import { TwilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 
 /**
  * ElevenLabs Client Tool: get_current_call_info
@@ -11,10 +12,14 @@ import { executeGetPatientHistory } from '@/tools/get-patient-history.tool';
  *
  * USAGE: Les agents doivent TOUJOURS appeler ce tool en premier
  * au début de la conversation pour récupérer le contexte.
+ *
+ * NOTE: ElevenLabs envoie automatiquement `conversation_id` dans les webhooks.
+ * Le tool résout automatiquement le callId depuis le conversationId.
  */
 
 export const getCurrentCallInfoSchema = z.object({
-  callId: z.string().describe("ID de l'appel en cours"),
+  callId: z.string().optional().describe("ID de l'appel en cours"),
+  conversation_id: z.string().optional().describe('ID de conversation ElevenLabs'),
 });
 
 export type GetCurrentCallInfoInput = z.infer<typeof getCurrentCallInfoSchema>;
@@ -59,16 +64,34 @@ export interface GetCurrentCallInfoResponse {
 export async function executeGetCurrentCallInfo(
   input: GetCurrentCallInfoInput
 ): Promise<GetCurrentCallInfoResponse> {
-  logger.info('Executing tool: get_current_call_info', { callId: input.callId });
+  // Résoudre le callId depuis conversationId si nécessaire
+  let callId = input.callId;
+
+  if (!callId && input.conversation_id) {
+    callId = TwilioElevenLabsProxyService.getCallIdFromConversation(input.conversation_id);
+    logger.info('Resolved callId from conversationId', {
+      conversationId: input.conversation_id,
+      callId,
+    });
+  }
+
+  if (!callId) {
+    return {
+      success: false,
+      message: 'callId ou conversation_id requis',
+    };
+  }
+
+  logger.info('Executing tool: get_current_call_info', { callId });
 
   try {
     // Récupérer l'appel avec patient + historique
-    const call = await callService.getCallById(input.callId);
+    const call = await callService.getCallById(callId);
 
     if (!call) {
       return {
         success: false,
-        message: `Appel ${input.callId} non trouvé`,
+        message: `Appel ${callId} non trouvé`,
       };
     }
 

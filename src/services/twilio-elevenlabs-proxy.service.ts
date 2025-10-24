@@ -39,6 +39,9 @@ export class TwilioElevenLabsProxyService {
     }
   >();
 
+  // Global mapping: conversationId → callId (pour les tools ElevenLabs)
+  private static conversationToCallMap = new Map<string, string>();
+
   private async initialize(): Promise<void> {
     if (this.initialized) {
       return;
@@ -54,6 +57,22 @@ export class TwilioElevenLabsProxyService {
 
     this.initialized = true;
     logger.info('Twilio-ElevenLabs Proxy Service initialized');
+  }
+
+  /**
+   * Méthode statique pour récupérer le callId depuis un conversationId
+   * Utilisée par les tools ElevenLabs qui reçoivent conversationId dans les webhooks
+   */
+  static getCallIdFromConversation(conversationId: string): string | undefined {
+    return this.conversationToCallMap.get(conversationId);
+  }
+
+  /**
+   * Stocker le mapping conversationId → callId
+   */
+  private storeConversationMapping(conversationId: string, callId: string): void {
+    TwilioElevenLabsProxyService.conversationToCallMap.set(conversationId, callId);
+    logger.info('Stored conversation mapping', { conversationId, callId });
   }
 
   /**
@@ -90,6 +109,11 @@ export class TwilioElevenLabsProxyService {
             type: message.type,
             callSid,
           });
+
+          // Capturer le conversation_id d'ElevenLabs et le mapper au callId
+          if (message.conversation_id && callId) {
+            this.storeConversationMapping(message.conversation_id, callId);
+          }
 
           // Forward audio to Twilio
           if (message.type === 'audio' && message.audio_event) {
@@ -156,6 +180,22 @@ export class TwilioElevenLabsProxyService {
             });
             callId = call.id;
             logger.info('Call created from Twilio stream', { callId, streamSid });
+
+            // Envoyer le callId à ElevenLabs via conversation_initiation_client_data
+            if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
+              elevenLabsWs.send(
+                JSON.stringify({
+                  type: 'conversation_initiation_client_data',
+                  custom_llm_extra_body: {
+                    callId: callId, // Accessible dans tous les tools
+                  },
+                })
+              );
+              logger.info('Sent conversation_initiation_client_data to ElevenLabs', {
+                callId,
+                callSid,
+              });
+            }
           }
         }
 
@@ -237,14 +277,20 @@ export class TwilioElevenLabsProxyService {
       elevenLabsWs.on('open', () => {
         logger.info('ElevenLabs WebSocket connected for web conversation', { sessionId });
 
-        // Envoyer le message d'initialisation à ElevenLabs (selon la doc)
+        // Envoyer le message d'initialisation à ElevenLabs avec callId
         elevenLabsWs!.send(
           JSON.stringify({
             type: 'conversation_initiation_client_data',
+            custom_llm_extra_body: {
+              callId: callId, // Accessible dans tous les tools
+            },
           })
         );
 
-        logger.info('Sent conversation_initiation_client_data to ElevenLabs', { sessionId });
+        logger.info('Sent conversation_initiation_client_data to ElevenLabs', {
+          sessionId,
+          callId,
+        });
 
         // Store active session for potential operator takeover
         if (sessionId && callId) {
@@ -276,6 +322,11 @@ export class TwilioElevenLabsProxyService {
             type: message.type,
             sessionId,
           });
+
+          // Capturer le conversation_id d'ElevenLabs et le mapper au callId
+          if (message.conversation_id && callId) {
+            this.storeConversationMapping(message.conversation_id, callId);
+          }
 
           // Gérer les ping events (keep-alive)
           if (message.type === 'ping' && message.ping_event) {

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { callService } from '@/services/call.service';
 import { logger } from '@/utils/logger';
+import { TwilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 
 /**
  * ElevenLabs Client Tool: update_call_info
@@ -18,7 +19,8 @@ import { logger } from '@/utils/logger';
  */
 
 export const updateCallInfoSchema = z.object({
-  callId: z.string().describe("ID de l'appel"),
+  callId: z.string().optional().describe("ID de l'appel"),
+  conversation_id: z.string().optional().describe('ID de conversation ElevenLabs'),
 
   // ===== INFOS PATIENT (ADMIN) =====
   patientInfo: z
@@ -105,8 +107,26 @@ export interface UpdateCallInfoResponse {
 export async function executeUpdateCallInfo(
   input: UpdateCallInfoInput
 ): Promise<UpdateCallInfoResponse> {
+  // Résoudre le callId depuis conversationId si nécessaire
+  let callId = input.callId;
+
+  if (!callId && input.conversation_id) {
+    callId = TwilioElevenLabsProxyService.getCallIdFromConversation(input.conversation_id);
+    logger.info('Resolved callId from conversationId', {
+      conversationId: input.conversation_id,
+      callId,
+    });
+  }
+
+  if (!callId) {
+    return {
+      success: false,
+      message: 'callId ou conversation_id requis',
+    };
+  }
+
   logger.info('Executing tool: update_call_info', {
-    callId: input.callId,
+    callId,
     hasPatientInfo: !!input.patientInfo,
     hasPriority: !!input.priority,
     hasVitalSigns: !!input.vitalSigns,
@@ -116,12 +136,12 @@ export async function executeUpdateCallInfo(
     const updated: string[] = [];
 
     // Récupérer l'appel
-    const call = await callService.getCallById(input.callId);
+    const call = await callService.getCallById(callId);
 
     if (!call) {
       return {
         success: false,
-        message: `Appel ${input.callId} non trouvé`,
+        message: `Appel ${callId} non trouvé`,
       };
     }
 
@@ -188,9 +208,9 @@ export async function executeUpdateCallInfo(
     }
 
     if (Object.keys(callUpdates).length > 0) {
-      await callService.updateCallFields(input.callId, callUpdates);
+      await callService.updateCallFields(callId, callUpdates);
       logger.info('Call info updated', {
-        callId: input.callId,
+        callId,
         fields: Object.keys(callUpdates),
         priority: input.priority,
       });
@@ -203,20 +223,20 @@ export async function executeUpdateCallInfo(
           ? `Informations mises à jour: ${updated.join(', ')}`
           : 'Aucune modification',
       data: {
-        callId: input.callId,
+        callId,
         updated,
       },
     };
 
     logger.info('Tool executed successfully: update_call_info', {
-      callId: input.callId,
+      callId,
       updatedFields: updated.length,
     });
 
     return response;
   } catch (error) {
     logger.error('Tool execution failed: update_call_info', error as Error, {
-      callId: input.callId,
+      callId,
     });
 
     return {

@@ -3,6 +3,7 @@ import { operatorService } from '@/services/operator.service';
 import { queueService } from '@/services/queue.service';
 import { callService } from '@/services/call.service';
 import { logger } from '@/utils/logger';
+import { TwilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 
 /**
  * ElevenLabs Client Tool: check_operator_available
@@ -17,7 +18,8 @@ import { logger } from '@/utils/logger';
  */
 
 export const checkOperatorAvailableSchema = z.object({
-  callId: z.string().describe("ID de l'appel"),
+  callId: z.string().optional().describe("ID de l'appel"),
+  conversation_id: z.string().optional().describe('ID de conversation ElevenLabs'),
   priority: z.enum(['P0', 'P1', 'P2', 'P3']).describe("Priorité de l'appel (P0-P3)"),
 });
 
@@ -36,8 +38,27 @@ export interface CheckOperatorAvailableResponse {
 export async function executeCheckOperatorAvailable(
   input: CheckOperatorAvailableInput
 ): Promise<CheckOperatorAvailableResponse> {
+  // Résoudre le callId depuis conversationId si nécessaire
+  let callId = input.callId;
+
+  if (!callId && input.conversation_id) {
+    callId = TwilioElevenLabsProxyService.getCallIdFromConversation(input.conversation_id);
+    logger.info('Resolved callId from conversationId', {
+      conversationId: input.conversation_id,
+      callId,
+    });
+  }
+
+  if (!callId) {
+    return {
+      success: false,
+      available: false,
+      message: 'callId ou conversation_id requis',
+    };
+  }
+
   logger.info('Executing tool: check_operator_available', {
-    callId: input.callId,
+    callId,
     priority: input.priority,
   });
 
@@ -50,7 +71,7 @@ export async function executeCheckOperatorAvailable(
       const operator = availableOperators[0]!; // Premier opérateur disponible
 
       logger.info('Operator available', {
-        callId: input.callId,
+        callId,
         operatorId: operator.id,
         operatorName: operator.name,
       });
@@ -67,7 +88,7 @@ export async function executeCheckOperatorAvailable(
     // ===== CAS 2 : AUCUN OPÉRATEUR DISPONIBLE → AJOUTER À LA QUEUE =====
 
     // Vérifier si l'appel est déjà dans la queue
-    const existingQueueEntry = await queueService.getQueueEntryByCallId(input.callId);
+    const existingQueueEntry = await queueService.getQueueEntryByCallId(callId);
 
     if (existingQueueEntry) {
       // Déjà dans la queue, retourner position
@@ -75,7 +96,7 @@ export async function executeCheckOperatorAvailable(
       const estimatedWaitTime = queuePosition * 180; // Estimation : 3 min par appel
 
       logger.info('Call already in queue', {
-        callId: input.callId,
+        callId,
         queueEntryId: existingQueueEntry.id,
         queuePosition,
       });
@@ -90,13 +111,13 @@ export async function executeCheckOperatorAvailable(
     }
 
     // Ajouter à la queue automatiquement
-    const call = await callService.getCallById(input.callId);
+    const call = await callService.getCallById(callId);
 
     if (!call) {
       return {
         success: false,
         available: false,
-        message: `Appel ${input.callId} non trouvé`,
+        message: `Appel ${callId} non trouvé`,
       };
     }
 
@@ -106,7 +127,7 @@ export async function executeCheckOperatorAvailable(
     };
 
     const queueEntry = await queueService.addToQueue({
-      callId: input.callId,
+      callId,
       priority: input.priority,
       chiefComplaint: call.chiefComplaint || 'Non renseigné',
       patientAge: callWithPatient.patient?.age ?? undefined,
@@ -123,7 +144,7 @@ export async function executeCheckOperatorAvailable(
     const estimatedWaitTime = queuePosition * 180; // 3 min par appel
 
     logger.info('Call added to queue automatically', {
-      callId: input.callId,
+      callId,
       queueEntryId: queueEntry.id,
       priority: input.priority,
       queuePosition,
@@ -138,7 +159,7 @@ export async function executeCheckOperatorAvailable(
     };
   } catch (error) {
     logger.error('Tool execution failed: check_operator_available', error as Error, {
-      callId: input.callId,
+      callId,
       priority: input.priority,
     });
 
