@@ -17,6 +17,14 @@ variable "environment" {
   default     = "staging"
 }
 
+# Optional variable for Terraform Cloud/Enterprise
+variable "GOOGLE_CREDENTIALS" {
+  type        = string
+  description = "Google Cloud credentials JSON (optional, for CI/CD)"
+  default     = ""
+  sensitive   = true
+}
+
 module "samu_staging" {
   source = "../../"
 
