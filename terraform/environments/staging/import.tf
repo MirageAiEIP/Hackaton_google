@@ -36,3 +36,14 @@ import {
   to = module.samu_staging.module.secrets.google_secret_manager_secret.secrets["twilio-phone-number"]
   id = "projects/samu-ai-474822/secrets/staging-twilio-phone-number"
 }
+
+# Import database secrets
+import {
+  to = module.samu_staging.module.database.google_secret_manager_secret.db_password
+  id = "projects/samu-ai-474822/secrets/staging-database-password"
+}
+
+import {
+  to = module.samu_staging.module.database.google_secret_manager_secret.database_url
+  id = "projects/samu-ai-474822/secrets/staging-database-url"
+}
