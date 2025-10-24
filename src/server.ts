@@ -17,7 +17,6 @@ import { getCorsConfig } from '@/config/cors.config';
 import { RealtimeDashboardGateway } from '@/presentation/websocket/RealtimeDashboard.gateway';
 import { twilioRoutes } from '@/api/routes/twilio.routes';
 import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
-import { registerTestRoutes } from '@/api/routes/test.routes';
 import { callsRoutes } from '@/api/routes/calls.routes';
 import { operatorsRoutes } from '@/api/routes/operators.routes';
 import { queueRoutes } from '@/api/routes/queue.routes';
@@ -292,9 +291,6 @@ async function setupServer() {
 
   // Register handoff routes (AI to human handoff management)
   await app.register(handoffRoutes, { prefix: '/api/v1/handoff' });
-
-  // Register test routes for development
-  await app.register(registerTestRoutes, { prefix: '/api/v1/test' });
 
   // WebSocket stats endpoint
   app.get('/api/v1/dashboard/stats', async () => {
