@@ -100,19 +100,23 @@ export class TwilioElevenLabsProxyService {
 
       logger.info('Connecting to ElevenLabs WebSocket', { callSid });
 
-      // Envoyer le callId à l'agent via contextual_update dès la connexion
+      // Envoyer le callId à l'agent via conversation_initiation_client_data dès la connexion
       elevenLabsWs.on('open', () => {
         logger.info('ElevenLabs WebSocket connected for Twilio call', { callSid, callId });
 
-        // Envoyer le callId comme contexte à l'agent
+        // Envoyer le callId dans custom_llm_extra_body pour que l'agent puisse l'utiliser
         elevenLabsWs!.send(
           JSON.stringify({
-            type: 'contextual_update',
-            text: `callId: ${callId}`,
+            type: 'conversation_initiation_client_data',
+            conversation_initiation_client_data: {
+              custom_llm_extra_body: {
+                callId: callId,
+              },
+            },
           })
         );
 
-        logger.info('Sent callId via contextual_update to ElevenLabs agent', {
+        logger.info('Sent callId via conversation_initiation_client_data to ElevenLabs agent', {
           callSid,
           callId,
         });
