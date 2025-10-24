@@ -28,7 +28,7 @@ export const recordDataBodySchema = z.object({
 // Queue list query params
 export const queueQuerySchema = z.object({
   status: z.enum(['WAITING', 'CLAIMED', 'IN_PROGRESS', 'COMPLETED', 'ABANDONED']).optional(),
-  priority: z.enum(['P2', 'P3', 'P4', 'P5']).optional(),
+  priority: z.enum(['P0', 'P1', 'P2', 'P3']).optional(),
 });
 
 // Queue claim params and body

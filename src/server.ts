@@ -20,6 +20,7 @@ import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy
 import { registerTestRoutes } from '@/api/routes/test.routes';
 import { callsRoutes } from '@/api/routes/calls.routes';
 import { operatorsRoutes } from '@/api/routes/operators.routes';
+import { queueRoutes } from '@/api/routes/queue.routes';
 import { toolsRoutes } from '@/api/routes/tools.routes';
 import { handoffRoutes } from '@/api/routes/handoff.routes';
 import { authRoutes } from '@/api/routes/auth.routes';
@@ -282,6 +283,9 @@ async function setupServer() {
 
   // Register operators routes (operator management)
   await app.register(operatorsRoutes, { prefix: '/api/v1/operators' });
+
+  // Register queue routes (dashboard queue management)
+  await app.register(queueRoutes, { prefix: '/api/v1/queue' });
 
   // Register ElevenLabs Client Tools routes (webhooks)
   await app.register(toolsRoutes, { prefix: '/api/v1/tools' });

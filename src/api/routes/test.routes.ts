@@ -288,7 +288,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
       schema: {
         tags: ['queue'],
         summary: 'Liste de la queue',
-        description: 'Récupère tous les appels P2/P3/P4 en attente pour les opérateurs',
+        description: 'Récupère tous les appels P0/P1/P2 en attente pour les opérateurs',
         querystring: {
           type: 'object',
           properties: {
@@ -299,7 +299,7 @@ export const registerTestRoutes = (app: FastifyInstance) => {
             },
             priority: {
               type: 'string',
-              enum: ['P2', 'P3', 'P4', 'P5'],
+              enum: ['P0', 'P1', 'P2', 'P3'],
               description: 'Filtrer par priorité',
             },
           },

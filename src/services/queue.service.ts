@@ -40,12 +40,10 @@ export class QueueService {
       conversationId,
     } = input;
 
-    // Validation: P0/P1 should be dispatched, P5 should receive direct advice
-    if (priority === 'P0' || priority === 'P1') {
-      throw new Error('P0 and P1 should be dispatched immediately, not queued');
-    }
-    if (priority === 'P5') {
-      throw new Error('P5 should receive direct advice, not be queued');
+    // Validation: P3 should receive direct advice from Agent 1, not be queued
+    // P0/P1/P2 can be queued if no operator is available
+    if (priority === 'P3') {
+      throw new Error('P3 should receive direct advice from Agent 1, not be queued');
     }
 
     logger.info('Adding call to queue', {
