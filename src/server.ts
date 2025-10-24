@@ -370,7 +370,7 @@ async function startServer() {
 
     // Initialize Queue Dashboard WebSocket Gateway (Secured)
     logger.info('Initializing Queue Dashboard Gateway...');
-    queueDashboardGateway = new QueueDashboardGateway(app);
+    queueDashboardGateway = new QueueDashboardGateway();
     await queueDashboardGateway.initialize();
     logger.info('Queue Dashboard Gateway initialized successfully');
 
@@ -378,7 +378,7 @@ async function startServer() {
     logger.info('Registering Queue Dashboard WebSocket...');
     app.get('/ws/queue-dashboard', { websocket: true }, (socket, request) => {
       if (queueDashboardGateway) {
-        queueDashboardGateway.handleConnection(socket, request);
+        queueDashboardGateway.handleConnection(socket, request.raw);
       }
     });
     logger.info('Queue Dashboard WebSocket registered at /ws/queue-dashboard');

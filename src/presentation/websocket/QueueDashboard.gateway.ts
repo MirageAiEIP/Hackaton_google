@@ -1,6 +1,5 @@
-import { FastifyInstance } from 'fastify';
-import { WebSocket } from '@fastify/websocket';
-import { IncomingMessage } from 'http';
+import type { WebSocket } from '@fastify/websocket';
+import type { IncomingMessage } from 'http';
 import { logger } from '@/utils/logger';
 import { queueService } from '@/services/queue.service';
 import { loadConfig } from '@/config/index.async';
@@ -34,7 +33,7 @@ export class QueueDashboardGateway {
   private pingIntervals: Map<string, NodeJS.Timeout> = new Map();
   private jwtAccessSecret: string = '';
 
-  constructor(private app: FastifyInstance) {}
+  constructor() {}
 
   async initialize(): Promise<void> {
     try {
@@ -45,10 +44,11 @@ export class QueueDashboardGateway {
       const container = Container.getInstance();
       const eventBus = container.getEventBus();
 
-      await eventBus.subscribe('QueueEntryAddedEvent', this.handleQueueEntryAdded.bind(this));
-      await eventBus.subscribe(
-        'QueueEntryStatusChangedEvent',
-        this.handleQueueEntryStatusChanged.bind(this)
+      await eventBus.subscribe('QueueEntryAddedEvent', (event) =>
+        this.handleQueueEntryAdded(event as QueueEntryAddedEvent)
+      );
+      await eventBus.subscribe('QueueEntryStatusChangedEvent', (event) =>
+        this.handleQueueEntryStatusChanged(event as QueueEntryStatusChangedEvent)
       );
 
       logger.info('QueueDashboardGateway initialized', {
