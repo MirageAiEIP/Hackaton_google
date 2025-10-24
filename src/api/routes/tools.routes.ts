@@ -432,6 +432,59 @@ export const toolsRoutes = (app: FastifyInstance) => {
   );
 
   /**
+   * Conversation Initialization Webhook (DEBUG)
+   * POST /api/v1/tools/conversation-init
+   *
+   * Called by ElevenLabs at the START of each conversation to retrieve initial client data
+   * This endpoint logs everything ElevenLabs sends to help us understand the payload structure
+   */
+  app.post('/conversation-init', async (request, reply) => {
+    // ===== LOG EVERYTHING FROM ELEVENLABS =====
+    logger.info('[DEBUG] ElevenLabs conversation-init webhook called', {
+      body: request.body,
+      headers: request.headers,
+      query: request.query,
+      params: request.params,
+      method: request.method,
+      url: request.url,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Log raw body if available
+    if (request.body) {
+      logger.info('[DEBUG] Conversation init - Body keys', {
+        keys: Object.keys(request.body as Record<string, unknown>),
+        bodyType: typeof request.body,
+      });
+    }
+
+    // Check for common identifiers
+    const bodyWithId = request.body as Record<string, unknown>;
+    const possibleIds = {
+      conversation_id: bodyWithId.conversation_id,
+      call_sid: bodyWithId.call_sid,
+      callSid: bodyWithId.callSid,
+      session_id: bodyWithId.session_id,
+      from: bodyWithId.from,
+      to: bodyWithId.to,
+    };
+
+    logger.info('[DEBUG] Possible identifiers in payload', possibleIds);
+
+    // Return minimal valid conversation_initiation_client_data response
+    // Format: https://elevenlabs.io/docs/api-reference/websockets#conversation_initiation_client_data
+    return reply.send({
+      type: 'conversation_initiation_client_data',
+      conversation_initiation_client_data: {
+        custom_llm_extra_body: {
+          debug: 'This is a test response',
+          receivedAt: new Date().toISOString(),
+        },
+      },
+    });
+  });
+
+  /**
    * Health check for tools endpoints
    * GET /api/v1/tools/health
    */
