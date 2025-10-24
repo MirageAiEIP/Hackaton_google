@@ -313,6 +313,84 @@ export class QueueService {
       throw new Error('Failed to get queue statistics');
     }
   }
+
+  /**
+   * Trouve une queue entry par callId
+   */
+  async getQueueEntryByCallId(callId: string) {
+    logger.info('Getting queue entry by callId', { callId });
+
+    try {
+      const queueEntry = await prisma.queueEntry.findFirst({
+        where: { callId },
+        orderBy: { createdAt: 'desc' }, // Prendre la plus récente si plusieurs
+      });
+
+      return queueEntry;
+    } catch (error) {
+      logger.error('Failed to get queue entry by callId', error as Error, { callId });
+      throw new Error('Failed to get queue entry by callId');
+    }
+  }
+
+  /**
+   * Calcule la position dans la queue (ordre par priorité puis waitingSince)
+   */
+  async getPositionInQueue(queueEntryId: string): Promise<number> {
+    logger.info('Calculating queue position', { queueEntryId });
+
+    try {
+      const currentEntry = await prisma.queueEntry.findUnique({
+        where: { id: queueEntryId },
+      });
+
+      if (!currentEntry) {
+        throw new Error('Queue entry not found');
+      }
+
+      // Compter les entrées WAITING qui sont avant celle-ci
+      // Ordre: P0 > P1 > P2 > P3, puis par waitingSince (plus ancien en premier)
+      const priorityOrder = { P0: 0, P1: 1, P2: 2, P3: 3 };
+      const currentPriorityValue =
+        priorityOrder[currentEntry.priority as keyof typeof priorityOrder];
+
+      const entriesBeforeCurrent = await prisma.queueEntry.count({
+        where: {
+          status: 'WAITING',
+          OR: [
+            // Priorité plus haute
+            {
+              priority: {
+                in: Object.keys(priorityOrder).filter(
+                  (p) => priorityOrder[p as keyof typeof priorityOrder] < currentPriorityValue
+                ) as ('P0' | 'P1' | 'P2' | 'P3')[],
+              },
+            },
+            // Même priorité mais plus ancien
+            {
+              priority: currentEntry.priority,
+              waitingSince: {
+                lt: currentEntry.waitingSince,
+              },
+            },
+          ],
+        },
+      });
+
+      const position = entriesBeforeCurrent + 1; // Position 1-indexed
+
+      logger.info('Queue position calculated', {
+        queueEntryId,
+        position,
+        priority: currentEntry.priority,
+      });
+
+      return position;
+    } catch (error) {
+      logger.error('Failed to calculate queue position', error as Error, { queueEntryId });
+      throw new Error('Failed to calculate queue position');
+    }
+  }
 }
 
 export const queueService = new QueueService();
