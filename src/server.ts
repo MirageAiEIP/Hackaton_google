@@ -15,6 +15,7 @@ import { testDatabaseConnection, prisma } from '@/utils/prisma';
 import { Container } from '@/infrastructure/di/Container';
 import { getCorsConfig } from '@/config/cors.config';
 import { RealtimeDashboardGateway } from '@/presentation/websocket/RealtimeDashboard.gateway';
+import { QueueDashboardGateway } from '@/presentation/websocket/QueueDashboard.gateway';
 import { twilioRoutes } from '@/api/routes/twilio.routes';
 import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 import { callsRoutes } from '@/api/routes/calls.routes';
@@ -28,6 +29,7 @@ import fastifyStatic from '@fastify/static';
 import path from 'path';
 
 let dashboardGateway: RealtimeDashboardGateway | null = null;
+let queueDashboardGateway: QueueDashboardGateway | null = null;
 
 const app = fastify({
   logger: false,
@@ -366,6 +368,21 @@ async function startServer() {
     await dashboardGateway.initialize();
     logger.info('Real-Time Dashboard Gateway initialized successfully');
 
+    // Initialize Queue Dashboard WebSocket Gateway (Secured)
+    logger.info('Initializing Queue Dashboard Gateway...');
+    queueDashboardGateway = new QueueDashboardGateway(app);
+    await queueDashboardGateway.initialize();
+    logger.info('Queue Dashboard Gateway initialized successfully');
+
+    // Register Queue Dashboard WebSocket (Authenticated)
+    logger.info('Registering Queue Dashboard WebSocket...');
+    app.get('/ws/queue-dashboard', { websocket: true }, (socket, request) => {
+      if (queueDashboardGateway) {
+        queueDashboardGateway.handleConnection(socket, request);
+      }
+    });
+    logger.info('Queue Dashboard WebSocket registered at /ws/queue-dashboard');
+
     // Register Twilio Media Stream WebSocket proxy
     logger.info('Registering Twilio-ElevenLabs WebSocket proxy...');
     app.get('/ws/twilio-media', { websocket: true }, (socket, request) => {
@@ -405,9 +422,12 @@ async function startServer() {
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received. Shutting down gracefully...');
 
-  // Shutdown WebSocket gateway
+  // Shutdown WebSocket gateways
   if (dashboardGateway) {
     await dashboardGateway.shutdown();
+  }
+  if (queueDashboardGateway) {
+    await queueDashboardGateway.shutdown();
   }
 
   const container = Container.getInstance();
@@ -419,9 +439,12 @@ process.on('SIGTERM', async () => {
 process.on('SIGINT', async () => {
   logger.info('SIGINT received. Shutting down gracefully...');
 
-  // Shutdown WebSocket gateway
+  // Shutdown WebSocket gateways
   if (dashboardGateway) {
     await dashboardGateway.shutdown();
+  }
+  if (queueDashboardGateway) {
+    await queueDashboardGateway.shutdown();
   }
 
   const container = Container.getInstance();

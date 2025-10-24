@@ -1,0 +1,437 @@
+import { FastifyInstance } from 'fastify';
+import { WebSocket } from '@fastify/websocket';
+import { IncomingMessage } from 'http';
+import { logger } from '@/utils/logger';
+import { queueService } from '@/services/queue.service';
+import { loadConfig } from '@/config/index.async';
+import { verifyAccessTokenFromQuery } from '@/infrastructure/auth/jwt.util';
+import {
+  QueueOutgoingMessage,
+  QueueIncomingMessage,
+  QueueEntryData,
+  QueueUpdateData,
+} from '@/types/websocket.types';
+import { Container } from '@/infrastructure/di/Container';
+import { QueueEntryAddedEvent } from '@/domain/triage/events/QueueEntryAdded.event';
+import { QueueEntryStatusChangedEvent } from '@/domain/triage/events/QueueEntryStatusChanged.event';
+import { QueueStatus } from '@prisma/client';
+
+interface AuthenticatedConnection {
+  socket: WebSocket;
+  userId: string;
+  role: 'OPERATOR' | 'ADMIN';
+  operatorId: string | null;
+  connectedAt: Date;
+}
+
+/**
+ * WebSocket Gateway for Queue Dashboard
+ * Secured route for OPERATOR and ADMIN roles only
+ * Provides real-time queue updates with JWT authentication
+ */
+export class QueueDashboardGateway {
+  private connections: Map<string, AuthenticatedConnection> = new Map();
+  private pingIntervals: Map<string, NodeJS.Timeout> = new Map();
+  private jwtAccessSecret: string = '';
+
+  constructor(private app: FastifyInstance) {}
+
+  async initialize(): Promise<void> {
+    try {
+      const config = await loadConfig();
+      this.jwtAccessSecret = config.jwt.accessTokenSecret;
+
+      // Subscribe to queue events from EventBus
+      const container = Container.getInstance();
+      const eventBus = container.getEventBus();
+
+      await eventBus.subscribe('QueueEntryAddedEvent', this.handleQueueEntryAdded.bind(this));
+      await eventBus.subscribe(
+        'QueueEntryStatusChangedEvent',
+        this.handleQueueEntryStatusChanged.bind(this)
+      );
+
+      logger.info('QueueDashboardGateway initialized', {
+        connectedClients: this.connections.size,
+      });
+    } catch (error) {
+      logger.error('Failed to initialize QueueDashboardGateway', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle WebSocket connection
+   * Called from server.ts when client connects to /ws/queue-dashboard
+   */
+  async handleConnection(socket: WebSocket, request: IncomingMessage): Promise<void> {
+    const connectionId = this.generateConnectionId();
+
+    try {
+      // Extract token from query parameter
+      const url = new URL(request.url || '', `http://${request.headers.host}`);
+      const token = url.searchParams.get('token') || undefined;
+
+      // Verify JWT and check role
+      const decoded = verifyAccessTokenFromQuery(token, this.jwtAccessSecret, [
+        'OPERATOR',
+        'ADMIN',
+      ]);
+
+      // Create authenticated connection
+      const connection: AuthenticatedConnection = {
+        socket,
+        userId: decoded.userId,
+        role: decoded.role,
+        operatorId: decoded.operatorId,
+        connectedAt: new Date(),
+      };
+
+      this.connections.set(connectionId, connection);
+
+      logger.info('Queue dashboard client connected', {
+        connectionId,
+        userId: decoded.userId,
+        role: decoded.role,
+        totalConnections: this.connections.size,
+      });
+
+      // Send initial queue snapshot
+      await this.sendInitialSnapshot(socket);
+
+      // Start ping/pong heartbeat
+      this.startHeartbeat(connectionId, socket);
+
+      // Handle incoming messages
+      socket.on('message', (data: Buffer) => {
+        this.handleMessage(connectionId, data, connection);
+      });
+
+      // Handle disconnection
+      socket.on('close', () => {
+        this.handleDisconnection(connectionId);
+      });
+
+      socket.on('error', (error) => {
+        logger.error('Queue dashboard WebSocket error', error, { connectionId });
+        this.handleDisconnection(connectionId);
+      });
+    } catch (error) {
+      logger.error('Queue dashboard authentication failed', error as Error, { connectionId });
+
+      // Send error and close connection
+      this.sendError(socket, 'AUTHENTICATION_FAILED', (error as Error).message);
+      socket.close();
+    }
+  }
+
+  /**
+   * Send initial queue snapshot to client
+   */
+  private async sendInitialSnapshot(socket: WebSocket): Promise<void> {
+    try {
+      // Get active queue entries (WAITING, CLAIMED, IN_PROGRESS)
+      const queueEntries = await queueService.listQueue();
+
+      const activeEntries = queueEntries.filter((entry) =>
+        ['WAITING', 'CLAIMED', 'IN_PROGRESS'].includes(entry.status)
+      );
+
+      const data: QueueEntryData[] = activeEntries.map((entry) => ({
+        id: entry.id,
+        callId: entry.callId,
+        priority: entry.priority,
+        chiefComplaint: entry.chiefComplaint,
+        patientAge: entry.patientAge,
+        patientGender: entry.patientGender,
+        location: entry.location,
+        aiSummary: entry.aiSummary,
+        aiRecommendation: entry.aiRecommendation,
+        keySymptoms: entry.keySymptoms,
+        redFlags: entry.redFlags,
+        status: entry.status,
+        waitingSince: entry.waitingSince.toISOString(),
+        waitingTimeSeconds: Math.floor((Date.now() - entry.waitingSince.getTime()) / 1000),
+        claimedBy: entry.claimedBy,
+        claimedAt: entry.claimedAt?.toISOString() || null,
+        conversationId: entry.conversationId,
+      }));
+
+      const message: QueueOutgoingMessage = {
+        type: 'queue:initial',
+        data,
+      };
+
+      this.sendMessage(socket, message);
+
+      logger.info('Sent initial queue snapshot', {
+        entriesCount: data.length,
+      });
+    } catch (error) {
+      logger.error('Failed to send initial snapshot', error as Error);
+      this.sendError(socket, 'SNAPSHOT_FAILED', 'Failed to load queue data');
+    }
+  }
+
+  /**
+   * Handle queue entry added event
+   */
+  private async handleQueueEntryAdded(event: QueueEntryAddedEvent): Promise<void> {
+    try {
+      const queueEntry = await queueService.getQueueEntryById(event.queueEntryId);
+
+      const data: QueueEntryData = {
+        id: queueEntry.id,
+        callId: queueEntry.callId,
+        priority: queueEntry.priority,
+        chiefComplaint: queueEntry.chiefComplaint,
+        patientAge: queueEntry.patientAge,
+        patientGender: queueEntry.patientGender,
+        location: queueEntry.location,
+        aiSummary: queueEntry.aiSummary,
+        aiRecommendation: queueEntry.aiRecommendation,
+        keySymptoms: queueEntry.keySymptoms,
+        redFlags: queueEntry.redFlags,
+        status: queueEntry.status,
+        waitingSince: queueEntry.waitingSince.toISOString(),
+        waitingTimeSeconds: Math.floor((Date.now() - queueEntry.waitingSince.getTime()) / 1000),
+        claimedBy: queueEntry.claimedBy,
+        claimedAt: queueEntry.claimedAt?.toISOString() || null,
+        conversationId: queueEntry.conversationId,
+      };
+
+      const message: QueueOutgoingMessage = {
+        type: 'queue:added',
+        data,
+      };
+
+      this.broadcastToAll(message);
+
+      logger.info('Broadcasted queue entry added', {
+        queueEntryId: event.queueEntryId,
+        priority: event.priority,
+      });
+    } catch (error) {
+      logger.error('Failed to handle queue entry added event', error as Error, {
+        queueEntryId: event.queueEntryId,
+      });
+    }
+  }
+
+  /**
+   * Handle queue entry status changed event
+   */
+  private async handleQueueEntryStatusChanged(event: QueueEntryStatusChangedEvent): Promise<void> {
+    try {
+      const queueEntry = await queueService.getQueueEntryById(event.queueEntryId);
+
+      // If status is COMPLETED or ABANDONED, send remove message
+      if (event.newStatus === 'COMPLETED' || event.newStatus === 'ABANDONED') {
+        const message: QueueOutgoingMessage = {
+          type: 'queue:removed',
+          data: {
+            id: event.queueEntryId,
+          },
+        };
+
+        this.broadcastToAll(message);
+
+        logger.info('Broadcasted queue entry removed', {
+          queueEntryId: event.queueEntryId,
+          status: event.newStatus,
+        });
+      } else {
+        // Otherwise send update
+        const data: QueueUpdateData = {
+          id: queueEntry.id,
+          status: queueEntry.status as QueueStatus,
+          claimedBy: queueEntry.claimedBy,
+          claimedAt: queueEntry.claimedAt?.toISOString() || null,
+          waitingTimeSeconds: Math.floor((Date.now() - queueEntry.waitingSince.getTime()) / 1000),
+        };
+
+        const message: QueueOutgoingMessage = {
+          type: 'queue:updated',
+          data,
+        };
+
+        this.broadcastToAll(message);
+
+        logger.info('Broadcasted queue entry updated', {
+          queueEntryId: event.queueEntryId,
+          oldStatus: event.previousStatus,
+          newStatus: event.newStatus,
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to handle queue entry status changed event', error as Error, {
+        queueEntryId: event.queueEntryId,
+      });
+    }
+  }
+
+  /**
+   * Handle incoming message from client
+   */
+  private handleMessage(
+    connectionId: string,
+    data: Buffer,
+    connection: AuthenticatedConnection
+  ): void {
+    try {
+      const message: QueueIncomingMessage = JSON.parse(data.toString());
+
+      switch (message.type) {
+        case 'queue:ping':
+          // Respond to ping with pong
+          this.sendMessage(connection.socket, {
+            type: 'queue:pong',
+            timestamp: new Date().toISOString(),
+          });
+          break;
+
+        case 'queue:subscribe':
+          // Client requests to re-subscribe (after reconnection)
+          this.sendInitialSnapshot(connection.socket);
+          break;
+
+        default:
+          logger.warn('Unknown message type received', {
+            connectionId,
+            type: (message as { type: string }).type,
+          });
+      }
+    } catch (error) {
+      logger.error('Failed to handle incoming message', error as Error, { connectionId });
+    }
+  }
+
+  /**
+   * Handle client disconnection
+   */
+  private handleDisconnection(connectionId: string): void {
+    const connection = this.connections.get(connectionId);
+    if (connection) {
+      logger.info('Queue dashboard client disconnected', {
+        connectionId,
+        userId: connection.userId,
+        role: connection.role,
+        connectedDuration: Date.now() - connection.connectedAt.getTime(),
+      });
+
+      // Stop heartbeat
+      const interval = this.pingIntervals.get(connectionId);
+      if (interval) {
+        clearInterval(interval);
+        this.pingIntervals.delete(connectionId);
+      }
+
+      this.connections.delete(connectionId);
+    }
+  }
+
+  /**
+   * Start heartbeat (ping/pong) for connection
+   */
+  private startHeartbeat(connectionId: string, socket: WebSocket): void {
+    const interval = setInterval(() => {
+      if (socket.readyState === WebSocket.OPEN) {
+        this.sendMessage(socket, {
+          type: 'queue:pong',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }, 30000); // Ping every 30 seconds
+
+    this.pingIntervals.set(connectionId, interval);
+  }
+
+  /**
+   * Send message to specific socket
+   */
+  private sendMessage(socket: WebSocket, message: QueueOutgoingMessage): void {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(message));
+    }
+  }
+
+  /**
+   * Send error message to socket
+   */
+  private sendError(socket: WebSocket, code: string, message: string): void {
+    if (socket.readyState === WebSocket.OPEN) {
+      const errorMessage: QueueOutgoingMessage = {
+        type: 'queue:error',
+        error: { code, message },
+      };
+      socket.send(JSON.stringify(errorMessage));
+    }
+  }
+
+  /**
+   * Broadcast message to all connected clients
+   */
+  private broadcastToAll(message: QueueOutgoingMessage): void {
+    let sent = 0;
+    for (const connection of this.connections.values()) {
+      this.sendMessage(connection.socket, message);
+      sent++;
+    }
+
+    logger.debug('Broadcasted message to all clients', {
+      messageType: message.type,
+      clientsSent: sent,
+    });
+  }
+
+  /**
+   * Generate unique connection ID
+   */
+  private generateConnectionId(): string {
+    return `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Get current statistics
+   */
+  getStats(): {
+    totalConnections: number;
+    connectionsByRole: Record<string, number>;
+  } {
+    const connectionsByRole: Record<string, number> = {};
+
+    for (const connection of this.connections.values()) {
+      connectionsByRole[connection.role] = (connectionsByRole[connection.role] || 0) + 1;
+    }
+
+    return {
+      totalConnections: this.connections.size,
+      connectionsByRole,
+    };
+  }
+
+  /**
+   * Shutdown gateway
+   */
+  async shutdown(): Promise<void> {
+    logger.info('Shutting down QueueDashboardGateway', {
+      activeConnections: this.connections.size,
+    });
+
+    // Clear all intervals
+    for (const interval of this.pingIntervals.values()) {
+      clearInterval(interval);
+    }
+    this.pingIntervals.clear();
+
+    // Close all connections
+    for (const connection of this.connections.values()) {
+      if (connection.socket.readyState === WebSocket.OPEN) {
+        connection.socket.close();
+      }
+    }
+    this.connections.clear();
+
+    logger.info('QueueDashboardGateway shut down successfully');
+  }
+}

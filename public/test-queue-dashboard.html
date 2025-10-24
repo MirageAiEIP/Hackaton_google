@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Queue Dashboard Test</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .header {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+
+      h1 {
+        color: #667eea;
+        margin-bottom: 15px;
+      }
+
+      .auth-section {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+      }
+
+      input {
+        flex: 1;
+        min-width: 200px;
+        padding: 10px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+
+      button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        font-size: 14px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+      }
+
+      .btn-login {
+        background: #667eea;
+        color: white;
+      }
+
+      .btn-login:hover {
+        background: #5568d3;
+      }
+
+      .btn-connect {
+        background: #48bb78;
+        color: white;
+      }
+
+      .btn-connect:hover {
+        background: #38a169;
+      }
+
+      .btn-disconnect {
+        background: #f56565;
+        color: white;
+      }
+
+      .btn-disconnect:hover {
+        background: #e53e3e;
+      }
+
+      .btn-disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+      }
+
+      .status {
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+
+      .status.connected {
+        background: #c6f6d5;
+        color: #22543d;
+      }
+
+      .status.disconnected {
+        background: #fed7d7;
+        color: #742a2a;
+      }
+
+      .status.authenticating {
+        background: #feebc8;
+        color: #7c2d12;
+      }
+
+      .queue-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 15px;
+      }
+
+      .queue-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 5px solid;
+        transition: transform 0.2s;
+      }
+
+      .queue-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .queue-card.P0 {
+        border-left-color: #dc2626;
+      }
+
+      .queue-card.P1 {
+        border-left-color: #ea580c;
+      }
+
+      .queue-card.P2 {
+        border-left-color: #f59e0b;
+      }
+
+      .queue-card.P3 {
+        border-left-color: #84cc16;
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .priority-badge {
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-weight: bold;
+        font-size: 12px;
+        color: white;
+      }
+
+      .priority-badge.P0 {
+        background: #dc2626;
+      }
+      .priority-badge.P1 {
+        background: #ea580c;
+      }
+      .priority-badge.P2 {
+        background: #f59e0b;
+      }
+      .priority-badge.P3 {
+        background: #84cc16;
+      }
+
+      .status-badge {
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-weight: bold;
+        font-size: 11px;
+      }
+
+      .status-badge.WAITING {
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      .status-badge.CLAIMED {
+        background: #dbeafe;
+        color: #1e3a8a;
+      }
+
+      .status-badge.IN_PROGRESS {
+        background: #d1fae5;
+        color: #064e3b;
+      }
+
+      .complaint {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 8px;
+        font-size: 15px;
+      }
+
+      .patient-info {
+        color: #6b7280;
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+
+      .ai-summary {
+        background: #f9fafb;
+        padding: 8px;
+        border-radius: 5px;
+        font-size: 13px;
+        margin: 8px 0;
+        color: #374151;
+        line-height: 1.4;
+      }
+
+      .symptoms {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 8px 0;
+      }
+
+      .symptom-tag {
+        background: #e0e7ff;
+        color: #3730a3;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+      }
+
+      .red-flag {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .waiting-time {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-top: 8px;
+        text-align: right;
+      }
+
+      .empty-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 10px;
+        color: #9ca3af;
+      }
+
+      .empty-state h3 {
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🚨 SAMU Queue Dashboard - Test Client</h1>
+
+        <div class="auth-section">
+          <input type="text" id="employeeId" placeholder="Employee ID" value="OP001" />
+          <input type="password" id="password" placeholder="Password" value="SecureOp123!" />
+          <button class="btn-login" onclick="login()">Login</button>
+          <button class="btn-connect btn-disabled" id="connectBtn" onclick="connect()" disabled>
+            Connect to Queue
+          </button>
+          <button class="btn-disconnect btn-disabled" id="disconnectBtn" onclick="disconnect()" disabled>
+            Disconnect
+          </button>
+        </div>
+
+        <div id="status" class="status disconnected">🔴 Disconnected</div>
+      </div>
+
+      <div class="queue-grid" id="queueGrid">
+        <div class="empty-state">
+          <h3>No active calls</h3>
+          <p>Connect to the WebSocket to see real-time queue updates</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let ws = null;
+      let accessToken = null;
+      let queueData = new Map();
+
+      async function login() {
+        const employeeId = document.getElementById('employeeId').value;
+        const password = document.getElementById('password').value;
+
+        const statusEl = document.getElementById('status');
+        statusEl.className = 'status authenticating';
+        statusEl.textContent = '🔄 Authenticating...';
+
+        try {
+          const response = await fetch('http://localhost:3000/api/v1/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ employeeId, password }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Login failed');
+          }
+
+          const data = await response.json();
+          accessToken = data.data.accessToken;
+
+          statusEl.className = 'status disconnected';
+          statusEl.textContent = '✅ Authenticated - Ready to connect';
+
+          document.getElementById('connectBtn').disabled = false;
+          document.getElementById('connectBtn').classList.remove('btn-disabled');
+
+          console.log('Login successful', data.data);
+        } catch (error) {
+          statusEl.className = 'status disconnected';
+          statusEl.textContent = '❌ Authentication failed: ' + error.message;
+          console.error('Login error:', error);
+        }
+      }
+
+      function connect() {
+        if (!accessToken) {
+          alert('Please login first');
+          return;
+        }
+
+        const statusEl = document.getElementById('status');
+        statusEl.className = 'status authenticating';
+        statusEl.textContent = '🔄 Connecting...';
+
+        ws = new WebSocket(`ws://localhost:3000/ws/queue-dashboard?token=${accessToken}`);
+
+        ws.onopen = () => {
+          statusEl.className = 'status connected';
+          statusEl.textContent = '🟢 Connected to Queue Dashboard';
+          document.getElementById('connectBtn').disabled = true;
+          document.getElementById('connectBtn').classList.add('btn-disabled');
+          document.getElementById('disconnectBtn').disabled = false;
+          document.getElementById('disconnectBtn').classList.remove('btn-disabled');
+          console.log('WebSocket connected');
+        };
+
+        ws.onmessage = (event) => {
+          const message = JSON.parse(event.data);
+          console.log('Received message:', message);
+          handleMessage(message);
+        };
+
+        ws.onclose = () => {
+          statusEl.className = 'status disconnected';
+          statusEl.textContent = '🔴 Disconnected';
+          document.getElementById('connectBtn').disabled = false;
+          document.getElementById('connectBtn').classList.remove('btn-disabled');
+          document.getElementById('disconnectBtn').disabled = true;
+          document.getElementById('disconnectBtn').classList.add('btn-disabled');
+          console.log('WebSocket disconnected');
+        };
+
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          statusEl.className = 'status disconnected';
+          statusEl.textContent = '❌ Connection error';
+        };
+      }
+
+      function disconnect() {
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+      }
+
+      function handleMessage(message) {
+        switch (message.type) {
+          case 'queue:initial':
+            queueData.clear();
+            message.data.forEach((entry) => {
+              queueData.set(entry.id, entry);
+            });
+            renderQueue();
+            break;
+
+          case 'queue:added':
+            queueData.set(message.data.id, message.data);
+            renderQueue();
+            break;
+
+          case 'queue:updated':
+            const existingEntry = queueData.get(message.data.id);
+            if (existingEntry) {
+              Object.assign(existingEntry, message.data);
+              renderQueue();
+            }
+            break;
+
+          case 'queue:removed':
+            queueData.delete(message.data.id);
+            renderQueue();
+            break;
+
+          case 'queue:pong':
+            console.log('Pong received:', message.timestamp);
+            break;
+
+          case 'queue:error':
+            alert('Error: ' + message.error.message);
+            console.error('Queue error:', message.error);
+            break;
+
+          default:
+            console.warn('Unknown message type:', message.type);
+        }
+      }
+
+      function renderQueue() {
+        const grid = document.getElementById('queueGrid');
+
+        if (queueData.size === 0) {
+          grid.innerHTML = `
+            <div class="empty-state">
+              <h3>✅ No active calls</h3>
+              <p>Queue is empty - waiting for new calls</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Sort by priority (P0 first) then by waiting time
+        const entries = Array.from(queueData.values()).sort((a, b) => {
+          const priorityOrder = { P0: 0, P1: 1, P2: 2, P3: 3 };
+          if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+            return priorityOrder[a.priority] - priorityOrder[b.priority];
+          }
+          return new Date(a.waitingSince) - new Date(b.waitingSince);
+        });
+
+        grid.innerHTML = entries.map((entry) => renderCard(entry)).join('');
+      }
+
+      function renderCard(entry) {
+        const waitingMinutes = Math.floor(entry.waitingTimeSeconds / 60);
+        const waitingDisplay =
+          waitingMinutes < 1 ? '< 1 min' : waitingMinutes === 1 ? '1 min' : `${waitingMinutes} mins`;
+
+        return `
+          <div class="queue-card ${entry.priority}">
+            <div class="card-header">
+              <span class="priority-badge ${entry.priority}">${entry.priority}</span>
+              <span class="status-badge ${entry.status}">${entry.status}</span>
+            </div>
+
+            <div class="complaint">${entry.chiefComplaint}</div>
+
+            <div class="patient-info">
+              ${entry.patientAge ? `Age: ${entry.patientAge}` : 'Age: N/A'} •
+              ${entry.patientGender || 'N/A'} •
+              ${entry.location ? `📍 ${entry.location}` : 'Location unknown'}
+            </div>
+
+            <div class="ai-summary">
+              <strong>AI Summary:</strong> ${entry.aiSummary}
+            </div>
+
+            <div class="ai-summary">
+              <strong>Recommendation:</strong> ${entry.aiRecommendation}
+            </div>
+
+            ${
+              entry.keySymptoms && entry.keySymptoms.length > 0
+                ? `<div class="symptoms">
+                    ${entry.keySymptoms.map((s) => `<span class="symptom-tag">${s}</span>`).join('')}
+                  </div>`
+                : ''
+            }
+
+            ${
+              entry.redFlags && entry.redFlags.length > 0
+                ? `<div class="symptoms">
+                    ${entry.redFlags.map((f) => `<span class="red-flag">⚠️ ${f}</span>`).join('')}
+                  </div>`
+                : ''
+            }
+
+            ${
+              entry.claimedBy
+                ? `<div class="patient-info" style="margin-top: 8px;">
+                    👨‍⚕️ Claimed by: ${entry.claimedBy}
+                  </div>`
+                : ''
+            }
+
+            <div class="waiting-time">⏱️ Waiting: ${waitingDisplay}</div>
+          </div>
+        `;
+      }
+
+      // Auto-connect on page load if we have credentials
+      window.addEventListener('load', () => {
+        console.log('Queue Dashboard Test Client loaded');
+      });
+    </script>
+  </body>
+</html>
