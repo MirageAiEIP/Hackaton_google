@@ -155,25 +155,66 @@ export const toolsRoutes = (app: FastifyInstance) => {
     },
     async (request, reply) => {
       try {
-        // ===== DEBUG: LOG COMPLET DU WEBHOOK ELEVENLABS =====
-        logger.info('[DEBUG] ElevenLabs webhook RAW DATA', {
-          body: request.body,
-          headers: request.headers,
+        // ===== DEBUG: LOG ULTRA COMPLET DU WEBHOOK ELEVENLABS =====
+        logger.info('[DEBUG] ===== GET_PHARMACY_ON_DUTY WEBHOOK CALLED =====');
+
+        // Log 1: Full request object
+        logger.info('[DEBUG] Full request details', {
           method: request.method,
           url: request.url,
+          query: request.query,
+          params: request.params,
+          hostname: request.hostname,
+          ip: request.ip,
+          protocol: request.protocol,
         });
 
-        // Vérifier si conversation_id est présent
-        const bodyWithConvId = request.body as Record<string, unknown>;
-        if (bodyWithConvId.conversation_id) {
-          logger.info('conversation_id FOUND in webhook', {
-            conversation_id: bodyWithConvId.conversation_id,
+        // Log 2: All headers
+        logger.info('[DEBUG] All headers', {
+          headers: JSON.stringify(request.headers, null, 2),
+        });
+
+        // Log 3: Body as-is
+        logger.info('[DEBUG] Body (as-is)', {
+          body: request.body,
+          bodyType: typeof request.body,
+          isObject: typeof request.body === 'object',
+          isNull: request.body === null,
+        });
+
+        // Log 4: Body stringified
+        try {
+          logger.info('[DEBUG] Body stringified', {
+            bodyString: JSON.stringify(request.body),
           });
-        } else {
-          logger.warn('conversation_id NOT FOUND in webhook', {
-            receivedKeys: Object.keys(bodyWithConvId),
-          });
+        } catch (e) {
+          logger.error('[DEBUG] Cannot stringify body', e as Error);
         }
+
+        // Log 5: Check for ALL possible identifiers
+        const bodyWithConvId = request.body as Record<string, unknown>;
+        const allKeys = Object.keys(bodyWithConvId);
+        logger.info('[DEBUG] Body keys and values', {
+          keys: allKeys,
+          values: bodyWithConvId,
+        });
+
+        // Log 6: Check specific fields
+        const possibleIds = {
+          conversation_id: bodyWithConvId.conversation_id,
+          conversationId: bodyWithConvId.conversationId,
+          call_sid: bodyWithConvId.call_sid,
+          callSid: bodyWithConvId.callSid,
+          call_id: bodyWithConvId.call_id,
+          callId: bodyWithConvId.callId,
+          session_id: bodyWithConvId.session_id,
+          sessionId: bodyWithConvId.sessionId,
+          from: bodyWithConvId.from,
+          to: bodyWithConvId.to,
+        };
+        logger.info('[DEBUG] Possible identifiers', possibleIds);
+
+        logger.info('[DEBUG] ===== END DEBUG LOGS =====');
         // ===== FIN DEBUG =====
 
         // Validate input with Zod
