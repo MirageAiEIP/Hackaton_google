@@ -146,6 +146,27 @@ export const toolsRoutes = (app: FastifyInstance) => {
     },
     async (request, reply) => {
       try {
+        // ===== DEBUG: LOG COMPLET DU WEBHOOK ELEVENLABS =====
+        logger.info('[DEBUG] ElevenLabs webhook RAW DATA', {
+          body: request.body,
+          headers: request.headers,
+          method: request.method,
+          url: request.url,
+        });
+
+        // Vérifier si conversation_id est présent
+        const bodyWithConvId = request.body as Record<string, unknown>;
+        if (bodyWithConvId.conversation_id) {
+          logger.info('conversation_id FOUND in webhook', {
+            conversation_id: bodyWithConvId.conversation_id,
+          });
+        } else {
+          logger.warn('conversation_id NOT FOUND in webhook', {
+            receivedKeys: Object.keys(bodyWithConvId),
+          });
+        }
+        // ===== FIN DEBUG =====
+
         // Validate input with Zod
         const input = getPharmacyOnDutySchema.parse(request.body);
 
