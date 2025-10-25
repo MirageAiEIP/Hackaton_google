@@ -156,65 +156,39 @@ export const toolsRoutes = (app: FastifyInstance) => {
     async (request, reply) => {
       try {
         // ===== DEBUG: LOG ULTRA COMPLET DU WEBHOOK ELEVENLABS =====
-        logger.info('[DEBUG] ===== GET_PHARMACY_ON_DUTY WEBHOOK CALLED =====');
+        /* eslint-disable no-console */
+        console.log('========================================');
+        console.log('[DEBUG] GET_PHARMACY_ON_DUTY WEBHOOK CALLED');
+        console.log('========================================');
 
-        // Log 1: Full request object
-        logger.info('[DEBUG] Full request details', {
-          method: request.method,
-          url: request.url,
-          query: request.query,
-          params: request.params,
-          hostname: request.hostname,
-          ip: request.ip,
-          protocol: request.protocol,
-        });
+        // Log body as string (plus visible dans Cloud Run)
+        console.log('[DEBUG] RAW BODY STRING:');
+        console.log(JSON.stringify(request.body, null, 2));
 
-        // Log 2: All headers
-        logger.info('[DEBUG] All headers', {
-          headers: JSON.stringify(request.headers, null, 2),
-        });
-
-        // Log 3: Body as-is
-        logger.info('[DEBUG] Body (as-is)', {
-          body: request.body,
-          bodyType: typeof request.body,
-          isObject: typeof request.body === 'object',
-          isNull: request.body === null,
-        });
-
-        // Log 4: Body stringified
-        try {
-          logger.info('[DEBUG] Body stringified', {
-            bodyString: JSON.stringify(request.body),
-          });
-        } catch (e) {
-          logger.error('[DEBUG] Cannot stringify body', e as Error);
-        }
-
-        // Log 5: Check for ALL possible identifiers
+        // Log body keys
         const bodyWithConvId = request.body as Record<string, unknown>;
         const allKeys = Object.keys(bodyWithConvId);
-        logger.info('[DEBUG] Body keys and values', {
-          keys: allKeys,
-          values: bodyWithConvId,
-        });
+        console.log('[DEBUG] BODY KEYS:', allKeys);
 
-        // Log 6: Check specific fields
-        const possibleIds = {
-          conversation_id: bodyWithConvId.conversation_id,
-          conversationId: bodyWithConvId.conversationId,
-          call_sid: bodyWithConvId.call_sid,
-          callSid: bodyWithConvId.callSid,
-          call_id: bodyWithConvId.call_id,
-          callId: bodyWithConvId.callId,
-          session_id: bodyWithConvId.session_id,
-          sessionId: bodyWithConvId.sessionId,
-          from: bodyWithConvId.from,
-          to: bodyWithConvId.to,
-        };
-        logger.info('[DEBUG] Possible identifiers', possibleIds);
+        // Log each body field individually
+        console.log('[DEBUG] BODY FIELDS:');
+        for (const [key, value] of Object.entries(bodyWithConvId)) {
+          console.log(`  - ${key}: ${JSON.stringify(value)}`);
+        }
 
-        logger.info('[DEBUG] ===== END DEBUG LOGS =====');
+        // Check for conversation_id specifically
+        if (bodyWithConvId.conversation_id) {
+          console.log('[DEBUG] ✅ conversation_id FOUND:', bodyWithConvId.conversation_id);
+        } else {
+          console.log('[DEBUG] ❌ conversation_id NOT FOUND');
+        }
+
+        // Log headers
+        console.log('[DEBUG] HEADERS:');
+        console.log(JSON.stringify(request.headers, null, 2));
+
+        console.log('========================================');
+        /* eslint-enable no-console */
         // ===== FIN DEBUG =====
 
         // Validate input with Zod
