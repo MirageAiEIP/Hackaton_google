@@ -9,12 +9,14 @@ import { logger } from '@/utils/logger';
 
 /**
  * Tool input schema (validated with Zod)
+ * ElevenLabs sends data wrapped in an "object" property
  */
 export const getPharmacyOnDutySchema = z.object({
-  postalCode: z.string().optional().describe('Patient postal code (e.g., "75001" for Paris)'),
-  city: z.string().optional().describe('Patient city name'),
-  latitude: z.number().optional().describe('Patient latitude coordinate'),
-  longitude: z.number().optional().describe('Patient longitude coordinate'),
+  object: z.object({
+    conversation_id: z.string().optional().describe('ElevenLabs conversation ID'),
+    postalCode: z.string().optional().describe('Patient postal code (e.g., "75001" for Paris)'),
+    city: z.string().optional().describe('Patient city name'),
+  }),
 });
 
 export type GetPharmacyOnDutyInput = z.infer<typeof getPharmacyOnDutySchema>;
@@ -58,12 +60,13 @@ const MOCK_PHARMACIES = [
  * Called when ElevenLabs agent invokes this tool
  */
 export async function executeGetPharmacyOnDuty(input: GetPharmacyOnDutyInput) {
-  const { postalCode, city, latitude, longitude } = input;
+  // Extract data from wrapper object
+  const { conversation_id, postalCode, city } = input.object;
 
   logger.info('Client Tool: get_pharmacy_on_duty called', {
+    conversation_id,
     postalCode,
     city,
-    hasCoordinates: !!(latitude && longitude),
   });
 
   try {
