@@ -26,6 +26,7 @@ import { authRoutes } from '@/api/routes/auth.routes';
 import { usersRoutes } from '@/api/routes/users.routes';
 import { transcriptsRoutes } from '@/api/routes/transcripts.routes';
 import { audioRoutes } from '@/api/routes/audio.routes';
+import { monitoringRoutes } from '@/api/routes/monitoring.routes';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 
@@ -93,6 +94,7 @@ async function setupServer() {
         { name: 'calls', description: 'Emergency call management' },
         { name: 'transcripts', description: 'Call transcript retrieval and search' },
         { name: 'audio', description: 'Call audio recordings and playback' },
+        { name: 'monitoring', description: 'Real-time call monitoring and live audio streaming' },
       ],
       components: {
         securitySchemes: {
@@ -301,6 +303,9 @@ async function setupServer() {
 
   // Register audio routes (call recording playback)
   await app.register(audioRoutes, { prefix: '/api/v1/audio' });
+
+  // Register monitoring routes (real-time call monitoring)
+  await app.register(monitoringRoutes, { prefix: '/api/v1/monitoring' });
 
   // WebSocket stats endpoint
   app.get('/api/v1/dashboard/stats', async () => {
