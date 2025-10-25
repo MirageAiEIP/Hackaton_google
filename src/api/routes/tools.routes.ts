@@ -194,10 +194,15 @@ export const toolsRoutes = (app: FastifyInstance) => {
         // Validate input with Zod
         const input = getPharmacyOnDutySchema.parse(request.body);
 
+        // Extract data - support both flat and wrapped structures
+        const conversation_id = input.object?.conversation_id || input.conversation_id;
+        const postalCode = input.object?.postalCode || input.postalCode;
+        const city = input.object?.city || input.city;
+
         logger.info('Tool webhook: get_pharmacy_on_duty', {
-          conversation_id: input.object.conversation_id,
-          postalCode: input.object.postalCode,
-          city: input.object.city,
+          conversation_id,
+          postalCode,
+          city,
         });
 
         // Execute tool

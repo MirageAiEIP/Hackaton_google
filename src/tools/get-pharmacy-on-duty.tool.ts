@@ -9,14 +9,21 @@ import { logger } from '@/utils/logger';
 
 /**
  * Tool input schema (validated with Zod)
- * ElevenLabs sends data wrapped in an "object" property
+ * Accept both flat structure and object wrapper from ElevenLabs
  */
 export const getPharmacyOnDutySchema = z.object({
-  object: z.object({
-    conversation_id: z.string().optional().describe('ElevenLabs conversation ID'),
-    postalCode: z.string().optional().describe('Patient postal code (e.g., "75001" for Paris)'),
-    city: z.string().optional().describe('Patient city name'),
-  }),
+  // Direct fields (flat structure)
+  conversation_id: z.string().optional().describe('ElevenLabs conversation ID'),
+  postalCode: z.string().optional().describe('Patient postal code (e.g., "75001" for Paris)'),
+  city: z.string().optional().describe('Patient city name'),
+  // OR wrapped in object
+  object: z
+    .object({
+      conversation_id: z.string().optional().describe('ElevenLabs conversation ID'),
+      postalCode: z.string().optional().describe('Patient postal code'),
+      city: z.string().optional().describe('Patient city name'),
+    })
+    .optional(),
 });
 
 export type GetPharmacyOnDutyInput = z.infer<typeof getPharmacyOnDutySchema>;
@@ -60,8 +67,10 @@ const MOCK_PHARMACIES = [
  * Called when ElevenLabs agent invokes this tool
  */
 export async function executeGetPharmacyOnDuty(input: GetPharmacyOnDutyInput) {
-  // Extract data from wrapper object
-  const { conversation_id, postalCode, city } = input.object;
+  // Extract data - support both flat and wrapped structures
+  const conversation_id = input.object?.conversation_id || input.conversation_id;
+  const postalCode = input.object?.postalCode || input.postalCode;
+  const city = input.object?.city || input.city;
 
   logger.info('Client Tool: get_pharmacy_on_duty called', {
     conversation_id,
