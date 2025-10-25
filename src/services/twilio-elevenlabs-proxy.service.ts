@@ -9,6 +9,7 @@ import { Container } from '@/infrastructure/di/Container';
 import { WebSessionStartedEvent } from '@/domain/call/events/WebSessionStarted.event';
 import { WebSessionEndedEvent } from '@/domain/call/events/WebSessionEnded.event';
 import { elevenLabsSTTService } from './elevenlabs-stt.service';
+import { conversationPersistenceService } from './conversation-persistence.service';
 
 /**
  * Service proxy WebSocket entre Twilio Media Stream et ElevenLabs Conversational AI
@@ -68,6 +69,7 @@ export class TwilioElevenLabsProxyService {
     let elevenLabsWs: WebSocket | null = null;
     let callId: string | null = null;
     let streamSid: string | null = null;
+    let conversationId: string | null = null;
 
     // Connect to ElevenLabs WebSocket
     try {
@@ -104,6 +106,16 @@ export class TwilioElevenLabsProxyService {
                 },
               })
             );
+          }
+
+          // Capture conversation ID from ElevenLabs
+          if (message.conversation_id && !conversationId) {
+            conversationId = message.conversation_id;
+            logger.info('Captured ElevenLabs conversation ID', {
+              conversationId,
+              callId,
+              callSid,
+            });
           }
 
           // Log transcript
@@ -184,9 +196,30 @@ export class TwilioElevenLabsProxyService {
             elevenLabsWs.close();
           }
 
-          // Update call status
+          // Update call status and save transcript
           if (callId) {
             await callService.updateCallStatus(callId, 'COMPLETED');
+
+            // Save ElevenLabs conversation transcript
+            if (conversationId) {
+              logger.info('Saving conversation transcript', { callId, conversationId });
+
+              // Save asynchronously - don't block call completion
+              conversationPersistenceService
+                .saveConversation({
+                  conversationId,
+                  callId,
+                  agentId: this.agentId,
+                })
+                .catch((err) => {
+                  logger.error('Failed to save conversation (async)', err as Error, {
+                    callId,
+                    conversationId,
+                  });
+                });
+            } else {
+              logger.warn('No conversation ID available for transcript saving', { callId });
+            }
           }
         }
       } catch (error) {
@@ -221,6 +254,7 @@ export class TwilioElevenLabsProxyService {
     logger.info('Web conversation connected', { sessionId, callId });
 
     let elevenLabsWs: WebSocket | null = null;
+    let conversationId: string | null = null;
 
     // Connect to ElevenLabs WebSocket
     try {
@@ -277,6 +311,16 @@ export class TwilioElevenLabsProxyService {
             sessionId,
           });
 
+          // Capture conversation ID from ElevenLabs
+          if (message.conversation_id && !conversationId) {
+            conversationId = message.conversation_id;
+            logger.info('Captured ElevenLabs conversation ID (web)', {
+              conversationId,
+              callId,
+              sessionId,
+            });
+          }
+
           // Gérer les ping events (keep-alive)
           if (message.type === 'ping' && message.ping_event) {
             logger.debug('Ping event received', {
@@ -328,8 +372,33 @@ export class TwilioElevenLabsProxyService {
         logger.error('ElevenLabs WebSocket error', error, { sessionId });
       });
 
-      elevenLabsWs.on('close', () => {
+      elevenLabsWs.on('close', async () => {
         logger.info('ElevenLabs WebSocket closed', { sessionId });
+
+        // Save conversation transcript if we have the IDs
+        if (callId && conversationId) {
+          logger.info('Saving web conversation transcript', { callId, conversationId, sessionId });
+
+          // Save asynchronously - don't block WebSocket cleanup
+          conversationPersistenceService
+            .saveConversation({
+              conversationId,
+              callId,
+              agentId: this.agentId,
+            })
+            .catch((err) => {
+              logger.error('Failed to save web conversation (async)', err as Error, {
+                callId,
+                conversationId,
+                sessionId,
+              });
+            });
+
+          // Update call status to completed
+          await callService.updateCallStatus(callId, 'COMPLETED').catch((err) => {
+            logger.error('Failed to update call status', err as Error, { callId });
+          });
+        }
 
         // Check if we should keep client connected (operator takeover scenario)
         if (!sessionId) {

@@ -24,6 +24,8 @@ import { toolsRoutes } from '@/api/routes/tools.routes';
 import { handoffRoutes } from '@/api/routes/handoff.routes';
 import { authRoutes } from '@/api/routes/auth.routes';
 import { usersRoutes } from '@/api/routes/users.routes';
+import { transcriptsRoutes } from '@/api/routes/transcripts.routes';
+import { audioRoutes } from '@/api/routes/audio.routes';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 
@@ -89,6 +91,8 @@ async function setupServer() {
         { name: 'User Management', description: 'User management (Admin only)' },
         { name: 'twilio', description: 'Twilio webhook endpoints for phone calls' },
         { name: 'calls', description: 'Emergency call management' },
+        { name: 'transcripts', description: 'Call transcript retrieval and search' },
+        { name: 'audio', description: 'Call audio recordings and playback' },
       ],
       components: {
         securitySchemes: {
@@ -291,6 +295,12 @@ async function setupServer() {
 
   // Register handoff routes (AI to human handoff management)
   await app.register(handoffRoutes, { prefix: '/api/v1/handoff' });
+
+  // Register transcripts routes (transcript retrieval and search)
+  await app.register(transcriptsRoutes, { prefix: '/api/v1/transcripts' });
+
+  // Register audio routes (call recording playback)
+  await app.register(audioRoutes, { prefix: '/api/v1/audio' });
 
   // WebSocket stats endpoint
   app.get('/api/v1/dashboard/stats', async () => {
