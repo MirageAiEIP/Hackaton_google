@@ -1,37 +1,14 @@
 import { z } from 'zod';
 import { logger } from '@/utils/logger';
 
-/**
- * ElevenLabs Client Tool: Get Pharmacy On Duty
- * Called by AI agent to find nearby pharmacies on duty
- * Provides information about 24/7 pharmacies and on-call pharmacies
- */
-
-/**
- * Tool input schema (validated with Zod)
- * Accept both flat structure and object wrapper from ElevenLabs
- */
 export const getPharmacyOnDutySchema = z.object({
-  // Direct fields (flat structure)
   conversation_id: z.string().optional().describe('ElevenLabs conversation ID'),
-  postalCode: z.string().optional().describe('Patient postal code (e.g., "75001" for Paris)'),
+  postalCode: z.string().optional().describe('Patient postal code'),
   city: z.string().optional().describe('Patient city name'),
-  // OR wrapped in object
-  object: z
-    .object({
-      conversation_id: z.string().optional().describe('ElevenLabs conversation ID'),
-      postalCode: z.string().optional().describe('Patient postal code'),
-      city: z.string().optional().describe('Patient city name'),
-    })
-    .optional(),
 });
 
 export type GetPharmacyOnDutyInput = z.infer<typeof getPharmacyOnDutySchema>;
 
-/**
- * Mock pharmacy database
- * In production, this would call an external API (e.g., French government pharmacy API)
- */
 const MOCK_PHARMACIES = [
   {
     id: '1',
@@ -40,7 +17,7 @@ const MOCK_PHARMACIES = [
     phone: '+33 1 45 62 02 41',
     hours: '24/7',
     isOnDuty: true,
-    distance: 0.5, // km
+    distance: 0.5,
   },
   {
     id: '2',
@@ -62,35 +39,23 @@ const MOCK_PHARMACIES = [
   },
 ];
 
-/**
- * Tool execution function
- * Called when ElevenLabs agent invokes this tool
- */
 export async function executeGetPharmacyOnDuty(input: GetPharmacyOnDutyInput) {
-  // Extract data - support both flat and wrapped structures
-  const conversation_id = input.object?.conversation_id || input.conversation_id;
-  const postalCode = input.object?.postalCode || input.postalCode;
-  const city = input.object?.city || input.city;
-
   logger.info('Client Tool: get_pharmacy_on_duty called', {
-    conversation_id,
-    postalCode,
-    city,
+    conversation_id: input.conversation_id,
+    postalCode: input.postalCode,
+    city: input.city,
   });
 
   try {
-    // In production, call external API (e.g., Ordre National des Pharmaciens API)
-    // For now, return mock data filtered by location
-
     const pharmacies = MOCK_PHARMACIES;
 
-    // Filter by location if provided
-    if (postalCode || city) {
-      // In production, filter by actual location
-      logger.info('Filtering pharmacies by location', { postalCode, city });
+    if (input.postalCode || input.city) {
+      logger.info('Filtering pharmacies by location', {
+        postalCode: input.postalCode,
+        city: input.city,
+      });
     }
 
-    // Filter only on-duty pharmacies
     const onDutyPharmacies = pharmacies.filter((p) => p.isOnDuty);
 
     if (onDutyPharmacies.length === 0) {
@@ -100,17 +65,16 @@ export async function executeGetPharmacyOnDuty(input: GetPharmacyOnDutyInput) {
         data: {
           count: 0,
           pharmacies: [],
-          searchArea: postalCode || city || 'current location',
+          searchArea: input.postalCode || input.city || 'current location',
         },
       };
     }
 
-    // Sort by distance (closest first)
     onDutyPharmacies.sort((a, b) => a.distance - b.distance);
 
     logger.info('Pharmacies on duty found', {
       count: onDutyPharmacies.length,
-      location: postalCode || city,
+      location: input.postalCode || input.city,
     });
 
     return {
@@ -125,14 +89,14 @@ export async function executeGetPharmacyOnDuty(input: GetPharmacyOnDutyInput) {
           hours: p.hours,
           distance: `${p.distance} km`,
         })),
-        searchArea: postalCode || city || 'current location',
+        searchArea: input.postalCode || input.city || 'current location',
         timestamp: new Date().toISOString(),
       },
     };
   } catch (error) {
     logger.error('Failed to retrieve pharmacies on duty', error as Error, {
-      postalCode,
-      city,
+      postalCode: input.postalCode,
+      city: input.city,
     });
 
     return {
@@ -143,9 +107,6 @@ export async function executeGetPharmacyOnDuty(input: GetPharmacyOnDutyInput) {
   }
 }
 
-/**
- * Tool definition for ElevenLabs dashboard configuration
- */
 export const getPharmacyOnDutyToolDefinition = {
   name: 'get_pharmacy_on_duty',
   description:

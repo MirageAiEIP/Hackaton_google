@@ -155,57 +155,14 @@ export const toolsRoutes = (app: FastifyInstance) => {
     },
     async (request, reply) => {
       try {
-        // ===== DEBUG: LOG ULTRA COMPLET DU WEBHOOK ELEVENLABS =====
-        /* eslint-disable no-console */
-        console.log('========================================');
-        console.log('[DEBUG] GET_PHARMACY_ON_DUTY WEBHOOK CALLED');
-        console.log('========================================');
-
-        // Log body as string (plus visible dans Cloud Run)
-        console.log('[DEBUG] RAW BODY STRING:');
-        console.log(JSON.stringify(request.body, null, 2));
-
-        // Log body keys
-        const bodyWithConvId = request.body as Record<string, unknown>;
-        const allKeys = Object.keys(bodyWithConvId);
-        console.log('[DEBUG] BODY KEYS:', allKeys);
-
-        // Log each body field individually
-        console.log('[DEBUG] BODY FIELDS:');
-        for (const [key, value] of Object.entries(bodyWithConvId)) {
-          console.log(`  - ${key}: ${JSON.stringify(value)}`);
-        }
-
-        // Check for conversation_id specifically
-        if (bodyWithConvId.conversation_id) {
-          console.log('[DEBUG] ✅ conversation_id FOUND:', bodyWithConvId.conversation_id);
-        } else {
-          console.log('[DEBUG] ❌ conversation_id NOT FOUND');
-        }
-
-        // Log headers
-        console.log('[DEBUG] HEADERS:');
-        console.log(JSON.stringify(request.headers, null, 2));
-
-        console.log('========================================');
-        /* eslint-enable no-console */
-        // ===== FIN DEBUG =====
-
-        // Validate input with Zod
         const input = getPharmacyOnDutySchema.parse(request.body);
 
-        // Extract data - support both flat and wrapped structures
-        const conversation_id = input.object?.conversation_id || input.conversation_id;
-        const postalCode = input.object?.postalCode || input.postalCode;
-        const city = input.object?.city || input.city;
-
         logger.info('Tool webhook: get_pharmacy_on_duty', {
-          conversation_id,
-          postalCode,
-          city,
+          conversation_id: input.conversation_id,
+          postalCode: input.postalCode,
+          city: input.city,
         });
 
-        // Execute tool
         const result = await executeGetPharmacyOnDuty(input);
 
         return reply.send(result);
