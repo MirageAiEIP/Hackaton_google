@@ -195,8 +195,9 @@ export const toolsRoutes = (app: FastifyInstance) => {
         const input = getPharmacyOnDutySchema.parse(request.body);
 
         logger.info('Tool webhook: get_pharmacy_on_duty', {
-          postalCode: input.postalCode,
-          city: input.city,
+          conversation_id: input.object.conversation_id,
+          postalCode: input.object.postalCode,
+          city: input.object.city,
         });
 
         // Execute tool
