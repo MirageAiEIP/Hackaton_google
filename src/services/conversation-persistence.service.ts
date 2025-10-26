@@ -81,18 +81,20 @@ export class ConversationPersistenceService {
 
       logger.info('ElevenLabsConversation record created', { conversationId });
 
-      // Update Call.transcript with plain text version
+      // Update call duration only - DO NOT overwrite call.transcript
+      // call.transcript contains the COMPLETE conversation (AI + Operator) captured in real-time
+      // elevenLabsConversation.transcript contains only the AI phase for reference
       await prisma.call.update({
         where: { id: callId },
         data: {
-          transcript: conversationData.transcript,
+          // transcript: conversationData.transcript, // REMOVED - would overwrite real-time transcript
           duration: durationSeconds,
         },
       });
 
-      logger.info('Call transcript updated', {
+      logger.info('Call duration updated (transcript preserved from real-time capture)', {
         callId,
-        transcriptLength: conversationData.transcript.length,
+        aiPhaseDuration: durationSeconds,
       });
 
       logger.info('Conversation persistence completed successfully', {
