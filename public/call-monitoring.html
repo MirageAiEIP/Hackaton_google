@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAMU Call Monitoring Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-badge.connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-badge.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .calls-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .call-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .call-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+        }
+
+        .call-item.monitoring {
+            background: #f0fdf4;
+            border-color: #10b981;
+        }
+
+        .call-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .call-id {
+            font-weight: 600;
+            color: #667eea;
+            font-family: monospace;
+        }
+
+        .call-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 2px;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .audio-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .volume-slider {
+            width: 100px;
+        }
+
+        .audio-visualizer {
+            height: 40px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            overflow: hidden;
+        }
+
+        .visualizer-bar {
+            width: 3px;
+            background: #667eea;
+            transition: height 0.1s;
+            border-radius: 2px;
+        }
+
+        .logs {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f9fafb;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .log-time {
+            color: #999;
+            margin-right: 8px;
+        }
+
+        .log-info {
+            color: #667eea;
+        }
+
+        .log-success {
+            color: #10b981;
+        }
+
+        .log-error {
+            color: #ef4444;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .refresh-btn {
+            margin-top: 10px;
+        }
+
+        .track-filters {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                SAMU Call Monitoring Dashboard
+                <span class="status-badge disconnected" id="connectionStatus">Disconnected</span>
+            </h1>
+            <p>Real-time monitoring of active emergency calls</p>
+        </div>
+
+        <div class="card">
+            <h2>Active Calls</h2>
+            <button class="btn btn-primary refresh-btn" onclick="loadActiveCalls()">🔄 Refresh Calls</button>
+            <div class="calls-list" id="callsList">
+                <div class="empty-state">
+                    <p>Loading active calls...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="monitoringCard" style="display: none;">
+            <h2>Currently Monitoring</h2>
+            <div id="monitoringInfo"></div>
+            <div class="audio-controls">
+                <button class="btn btn-danger" onclick="stopMonitoring()">⏹ Stop Monitoring</button>
+                <div class="volume-control">
+                    <label>Volume:</label>
+                    <input type="range" min="0" max="100" value="50" class="volume-slider" id="volumeSlider" oninput="updateVolume(this.value)">
+                    <span id="volumeValue">50%</span>
+                </div>
+            </div>
+            <div class="track-filters">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="includeInbound" checked onchange="updateFilters()">
+                    Include Inbound (Patient)
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="includeOutbound" checked onchange="updateFilters()">
+                    Include Outbound (Agent)
+                </label>
+            </div>
+            <div class="audio-visualizer" id="visualizer"></div>
+        </div>
+
+        <div class="card">
+            <h2>Activity Log</h2>
+            <div class="logs" id="activityLog">
+                <div class="log-entry">
+                    <span class="log-time">[Ready]</span>
+                    <span class="log-info">Dashboard initialized</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer" style="display: none;"></audio>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let ws = null;
+        let currentCallSid = null;
+        let audioContext = null;
+        let visualizerBars = [];
+
+        // Initialize visualizer
+        function initVisualizer() {
+            const visualizer = document.getElementById('visualizer');
+            visualizer.innerHTML = '';
+            for (let i = 0; i < 30; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'visualizer-bar';
+                bar.style.height = '4px';
+                visualizer.appendChild(bar);
+                visualizerBars.push(bar);
+            }
+        }
+
+        // Animate visualizer
+        function animateVisualizer() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                visualizerBars.forEach(bar => bar.style.height = '4px');
+                return;
+            }
+
+            visualizerBars.forEach(bar => {
+                const height = Math.random() * 30 + 4;
+                bar.style.height = height + 'px';
+            });
+        }
+
+        // Load active calls
+        async function loadActiveCalls() {
+            addLog('Fetching active calls...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/monitoring/active-calls`);
+                const data = await response.json();
+
+                if (data.success) {
+                    displayCalls(data.calls);
+                    addLog(`Found ${data.calls.length} active call(s)`, 'success');
+                } else {
+                    addLog('Failed to load calls', 'error');
+                }
+            } catch (error) {
+                addLog(`Error loading calls: ${error.message}`, 'error');
+            }
+        }
+
+        // Display calls
+        function displayCalls(calls) {
+            const callsList = document.getElementById('callsList');
+
+            if (calls.length === 0) {
+                callsList.innerHTML = '<div class="empty-state"><p>No active calls</p></div>';
+                return;
+            }
+
+            callsList.innerHTML = calls.map(call => {
+                const startTime = new Date(call.startedAt);
+                const duration = Math.floor((Date.now() - startTime.getTime()) / 1000);
+                const isMonitoring = call.callSid === currentCallSid;
+
+                return `
+                    <div class="call-item ${isMonitoring ? 'monitoring' : ''}" onclick="startMonitoring('${call.callSid}')">
+                        <div class="call-header">
+                            <span class="call-id">${call.callSid}</span>
+                            ${isMonitoring ? '<span class="status-badge connected">MONITORING</span>' : ''}
+                        </div>
+                        <div class="call-info">
+                            <div class="info-item">
+                                <span class="info-label">From</span>
+                                <span class="info-value">${call.metadata?.from || 'Unknown'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">To</span>
+                                <span class="info-value">${call.metadata?.to || 'Unknown'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Duration</span>
+                                <span class="info-value">${formatDuration(duration)}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Operators</span>
+                                <span class="info-value">${call.operatorCount} listening</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Format duration
+        function formatDuration(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Start monitoring a call
+        function startMonitoring(callSid) {
+            if (currentCallSid === callSid) {
+                addLog('Already monitoring this call', 'info');
+                return;
+            }
+
+            if (ws) {
+                stopMonitoring();
+            }
+
+            currentCallSid = callSid;
+            const operatorId = `operator_${Date.now()}`;
+            const includeInbound = document.getElementById('includeInbound').checked;
+            const includeOutbound = document.getElementById('includeOutbound').checked;
+
+            const wsUrl = `${API_BASE.replace('http', 'ws')}/api/v1/monitoring/listen/${callSid}?operatorId=${operatorId}&includeInbound=${includeInbound}&includeOutbound=${includeOutbound}`;
+
+            addLog(`Connecting to call ${callSid}...`, 'info');
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                addLog('Connected to call stream', 'success');
+                updateConnectionStatus(true);
+                document.getElementById('monitoringCard').style.display = 'block';
+                document.getElementById('monitoringInfo').innerHTML = `
+                    <div class="info-item">
+                        <span class="info-label">Call SID</span>
+                        <span class="info-value">${callSid}</span>
+                    </div>
+                `;
+                setInterval(animateVisualizer, 100);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                } catch (error) {
+                    addLog(`Error parsing message: ${error.message}`, 'error');
+                }
+            };
+
+            ws.onerror = (error) => {
+                addLog('WebSocket error occurred', 'error');
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                addLog('Disconnected from call stream', 'info');
+                updateConnectionStatus(false);
+                currentCallSid = null;
+            };
+        }
+
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            switch (data.type) {
+                case 'connected':
+                    addLog(`Connected to stream ${data.streamSid}`, 'success');
+                    break;
+
+                case 'audio':
+                    // Audio payload received (base64 encoded)
+                    // In a real implementation, you would decode and play this
+                    // For now, just log it
+                    addLog(`Audio received: ${data.track} track`, 'info');
+                    break;
+
+                case 'call_ended':
+                    addLog('Call has ended', 'info');
+                    stopMonitoring();
+                    loadActiveCalls();
+                    break;
+
+                case 'error':
+                    addLog(`Error: ${data.message}`, 'error');
+                    stopMonitoring();
+                    break;
+            }
+        }
+
+        // Stop monitoring
+        function stopMonitoring() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            currentCallSid = null;
+            document.getElementById('monitoringCard').style.display = 'none';
+            updateConnectionStatus(false);
+            loadActiveCalls();
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            const badge = document.getElementById('connectionStatus');
+            if (connected) {
+                badge.textContent = 'Connected';
+                badge.className = 'status-badge connected';
+            } else {
+                badge.textContent = 'Disconnected';
+                badge.className = 'status-badge disconnected';
+            }
+        }
+
+        // Update volume
+        function updateVolume(value) {
+            document.getElementById('volumeValue').textContent = value + '%';
+            const audio = document.getElementById('audioPlayer');
+            audio.volume = value / 100;
+        }
+
+        // Update filters
+        function updateFilters() {
+            if (ws && currentCallSid) {
+                addLog('Filters updated - reconnecting...', 'info');
+                const callSid = currentCallSid;
+                stopMonitoring();
+                setTimeout(() => startMonitoring(callSid), 500);
+            }
+        }
+
+        // Add log entry
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('activityLog');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-${type}">${message}</span>
+            `;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Initialize
+        initVisualizer();
+        loadActiveCalls();
+
+        // Auto-refresh calls every 5 seconds
+        setInterval(loadActiveCalls, 5000);
+    </script>
+</body>
+</html>
