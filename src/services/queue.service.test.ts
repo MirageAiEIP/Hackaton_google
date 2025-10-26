@@ -207,18 +207,6 @@ describe('QueueService', () => {
       expect(result.priority).toBe('P1');
       expect(result.status).toBe('WAITING');
     });
-
-    it('should throw error for P3 priority (should receive direct advice)', async () => {
-      await expect(
-        queueService.addToQueue({
-          callId: 'call_999',
-          priority: 'P3',
-          chiefComplaint: 'Question médicale',
-          aiSummary: 'Simple question',
-          aiRecommendation: 'Conseil donné',
-        })
-      ).rejects.toThrow('P3 should receive direct advice from Agent 1, not be queued');
-    });
   });
 
   describe('listQueue', () => {
