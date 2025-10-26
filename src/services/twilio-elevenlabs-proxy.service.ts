@@ -40,6 +40,9 @@ export class TwilioElevenLabsProxyService {
     }
   >();
 
+  // Global mapping: conversationId → callId (pour les tools ElevenLabs)
+  private static conversationToCallMap = new Map<string, string>();
+
   private async initialize(): Promise<void> {
     if (this.initialized) {
       return;
@@ -55,6 +58,22 @@ export class TwilioElevenLabsProxyService {
 
     this.initialized = true;
     logger.info('Twilio-ElevenLabs Proxy Service initialized');
+  }
+
+  /**
+   * Méthode statique pour récupérer le callId depuis un conversationId
+   * Utilisée par les tools ElevenLabs qui reçoivent conversationId dans les webhooks
+   */
+  static getCallIdFromConversation(conversationId: string): string | undefined {
+    return this.conversationToCallMap.get(conversationId);
+  }
+
+  /**
+   * Stocker le mapping conversationId → callId
+   */
+  private storeConversationMapping(conversationId: string, callId: string): void {
+    TwilioElevenLabsProxyService.conversationToCallMap.set(conversationId, callId);
+    logger.info('Stored conversation mapping', { conversationId, callId });
   }
 
   /**
@@ -83,6 +102,28 @@ export class TwilioElevenLabsProxyService {
 
       logger.info('Connecting to ElevenLabs WebSocket', { callSid });
 
+      // Envoyer le callId à l'agent via conversation_initiation_client_data dès la connexion
+      elevenLabsWs.on('open', () => {
+        logger.info('ElevenLabs WebSocket connected for Twilio call', { callSid, callId });
+
+        // Envoyer le callId dans custom_llm_extra_body pour que l'agent puisse l'utiliser
+        elevenLabsWs!.send(
+          JSON.stringify({
+            type: 'conversation_initiation_client_data',
+            conversation_initiation_client_data: {
+              custom_llm_extra_body: {
+                callId: callId,
+              },
+            },
+          })
+        );
+
+        logger.info('Sent callId via conversation_initiation_client_data to ElevenLabs agent', {
+          callSid,
+          callId,
+        });
+      });
+
       // ElevenLabs → Twilio: Forward audio responses
       elevenLabsWs.on('message', (data: Buffer) => {
         try {
@@ -92,6 +133,11 @@ export class TwilioElevenLabsProxyService {
             type: message.type,
             callSid,
           });
+
+          // Capturer le conversation_id d'ElevenLabs et le mapper au callId
+          if (message.conversation_id && callId) {
+            this.storeConversationMapping(message.conversation_id, callId);
+          }
 
           // Forward audio to Twilio
           if (message.type === 'audio' && message.audio_event) {
@@ -168,6 +214,22 @@ export class TwilioElevenLabsProxyService {
             });
             callId = call.id;
             logger.info('Call created from Twilio stream', { callId, streamSid });
+
+            // Envoyer le callId à ElevenLabs via conversation_initiation_client_data
+            if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
+              elevenLabsWs.send(
+                JSON.stringify({
+                  type: 'conversation_initiation_client_data',
+                  custom_llm_extra_body: {
+                    callId: callId, // Accessible dans tous les tools
+                  },
+                })
+              );
+              logger.info('Sent conversation_initiation_client_data to ElevenLabs', {
+                callId,
+                callSid,
+              });
+            }
           }
         }
 
@@ -271,14 +333,35 @@ export class TwilioElevenLabsProxyService {
       elevenLabsWs.on('open', () => {
         logger.info('ElevenLabs WebSocket connected for web conversation', { sessionId });
 
-        // Envoyer le message d'initialisation à ElevenLabs (selon la doc)
+        // Envoyer le message d'initialisation à ElevenLabs
         elevenLabsWs!.send(
           JSON.stringify({
             type: 'conversation_initiation_client_data',
+            custom_llm_extra_body: {
+              callId: callId, // Accessible dans tous les tools
+            },
           })
         );
 
-        logger.info('Sent conversation_initiation_client_data to ElevenLabs', { sessionId });
+        // Envoyer le callId comme contexte à l'agent
+        if (callId) {
+          elevenLabsWs!.send(
+            JSON.stringify({
+              type: 'contextual_update',
+              text: `callId: ${callId}`,
+            })
+          );
+
+          logger.info('Sent callId via contextual_update to ElevenLabs agent', {
+            sessionId,
+            callId,
+          });
+        }
+
+        logger.info('Sent conversation_initiation_client_data to ElevenLabs', {
+          sessionId,
+          callId,
+        });
 
         // Store active session for potential operator takeover
         if (sessionId && callId) {
@@ -302,7 +385,7 @@ export class TwilioElevenLabsProxyService {
       });
 
       // ElevenLabs → Browser: Forward all messages
-      elevenLabsWs.on('message', (data: Buffer) => {
+      elevenLabsWs.on('message', async (data: Buffer) => {
         try {
           const message = JSON.parse(data.toString());
 
@@ -319,6 +402,11 @@ export class TwilioElevenLabsProxyService {
               callId,
               sessionId,
             });
+          }
+
+          // Capturer le conversation_id d'ElevenLabs et le mapper au callId
+          if (message.conversation_id && callId) {
+            this.storeConversationMapping(message.conversation_id, callId);
           }
 
           // Gérer les ping events (keep-alive)
@@ -349,19 +437,29 @@ export class TwilioElevenLabsProxyService {
           // Forward message to browser
           clientWs.send(data.toString());
 
-          // Log transcript
+          // Log and save transcript to database
           if (message.type === 'user_transcript' && message.user_transcription_event) {
+            const userText = message.user_transcription_event.user_transcript;
             logger.info('User transcript', {
-              text: message.user_transcription_event.user_transcript,
+              text: userText,
               sessionId,
             });
+
+            if (callId) {
+              await callService.appendTranscript(callId, `User: ${userText}`);
+            }
           }
 
           if (message.type === 'agent_response' && message.agent_response_event) {
+            const agentText = message.agent_response_event.agent_response;
             logger.info('Agent response', {
-              text: message.agent_response_event.agent_response,
+              text: agentText,
               sessionId,
             });
+
+            if (callId) {
+              await callService.appendTranscript(callId, `Agent: ${agentText}`);
+            }
           }
         } catch (error) {
           logger.error('Failed to process ElevenLabs message', error as Error, { sessionId });

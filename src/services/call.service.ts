@@ -200,6 +200,31 @@ export class CallService {
   }
 
   /**
+   * Ajoute une ligne à la transcription de l'appel
+   */
+  async appendTranscript(callId: string, line: string): Promise<void> {
+    const call = await prisma.call.findUnique({
+      where: { id: callId },
+      select: { transcript: true },
+    });
+
+    if (!call) {
+      logger.warn('Call not found for transcript append', { callId });
+      return;
+    }
+
+    const currentTranscript = call.transcript || '';
+    const newTranscript = currentTranscript ? `${currentTranscript}\n${line}` : line;
+
+    await prisma.call.update({
+      where: { id: callId },
+      data: { transcript: newTranscript },
+    });
+
+    logger.debug('Transcript appended', { callId, line });
+  }
+
+  /**
    * Enregistre un symptôme détecté
    */
   async createSymptom(callId: string, symptom: DetectedSymptom): Promise<Symptom> {
@@ -418,6 +443,44 @@ export class CallService {
     } catch (error) {
       logger.error('Failed to get active calls', error as Error);
       throw new Error('Failed to get active calls');
+    }
+  }
+
+  /**
+   * Met à jour les informations du patient
+   */
+  async updatePatientInfo(patientId: string, fields: Record<string, unknown>): Promise<void> {
+    logger.info('Updating patient info', { patientId, fields: Object.keys(fields) });
+
+    try {
+      await prisma.patient.update({
+        where: { id: patientId },
+        data: fields,
+      });
+
+      logger.info('Patient info updated successfully', { patientId });
+    } catch (error) {
+      logger.error('Failed to update patient info', error as Error, { patientId });
+      throw new Error('Failed to update patient info');
+    }
+  }
+
+  /**
+   * Met à jour les champs du call (priority, symptoms, vitalSigns, etc.)
+   */
+  async updateCallFields(callId: string, fields: Record<string, unknown>): Promise<void> {
+    logger.info('Updating call fields', { callId, fields: Object.keys(fields) });
+
+    try {
+      await prisma.call.update({
+        where: { id: callId },
+        data: fields,
+      });
+
+      logger.info('Call fields updated successfully', { callId });
+    } catch (error) {
+      logger.error('Failed to update call fields', error as Error, { callId });
+      throw new Error('Failed to update call fields');
     }
   }
 }

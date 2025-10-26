@@ -31,6 +31,40 @@ async function main(): Promise<void> {
     console.log('ℹ️  Default admin user already exists');
   }
 
+  // Seed Default Operator User
+  console.log('👤 Seeding default operator user...');
+
+  const operatorExists = await prisma.user.findUnique({
+    where: { employeeId: 'OP001' },
+  });
+
+  if (!operatorExists) {
+    const hashedPassword = await bcrypt.hash('SecureOp123!', 12);
+
+    const operator = await prisma.operator.create({
+      data: {
+        email: 'operator1@samu.fr',
+        name: 'Test Operator',
+        status: 'AVAILABLE',
+      },
+    });
+
+    await prisma.user.create({
+      data: {
+        employeeId: 'OP001',
+        fullName: 'Test Operator',
+        password: hashedPassword,
+        role: 'OPERATOR',
+        isActive: true,
+        operatorId: operator.id,
+      },
+    });
+
+    console.log('✅ Default operator user created (OP001 / SecureOp123!)');
+  } else {
+    console.log('ℹ️  Default operator user already exists');
+  }
+
   // Seed Medical Knowledge Base
   console.log('📚 Seeding medical knowledge...');
 
