@@ -1,9 +1,5 @@
 import { FastifyInstance } from 'fastify';
 import {
-  executeGetPatientHistory,
-  getPatientHistorySchema,
-} from '@/tools/get-patient-history.tool';
-import {
   executeGetPharmacyOnDuty,
   getPharmacyOnDutySchema,
 } from '@/tools/get-pharmacy-on-duty.tool';
@@ -28,76 +24,6 @@ import { logger } from '@/utils/logger';
  * Each tool is configured in the ElevenLabs dashboard
  */
 export const toolsRoutes = (app: FastifyInstance) => {
-  /**
-   * Get Patient History Tool
-   * POST /api/v1/tools/get_patient_history
-   *
-   * Called by AI agent to check patient's previous calls
-   * Returns: call history, chronic conditions, allergies, medications
-   */
-  app.post(
-    '/get_patient_history',
-    {
-      schema: {
-        tags: ['tools'],
-        summary: 'Get patient call history',
-        description: 'ElevenLabs Client Tool: Retrieve patient history by phone hash',
-        body: {
-          type: 'object',
-          required: ['phoneHash'],
-          properties: {
-            phoneHash: {
-              type: 'string',
-              description: 'SHA-256 hash of patient phone number',
-            },
-          },
-        },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              success: { type: 'boolean' },
-              hasHistory: { type: 'boolean' },
-              message: { type: 'string' },
-              data: {
-                type: 'object',
-                properties: {
-                  callCount: { type: 'number' },
-                  calls: { type: 'array' },
-                  chronicConditions: { type: 'array' },
-                  allergies: { type: 'array' },
-                  medications: { type: 'array' },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    async (request, reply) => {
-      try {
-        // Validate input with Zod
-        const input = getPatientHistorySchema.parse(request.body);
-
-        logger.info('Tool webhook: get_patient_history', {
-          phoneHash: input.phoneHash.substring(0, 8) + '***',
-        });
-
-        // Execute tool
-        const result = await executeGetPatientHistory(input);
-
-        return reply.send(result);
-      } catch (error) {
-        logger.error('Tool webhook failed: get_patient_history', error as Error);
-        return reply.status(400 as 200).send({
-          success: false,
-          error: 'Invalid input',
-          message: (error as Error).message,
-        });
-      }
-    }
-  );
-
   /**
    * Get Pharmacy On Duty Tool
    * POST /api/v1/tools/get_pharmacy_on_duty
@@ -277,11 +203,11 @@ export const toolsRoutes = (app: FastifyInstance) => {
         description: 'ElevenLabs Client Tool: Retrieve complete call context (CALL FIRST)',
         body: {
           type: 'object',
-          required: ['callId'],
+          required: ['conversation_id'],
           properties: {
-            callId: {
+            conversation_id: {
               type: 'string',
-              description: "ID de l'appel en cours",
+              description: 'ID de conversation ElevenLabs (fourni automatiquement par ElevenLabs)',
             },
           },
         },
@@ -292,7 +218,7 @@ export const toolsRoutes = (app: FastifyInstance) => {
         const input = getCurrentCallInfoSchema.parse(request.body);
 
         logger.info('Tool webhook: get_current_call_info', {
-          callId: input.callId,
+          conversationId: input.conversation_id,
         });
 
         const result = await executeGetCurrentCallInfo(input);
@@ -474,7 +400,6 @@ export const toolsRoutes = (app: FastifyInstance) => {
         'get_current_call_info',
         'update_call_info',
         'check_operator_available',
-        'get_patient_history',
         'get_pharmacy_on_duty',
         'request_human_handoff',
         'dispatch_smur',
