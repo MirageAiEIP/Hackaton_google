@@ -126,6 +126,34 @@ export function verifyAccessToken(token: string, secret: string): DecodedAccessT
 }
 
 /**
+ * Verify access token from query parameter (WebSocket auth)
+ *
+ * @param token - JWT token from query param
+ * @param secret - JWT secret
+ * @param allowedRoles - Allowed roles for access
+ * @returns Decoded token payload
+ * @throws Error if token is invalid, expired, or role not allowed
+ */
+export function verifyAccessTokenFromQuery(
+  token: string | undefined,
+  secret: string,
+  allowedRoles: Array<'OPERATOR' | 'ADMIN'> = ['OPERATOR', 'ADMIN']
+): DecodedAccessToken {
+  if (!token) {
+    throw new Error('Missing access token in query parameter');
+  }
+
+  const decoded = verifyAccessToken(token, secret);
+
+  // Check if role is allowed
+  if (!allowedRoles.includes(decoded.role)) {
+    throw new Error(`Access denied: role ${decoded.role} not allowed`);
+  }
+
+  return decoded;
+}
+
+/**
  * Verify and decode a refresh token
  *
  * @param token - JWT token

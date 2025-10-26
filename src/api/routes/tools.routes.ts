@@ -11,6 +11,15 @@ import {
   executeRequestHumanHandoff,
   requestHumanHandoffSchema,
 } from '@/tools/request-human-handoff.tool';
+import {
+  executeGetCurrentCallInfo,
+  getCurrentCallInfoSchema,
+} from '@/tools/get-current-call-info.tool';
+import { executeUpdateCallInfo, updateCallInfoSchema } from '@/tools/update-call-info.tool';
+import {
+  executeCheckOperatorAvailable,
+  checkOperatorAvailableSchema,
+} from '@/tools/check-operator-available.tool';
 import { logger } from '@/utils/logger';
 
 /**
@@ -146,36 +155,14 @@ export const toolsRoutes = (app: FastifyInstance) => {
     },
     async (request, reply) => {
       try {
-        // ===== DEBUG: LOG COMPLET DU WEBHOOK ELEVENLABS =====
-        logger.info('[DEBUG] ElevenLabs webhook RAW DATA', {
-          body: request.body,
-          headers: request.headers,
-          method: request.method,
-          url: request.url,
-        });
-
-        // Vérifier si conversation_id est présent
-        const bodyWithConvId = request.body as Record<string, unknown>;
-        if (bodyWithConvId.conversation_id) {
-          logger.info('conversation_id FOUND in webhook', {
-            conversation_id: bodyWithConvId.conversation_id,
-          });
-        } else {
-          logger.warn('conversation_id NOT FOUND in webhook', {
-            receivedKeys: Object.keys(bodyWithConvId),
-          });
-        }
-        // ===== FIN DEBUG =====
-
-        // Validate input with Zod
         const input = getPharmacyOnDutySchema.parse(request.body);
 
         logger.info('Tool webhook: get_pharmacy_on_duty', {
+          conversation_id: input.conversation_id,
           postalCode: input.postalCode,
           city: input.city,
         });
 
-        // Execute tool
         const result = await executeGetPharmacyOnDuty(input);
 
         return reply.send(result);
@@ -275,6 +262,207 @@ export const toolsRoutes = (app: FastifyInstance) => {
   );
 
   /**
+   * Get Current Call Info Tool
+   * POST /api/v1/tools/get_current_call_info
+   *
+   * Called by AI agent to retrieve complete call + patient + history context
+   * MUST be called FIRST at the beginning of the conversation
+   */
+  app.post(
+    '/get_current_call_info',
+    {
+      schema: {
+        tags: ['tools'],
+        summary: 'Get current call info',
+        description: 'ElevenLabs Client Tool: Retrieve complete call context (CALL FIRST)',
+        body: {
+          type: 'object',
+          required: ['callId'],
+          properties: {
+            callId: {
+              type: 'string',
+              description: "ID de l'appel en cours",
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const input = getCurrentCallInfoSchema.parse(request.body);
+
+        logger.info('Tool webhook: get_current_call_info', {
+          callId: input.callId,
+        });
+
+        const result = await executeGetCurrentCallInfo(input);
+
+        return reply.send(result);
+      } catch (error) {
+        logger.error('Tool webhook failed: get_current_call_info', error as Error);
+        return reply.status(400 as 200).send({
+          success: false,
+          error: 'Invalid input',
+          message: (error as Error).message,
+        });
+      }
+    }
+  );
+
+  /**
+   * Update Call Info Tool (UNIFIED)
+   * POST /api/v1/tools/update_call_info
+   *
+   * Updates patient info (admin) + call info (medical) in one call
+   * All fields optional - only provided fields are updated
+   */
+  app.post(
+    '/update_call_info',
+    {
+      schema: {
+        tags: ['tools'],
+        summary: 'Update call and patient info',
+        description: 'ElevenLabs Client Tool: Update patient (admin) + call (medical) info',
+        body: {
+          type: 'object',
+          required: ['callId'],
+          properties: {
+            callId: { type: 'string' },
+            patientInfo: { type: 'object' },
+            priority: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
+            priorityReason: { type: 'string' },
+            chiefComplaint: { type: 'string' },
+            currentSymptoms: { type: 'string' },
+            vitalSigns: { type: 'object' },
+            contextInfo: { type: 'object' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const input = updateCallInfoSchema.parse(request.body);
+
+        logger.info('Tool webhook: update_call_info', {
+          callId: input.callId,
+          hasPriority: !!input.priority,
+        });
+
+        const result = await executeUpdateCallInfo(input);
+
+        return reply.send(result);
+      } catch (error) {
+        logger.error('Tool webhook failed: update_call_info', error as Error);
+        return reply.status(400 as 200).send({
+          success: false,
+          error: 'Invalid input',
+          message: (error as Error).message,
+        });
+      }
+    }
+  );
+
+  /**
+   * Check Operator Available Tool
+   * POST /api/v1/tools/check_operator_available
+   *
+   * Checks if a human operator is available
+   * If not: automatically adds call to queue
+   */
+  app.post(
+    '/check_operator_available',
+    {
+      schema: {
+        tags: ['tools'],
+        summary: 'Check operator availability',
+        description: 'ElevenLabs Client Tool: Check if operator available (auto-queue if not)',
+        body: {
+          type: 'object',
+          required: ['callId', 'priority'],
+          properties: {
+            callId: { type: 'string' },
+            priority: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const input = checkOperatorAvailableSchema.parse(request.body);
+
+        logger.info('Tool webhook: check_operator_available', {
+          callId: input.callId,
+          priority: input.priority,
+        });
+
+        const result = await executeCheckOperatorAvailable(input);
+
+        return reply.send(result);
+      } catch (error) {
+        logger.error('Tool webhook failed: check_operator_available', error as Error);
+        return reply.status(400 as 200).send({
+          success: false,
+          error: 'Invalid input',
+          message: (error as Error).message,
+        });
+      }
+    }
+  );
+
+  /**
+   * Conversation Initialization Webhook (DEBUG)
+   * POST /api/v1/tools/conversation-init
+   *
+   * Called by ElevenLabs at the START of each conversation to retrieve initial client data
+   * This endpoint logs everything ElevenLabs sends to help us understand the payload structure
+   */
+  app.post('/conversation-init', async (request, reply) => {
+    // ===== LOG EVERYTHING FROM ELEVENLABS =====
+    logger.info('[DEBUG] ElevenLabs conversation-init webhook called', {
+      body: request.body,
+      headers: request.headers,
+      query: request.query,
+      params: request.params,
+      method: request.method,
+      url: request.url,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Log raw body if available
+    if (request.body) {
+      logger.info('[DEBUG] Conversation init - Body keys', {
+        keys: Object.keys(request.body as Record<string, unknown>),
+        bodyType: typeof request.body,
+      });
+    }
+
+    // Check for common identifiers
+    const bodyWithId = request.body as Record<string, unknown>;
+    const possibleIds = {
+      conversation_id: bodyWithId.conversation_id,
+      call_sid: bodyWithId.call_sid,
+      callSid: bodyWithId.callSid,
+      session_id: bodyWithId.session_id,
+      from: bodyWithId.from,
+      to: bodyWithId.to,
+    };
+
+    logger.info('[DEBUG] Possible identifiers in payload', possibleIds);
+
+    // Return minimal valid conversation_initiation_client_data response
+    // Format: https://elevenlabs.io/docs/api-reference/websockets#conversation_initiation_client_data
+    return reply.send({
+      type: 'conversation_initiation_client_data',
+      conversation_initiation_client_data: {
+        custom_llm_extra_body: {
+          debug: 'This is a test response',
+          receivedAt: new Date().toISOString(),
+        },
+      },
+    });
+  });
+
+  /**
    * Health check for tools endpoints
    * GET /api/v1/tools/health
    */
@@ -283,10 +471,13 @@ export const toolsRoutes = (app: FastifyInstance) => {
       success: true,
       message: 'ElevenLabs Client Tools endpoints are healthy',
       tools: [
+        'get_current_call_info',
+        'update_call_info',
+        'check_operator_available',
         'get_patient_history',
         'get_pharmacy_on_duty',
         'request_human_handoff',
-        'dispatch_smur', // Existing tool
+        'dispatch_smur',
       ],
       timestamp: new Date().toISOString(),
     });

@@ -420,6 +420,44 @@ export class CallService {
       throw new Error('Failed to get active calls');
     }
   }
+
+  /**
+   * Met à jour les informations du patient
+   */
+  async updatePatientInfo(patientId: string, fields: Record<string, unknown>): Promise<void> {
+    logger.info('Updating patient info', { patientId, fields: Object.keys(fields) });
+
+    try {
+      await prisma.patient.update({
+        where: { id: patientId },
+        data: fields,
+      });
+
+      logger.info('Patient info updated successfully', { patientId });
+    } catch (error) {
+      logger.error('Failed to update patient info', error as Error, { patientId });
+      throw new Error('Failed to update patient info');
+    }
+  }
+
+  /**
+   * Met à jour les champs du call (priority, symptoms, vitalSigns, etc.)
+   */
+  async updateCallFields(callId: string, fields: Record<string, unknown>): Promise<void> {
+    logger.info('Updating call fields', { callId, fields: Object.keys(fields) });
+
+    try {
+      await prisma.call.update({
+        where: { id: callId },
+        data: fields,
+      });
+
+      logger.info('Call fields updated successfully', { callId });
+    } catch (error) {
+      logger.error('Failed to update call fields', error as Error, { callId });
+      throw new Error('Failed to update call fields');
+    }
+  }
 }
 
 export const callService = new CallService();
