@@ -22,6 +22,7 @@ import { CallStartedEvent } from '@/domain/triage/events/CallStarted.event';
 import { CallCompletedEvent } from '@/domain/triage/events/CallCompleted.event';
 import { CallEscalatedEvent } from '@/domain/triage/events/CallEscalated.event';
 import { CallCancelledEvent } from '@/domain/triage/events/CallCancelled.event';
+import { queueDashboardGateway } from '@/presentation/websocket/QueueDashboard.gateway';
 
 /**
  * Service responsable des opérations CRUD sur les appels et entités liées
@@ -221,6 +222,9 @@ export class CallService {
       data: { transcript: newTranscript },
     });
 
+    // Broadcast transcript update to subscribed WebSocket clients
+    queueDashboardGateway.broadcastTranscriptUpdate(callId, newTranscript);
+
     logger.debug('Transcript appended', { callId, line });
   }
 
@@ -412,7 +416,7 @@ export class CallService {
    * Utilisé par le dashboard des opérateurs
    */
   async getActiveCalls() {
-    logger.info('📋 Getting active calls');
+    logger.info('Getting active calls');
 
     try {
       const activeCalls = await prisma.call.findMany({
@@ -429,7 +433,7 @@ export class CallService {
             orderBy: {
               createdAt: 'desc',
             },
-            take: 1, // Dernier handoff seulement
+            take: 1,
           },
         },
         orderBy: {
@@ -437,7 +441,7 @@ export class CallService {
         },
       });
 
-      logger.info('✅ Active calls retrieved', { count: activeCalls.length });
+      logger.info('Active calls retrieved', { count: activeCalls.length });
 
       return activeCalls;
     } catch (error) {

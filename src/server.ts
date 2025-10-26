@@ -15,7 +15,7 @@ import { testDatabaseConnection, prisma } from '@/utils/prisma';
 import { Container } from '@/infrastructure/di/Container';
 import { getCorsConfig } from '@/config/cors.config';
 import { RealtimeDashboardGateway } from '@/presentation/websocket/RealtimeDashboard.gateway';
-import { QueueDashboardGateway } from '@/presentation/websocket/QueueDashboard.gateway';
+import { queueDashboardGateway } from '@/presentation/websocket/QueueDashboard.gateway';
 import { twilioRoutes } from '@/api/routes/twilio.routes';
 import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 import { callsRoutes } from '@/api/routes/calls.routes';
@@ -32,7 +32,7 @@ import fastifyStatic from '@fastify/static';
 import path from 'path';
 
 let dashboardGateway: RealtimeDashboardGateway | null = null;
-let queueDashboardGateway: QueueDashboardGateway | null = null;
+// Note: queueDashboardGateway is imported as singleton from the module
 
 const app = fastify({
   logger: false,
@@ -384,8 +384,8 @@ async function startServer() {
     logger.info('Real-Time Dashboard Gateway initialized successfully');
 
     // Initialize Queue Dashboard WebSocket Gateway (Secured)
+    // Using the singleton instance imported from the module
     logger.info('Initializing Queue Dashboard Gateway...');
-    queueDashboardGateway = new QueueDashboardGateway();
     await queueDashboardGateway.initialize();
     logger.info('Queue Dashboard Gateway initialized successfully');
 
