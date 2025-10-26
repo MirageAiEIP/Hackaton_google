@@ -50,7 +50,7 @@ export class TwilioElevenLabsProxyService {
 
     const secrets = await loadSecrets();
     this.apiKey = secrets.elevenlabsApiKey;
-    this.agentId = process.env.ELEVENLABS_AGENT_ID || '';
+    this.agentId = secrets.elevenlabsAgentId;
 
     if (!this.agentId) {
       throw new Error('ELEVENLABS_AGENT_ID not configured');

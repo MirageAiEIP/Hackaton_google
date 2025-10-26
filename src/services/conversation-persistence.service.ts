@@ -1,6 +1,7 @@
 import { prisma } from '@/utils/prisma';
 import { logger } from '@/utils/logger';
 import { elevenlabsConversationService } from './elevenlabs-conversation.service';
+import { loadSecrets } from '@/config/secrets.config';
 
 /**
  * Service for persisting ElevenLabs conversations to the database
@@ -152,11 +153,14 @@ export class ConversationPersistenceService {
         return false;
       }
 
+      // Load secrets
+      const secrets = await loadSecrets();
+
       // Retry save
       await this.saveConversation({
         conversationId: handoff.conversationId,
         callId,
-        agentId: process.env.ELEVENLABS_AGENT_ID || '',
+        agentId: secrets.elevenlabsAgentId,
       });
 
       return true;
