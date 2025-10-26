@@ -22,6 +22,57 @@ const activeConversations = new Map<
 export const callsRoutes: FastifyPluginAsync = async (app) => {
   logger.info('📞 Registering Calls Routes at /api/v1/calls');
   /**
+   * GET /api/v1/calls/:callId/transcript
+   * Get transcript for a call
+   */
+  app.get(
+    '/:callId/transcript',
+    {
+      schema: {
+        tags: ['calls'],
+        summary: 'Get call transcript',
+        params: {
+          type: 'object',
+          properties: {
+            callId: { type: 'string' },
+          },
+          required: ['callId'],
+        },
+      },
+    },
+    async (request, reply) => {
+      const { callId } = request.params as { callId: string };
+
+      try {
+        const call = await callService.getCallById(callId);
+
+        if (!call) {
+          return reply.status(404).send({
+            success: false,
+            error: 'Call not found',
+          });
+        }
+
+        return {
+          success: true,
+          data: {
+            callId: call.id,
+            transcript: call.transcript || '',
+            status: call.status,
+            createdAt: call.createdAt,
+          },
+        };
+      } catch (error) {
+        logger.error('Failed to get transcript', error as Error, { callId });
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to get transcript',
+        });
+      }
+    }
+  );
+
+  /**
    * Démarrer une nouvelle conversation web
    * Le frontend appelle cette route, le backend gère tout
    */
@@ -106,11 +157,9 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
           sessionId,
         });
 
-        // 4. Retourner l'URL du WebSocket backend (pas la signed URL ElevenLabs!)
-        // Frontend se connecte à NOTRE WebSocket, qui fait proxy vers ElevenLabs
         const wsUrl =
           process.env.PUBLIC_API_URL?.replace('https://', 'wss://').replace('http://', 'ws://') ||
-          'ws://localhost:3000';
+          'ws://localhost:8080';
 
         return {
           success: true,

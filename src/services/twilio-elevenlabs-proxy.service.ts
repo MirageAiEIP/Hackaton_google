@@ -351,7 +351,7 @@ export class TwilioElevenLabsProxyService {
       });
 
       // ElevenLabs → Browser: Forward all messages
-      elevenLabsWs.on('message', (data: Buffer) => {
+      elevenLabsWs.on('message', async (data: Buffer) => {
         try {
           const message = JSON.parse(data.toString());
 
@@ -393,19 +393,29 @@ export class TwilioElevenLabsProxyService {
           // Forward message to browser
           clientWs.send(data.toString());
 
-          // Log transcript
+          // Log and save transcript to database
           if (message.type === 'user_transcript' && message.user_transcription_event) {
+            const userText = message.user_transcription_event.user_transcript;
             logger.info('User transcript', {
-              text: message.user_transcription_event.user_transcript,
+              text: userText,
               sessionId,
             });
+
+            if (callId) {
+              await callService.appendTranscript(callId, `User: ${userText}`);
+            }
           }
 
           if (message.type === 'agent_response' && message.agent_response_event) {
+            const agentText = message.agent_response_event.agent_response;
             logger.info('Agent response', {
-              text: message.agent_response_event.agent_response,
+              text: agentText,
               sessionId,
             });
+
+            if (callId) {
+              await callService.appendTranscript(callId, `Agent: ${agentText}`);
+            }
           }
         } catch (error) {
           logger.error('Failed to process ElevenLabs message', error as Error, { sessionId });

@@ -200,6 +200,31 @@ export class CallService {
   }
 
   /**
+   * Ajoute une ligne à la transcription de l'appel
+   */
+  async appendTranscript(callId: string, line: string): Promise<void> {
+    const call = await prisma.call.findUnique({
+      where: { id: callId },
+      select: { transcript: true },
+    });
+
+    if (!call) {
+      logger.warn('Call not found for transcript append', { callId });
+      return;
+    }
+
+    const currentTranscript = call.transcript || '';
+    const newTranscript = currentTranscript ? `${currentTranscript}\n${line}` : line;
+
+    await prisma.call.update({
+      where: { id: callId },
+      data: { transcript: newTranscript },
+    });
+
+    logger.debug('Transcript appended', { callId, line });
+  }
+
+  /**
    * Enregistre un symptôme détecté
    */
   async createSymptom(callId: string, symptom: DetectedSymptom): Promise<Symptom> {

@@ -198,8 +198,8 @@
     let audioContext = null;
     let audioQueue = [];
     let isPlaying = false;
-    const WS_URL = 'ws://localhost:3000/ws/operator';
-    const API_URL = 'http://localhost:3000/api/v1';
+    const WS_URL = 'ws://localhost:8080/ws/operator';
+    const API_URL = 'http://localhost:8080/api/v1';
 
     async function takeControl() {
       const callId = document.getElementById('callId').value.trim();

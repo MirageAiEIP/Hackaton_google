@@ -1,5 +1,6 @@
 import type { WebSocket } from '@fastify/websocket';
 import type { IncomingMessage } from 'http';
+import WS from 'ws';
 import { logger } from '@/utils/logger';
 import { queueService } from '@/services/queue.service';
 import { loadConfig } from '@/config/index.async';
@@ -339,31 +340,25 @@ export class QueueDashboardGateway {
    */
   private startHeartbeat(connectionId: string, socket: WebSocket): void {
     const interval = setInterval(() => {
-      if (socket.readyState === WebSocket.OPEN) {
+      if (socket.readyState === WS.OPEN) {
         this.sendMessage(socket, {
           type: 'queue:pong',
           timestamp: new Date().toISOString(),
         });
       }
-    }, 30000); // Ping every 30 seconds
+    }, 30000);
 
     this.pingIntervals.set(connectionId, interval);
   }
 
-  /**
-   * Send message to specific socket
-   */
   private sendMessage(socket: WebSocket, message: QueueOutgoingMessage): void {
-    if (socket.readyState === WebSocket.OPEN) {
+    if (socket.readyState === WS.OPEN) {
       socket.send(JSON.stringify(message));
     }
   }
 
-  /**
-   * Send error message to socket
-   */
   private sendError(socket: WebSocket, code: string, message: string): void {
-    if (socket.readyState === WebSocket.OPEN) {
+    if (socket.readyState === WS.OPEN) {
       const errorMessage: QueueOutgoingMessage = {
         type: 'queue:error',
         error: { code, message },
@@ -428,9 +423,8 @@ export class QueueDashboardGateway {
     }
     this.pingIntervals.clear();
 
-    // Close all connections
     for (const connection of this.connections.values()) {
-      if (connection.socket.readyState === WebSocket.OPEN) {
+      if (connection.socket.readyState === WS.OPEN) {
         connection.socket.close();
       }
     }
