@@ -32,41 +32,31 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 8080
+      LOG_LEVEL: info
       # CORS origins for staging/production (comma-separated)
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      # Database & Redis (local Docker development)
       DATABASE_URL: postgresql://samu:samu_password@postgres:5432/samu_triage
       REDIS_URL: redis://redis:6379
-      LOG_LEVEL: info
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-test_key_for_development}
-      JWT_SECRET: ${JWT_SECRET:-test_jwt_secret_minimum_32_chars_required_for_security}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-test_encryption_key_32_chars_min}
+      # Rate limiting
       RATE_LIMIT_WINDOW_MS: 60000
       RATE_LIMIT_MAX_REQUESTS: 100
-      # Google Cloud
+      # Google Cloud Secret Manager
       GCP_PROJECT_ID: ${GCP_PROJECT_ID}
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
-      USE_SECRET_MANAGER: false
-      # JWT tokens
-      JWT_ACCESS_TOKEN_SECRET: ${JWT_ACCESS_TOKEN_SECRET}
-      JWT_REFRESH_TOKEN_SECRET: ${JWT_REFRESH_TOKEN_SECRET}
+      USE_SECRET_MANAGER: ${USE_SECRET_MANAGER:-false}
+      # JWT configuration (expiry only, secrets loaded from Secret Manager)
       JWT_ACCESS_TOKEN_EXPIRY: ${JWT_ACCESS_TOKEN_EXPIRY:-15m}
       JWT_REFRESH_TOKEN_EXPIRY: ${JWT_REFRESH_TOKEN_EXPIRY:-7d}
       # Cookie configuration
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-localhost}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      # Twilio
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
-      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
-      # ElevenLabs
-      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
-      ELEVENLABS_AGENT_ID: ${ELEVENLABS_AGENT_ID}
       # Public URL for webhooks
-      PUBLIC_API_URL: ${PUBLIC_API_URL}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-}
     env_file:
       - .env
     volumes:
       - ./logs:/app/logs
+      - ./config:/app/config:ro
     depends_on:
       postgres:
         condition: service_healthy

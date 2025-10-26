@@ -7,13 +7,17 @@ import { logger } from '@/utils/logger';
  */
 
 interface AppSecrets {
-  googleApiKey: string;
   elevenlabsApiKey: string;
+  elevenlabsAgentId: string;
   jwtSecret: string;
   jwtAccessSecret: string;
   jwtRefreshSecret: string;
   encryptionKey: string;
   databaseUrl: string;
+  redisUrl: string;
+  twilioAccountSid: string;
+  twilioAuthToken: string;
+  twilioPhoneNumber: string;
 }
 
 let secretsCache: AppSecrets | null = null;
@@ -36,13 +40,17 @@ export async function loadSecrets(): Promise<AppSecrets> {
     logger.info('Loading secrets from environment variables (development mode)');
 
     secretsCache = {
-      googleApiKey: process.env.GOOGLE_API_KEY || '',
       elevenlabsApiKey: process.env.ELEVENLABS_API_KEY || '',
+      elevenlabsAgentId: process.env.ELEVENLABS_AGENT_ID || '',
       jwtSecret: process.env.JWT_SECRET || '',
-      jwtAccessSecret: process.env.JWT_SECRET || '', // Fallback to JWT_SECRET for dev
-      jwtRefreshSecret: process.env.JWT_SECRET || '', // Fallback to JWT_SECRET for dev
+      jwtAccessSecret: process.env.JWT_ACCESS_TOKEN_SECRET || process.env.JWT_SECRET || '',
+      jwtRefreshSecret: process.env.JWT_REFRESH_TOKEN_SECRET || process.env.JWT_SECRET || '',
       encryptionKey: process.env.ENCRYPTION_KEY || '',
       databaseUrl: process.env.DATABASE_URL || '',
+      redisUrl: process.env.REDIS_URL || '',
+      twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
+      twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
+      twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
     };
 
     return secretsCache;
@@ -53,28 +61,71 @@ export async function loadSecrets(): Promise<AppSecrets> {
 
   try {
     const secrets = await secretManagerService.getSecrets([
-      'google-api-key',
       'elevenlabs-api-key',
+      'elevenlabs-agent-id',
       'jwt-secret',
       'jwt-access-secret',
       'jwt-refresh-secret',
       'encryption-key',
       'database-url',
+      'redis-url',
+      'twilio-account-sid',
+      'twilio-auth-token',
+      'twilio-phone-number',
     ]);
 
     secretsCache = {
-      googleApiKey: secrets['google-api-key'] || process.env.GOOGLE_API_KEY || '',
       elevenlabsApiKey: secrets['elevenlabs-api-key'] || process.env.ELEVENLABS_API_KEY || '',
+      elevenlabsAgentId: secrets['elevenlabs-agent-id'] || process.env.ELEVENLABS_AGENT_ID || '',
       jwtSecret: secrets['jwt-secret'] || process.env.JWT_SECRET || '',
-      jwtAccessSecret: secrets['jwt-access-secret'] || process.env.JWT_SECRET || '',
-      jwtRefreshSecret: secrets['jwt-refresh-secret'] || process.env.JWT_SECRET || '',
+      jwtAccessSecret:
+        secrets['jwt-access-secret'] ||
+        process.env.JWT_ACCESS_TOKEN_SECRET ||
+        process.env.JWT_SECRET ||
+        '',
+      jwtRefreshSecret:
+        secrets['jwt-refresh-secret'] ||
+        process.env.JWT_REFRESH_TOKEN_SECRET ||
+        process.env.JWT_SECRET ||
+        '',
       encryptionKey: secrets['encryption-key'] || process.env.ENCRYPTION_KEY || '',
       databaseUrl: secrets['database-url'] || process.env.DATABASE_URL || '',
+      redisUrl: secrets['redis-url'] || process.env.REDIS_URL || '',
+      twilioAccountSid: secrets['twilio-account-sid'] || process.env.TWILIO_ACCOUNT_SID || '',
+      twilioAuthToken: secrets['twilio-auth-token'] || process.env.TWILIO_AUTH_TOKEN || '',
+      twilioPhoneNumber: secrets['twilio-phone-number'] || process.env.TWILIO_PHONE_NUMBER || '',
     };
 
-    logger.info('Secrets loaded successfully from Secret Manager', {
-      count: Object.keys(secrets).length,
+    // Log detailed information about loaded secrets
+    const secretsStatus = {
+      'elevenlabs-api-key': !!secretsCache.elevenlabsApiKey,
+      'elevenlabs-agent-id': !!secretsCache.elevenlabsAgentId,
+      'jwt-secret': !!secretsCache.jwtSecret,
+      'jwt-access-secret': !!secretsCache.jwtAccessSecret,
+      'jwt-refresh-secret': !!secretsCache.jwtRefreshSecret,
+      'encryption-key': !!secretsCache.encryptionKey,
+      'database-url': !!secretsCache.databaseUrl,
+      'redis-url': !!secretsCache.redisUrl,
+      'twilio-account-sid': !!secretsCache.twilioAccountSid,
+      'twilio-auth-token': !!secretsCache.twilioAuthToken,
+      'twilio-phone-number': !!secretsCache.twilioPhoneNumber,
+    };
+
+    const loadedCount = Object.values(secretsStatus).filter(Boolean).length;
+    const missingSecrets = Object.entries(secretsStatus)
+      .filter(([, loaded]) => !loaded)
+      .map(([name]) => name);
+
+    logger.info('Secrets loaded from Secret Manager', {
+      total: Object.keys(secretsStatus).length,
+      loaded: loadedCount,
+      missing: missingSecrets.length,
+      secretsStatus,
     });
+
+    if (missingSecrets.length > 0) {
+      logger.warn('Some secrets are missing', { missingSecrets });
+    }
 
     return secretsCache;
   } catch (error) {
@@ -84,13 +135,17 @@ export async function loadSecrets(): Promise<AppSecrets> {
     logger.warn('Falling back to environment variables');
 
     secretsCache = {
-      googleApiKey: process.env.GOOGLE_API_KEY || '',
       elevenlabsApiKey: process.env.ELEVENLABS_API_KEY || '',
+      elevenlabsAgentId: process.env.ELEVENLABS_AGENT_ID || '',
       jwtSecret: process.env.JWT_SECRET || '',
-      jwtAccessSecret: process.env.JWT_SECRET || '',
-      jwtRefreshSecret: process.env.JWT_SECRET || '',
+      jwtAccessSecret: process.env.JWT_ACCESS_TOKEN_SECRET || process.env.JWT_SECRET || '',
+      jwtRefreshSecret: process.env.JWT_REFRESH_TOKEN_SECRET || process.env.JWT_SECRET || '',
       encryptionKey: process.env.ENCRYPTION_KEY || '',
       databaseUrl: process.env.DATABASE_URL || '',
+      redisUrl: process.env.REDIS_URL || '',
+      twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
+      twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
+      twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
     };
 
     return secretsCache;
@@ -101,17 +156,11 @@ export async function loadSecrets(): Promise<AppSecrets> {
  * Récupère un secret spécifique
  */
 export async function getSecret(
-  secretName:
-    | 'google-api-key'
-    | 'elevenlabs-api-key'
-    | 'jwt-secret'
-    | 'encryption-key'
-    | 'database-url'
+  secretName: 'elevenlabs-api-key' | 'jwt-secret' | 'encryption-key' | 'database-url'
 ): Promise<string> {
   const secrets = await loadSecrets();
 
   const mapping: Record<string, keyof AppSecrets> = {
-    'google-api-key': 'googleApiKey',
     'elevenlabs-api-key': 'elevenlabsApiKey',
     'jwt-secret': 'jwtSecret',
     'encryption-key': 'encryptionKey',
