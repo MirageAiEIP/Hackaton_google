@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAMU Call Audio Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-danger {
+            background: #ff4757;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff3838;
+        }
+
+        .audio-player {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        .audio-player.active {
+            display: block;
+        }
+
+        audio {
+            width: 100%;
+            margin: 20px 0;
+        }
+
+        .metadata {
+            display: none;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+
+        .metadata.active {
+            display: block;
+        }
+
+        .metadata-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .metadata-item:last-child {
+            border-bottom: none;
+        }
+
+        .metadata-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .metadata-value {
+            color: #333;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .calls-list {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .calls-list.active {
+            display: block;
+        }
+
+        .call-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .call-item:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .call-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .call-id {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .call-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .call-status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .call-details {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🔊 SAMU Call Audio Player</h1>
+            <p class="subtitle">Listen to recorded emergency call conversations</p>
+
+            <div class="input-group">
+                <label for="callId">Call ID</label>
+                <input type="text" id="callId" placeholder="Enter call ID (e.g., call_abc123)">
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="loadAudio()">
+                    Load Audio
+                </button>
+                <button class="btn-secondary" onclick="getMetadata()">
+                    Get Info
+                </button>
+                <button class="btn-secondary" onclick="listCalls()">
+                    List Calls
+                </button>
+                <button class="btn-secondary" onclick="downloadAudio()">
+                    Download
+                </button>
+            </div>
+
+            <div id="status"></div>
+
+            <div id="audioPlayer" class="audio-player">
+                <h3>🎵 Audio Player</h3>
+                <audio id="audio" controls></audio>
+                <div style="text-align: center; margin-top: 10px;">
+                    <button class="btn-secondary" onclick="refreshAudio()">Refresh</button>
+                </div>
+            </div>
+
+            <div id="metadata" class="metadata"></div>
+
+            <div id="callsList" class="calls-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+        }
+
+        function hideStatus() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.style.display = 'none';
+        }
+
+        async function loadAudio() {
+            const callId = document.getElementById('callId').value.trim();
+
+            if (!callId) {
+                showStatus('Please enter a call ID', 'error');
+                return;
+            }
+
+            showStatus('Loading audio...', 'info');
+
+            try {
+                // First, get audio info
+                const infoResponse = await fetch(`${API_BASE}/api/v1/audio/${callId}`);
+                const infoData = await infoResponse.json();
+
+                if (!infoData.success || !infoData.data.hasAudio) {
+                    showStatus('No audio available for this call', 'error');
+                    return;
+                }
+
+                // Load audio
+                const audioPlayer = document.getElementById('audioPlayer');
+                const audio = document.getElementById('audio');
+
+                audio.src = `${API_BASE}/api/v1/audio/${callId}/stream`;
+                audioPlayer.classList.add('active');
+
+                showStatus('Audio loaded successfully!', 'success');
+
+                // Auto-play
+                audio.play().catch(err => {
+                    console.log('Auto-play prevented:', err);
+                });
+
+            } catch (error) {
+                console.error('Error loading audio:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function getMetadata() {
+            const callId = document.getElementById('callId').value.trim();
+
+            if (!callId) {
+                showStatus('Please enter a call ID', 'error');
+                return;
+            }
+
+            showStatus('Fetching metadata...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/audio/${callId}/metadata`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    showStatus('Failed to get metadata', 'error');
+                    return;
+                }
+
+                const metadata = data.data;
+                const metadataDiv = document.getElementById('metadata');
+
+                metadataDiv.innerHTML = `
+                    <h3>📊 Audio Information</h3>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Has Audio:</span>
+                        <span class="metadata-value">${metadata.hasAudio ? '✅ Yes' : '❌ No'}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Duration:</span>
+                        <span class="metadata-value">${metadata.duration ? `${Math.floor(metadata.duration / 60)}:${(metadata.duration % 60).toString().padStart(2, '0')}` : 'Unknown'}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Size:</span>
+                        <span class="metadata-value">${metadata.size ? `${(metadata.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown'}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Format:</span>
+                        <span class="metadata-value">${metadata.format || 'Unknown'}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Source:</span>
+                        <span class="metadata-value">${metadata.source || 'Unknown'}</span>
+                    </div>
+                `;
+
+                metadataDiv.classList.add('active');
+                showStatus('Metadata loaded!', 'success');
+
+            } catch (error) {
+                console.error('Error getting metadata:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function listCalls() {
+            showStatus('Loading calls with audio...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/audio/list?limit=20`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    showStatus('Failed to load calls', 'error');
+                    return;
+                }
+
+                const calls = data.data;
+                const callsList = document.getElementById('callsList');
+
+                if (calls.length === 0) {
+                    callsList.innerHTML = '<p style="text-align: center; color: #666;">No calls with audio found</p>';
+                } else {
+                    callsList.innerHTML = `
+                        <h3>📋 Calls with Audio (${calls.length})</h3>
+                        ${calls.map(call => `
+                            <div class="call-item" onclick="selectCall('${call.callId}')">
+                                <div class="call-item-header">
+                                    <span class="call-id">${call.callId}</span>
+                                    <span class="call-status ${call.status.toLowerCase()}">${call.status}</span>
+                                </div>
+                                <div class="call-details">
+                                    ${new Date(call.startedAt).toLocaleString()} •
+                                    ${call.duration ? `${Math.floor(call.duration / 60)}:${(call.duration % 60).toString().padStart(2, '0')}` : 'Duration unknown'} •
+                                    Source: ${call.audioSource}
+                                </div>
+                            </div>
+                        `).join('')}
+                    `;
+                }
+
+                callsList.classList.add('active');
+                showStatus('Calls loaded!', 'success');
+
+            } catch (error) {
+                console.error('Error listing calls:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function selectCall(callId) {
+            document.getElementById('callId').value = callId;
+            loadAudio();
+        }
+
+        function downloadAudio() {
+            const callId = document.getElementById('callId').value.trim();
+
+            if (!callId) {
+                showStatus('Please enter a call ID', 'error');
+                return;
+            }
+
+            showStatus('Starting download...', 'info');
+            window.open(`${API_BASE}/api/v1/audio/${callId}/download`, '_blank');
+        }
+
+        function refreshAudio() {
+            const audio = document.getElementById('audio');
+            const currentTime = audio.currentTime;
+            audio.load();
+            audio.currentTime = currentTime;
+            audio.play();
+        }
+
+        // Load call ID from URL parameter if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const callIdParam = urlParams.get('callId');
+        if (callIdParam) {
+            document.getElementById('callId').value = callIdParam;
+            loadAudio();
+        }
+    </script>
+</body>
+</html>
