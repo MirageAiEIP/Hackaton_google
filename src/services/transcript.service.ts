@@ -310,6 +310,7 @@ export class TranscriptService {
 
   /**
    * Get transcript statistics for a call
+   * Uses call.transcript which contains COMPLETE conversation (AI + Operator phases)
    */
   async getTranscriptStats(callId: string) {
     logger.info('📊 Getting transcript stats for call', { callId });
@@ -325,19 +326,85 @@ export class TranscriptService {
       throw new Error(`Call ${callId} not found`);
     }
 
+    // Use call.transcript which contains the COMPLETE conversation (AI + Operator)
     const transcript = call.transcript || '';
     const words = transcript.split(/\s+/).filter((w) => w.length > 0);
     const lines = transcript.split('\n').filter((l) => l.trim() !== '');
+
+    // Count messages by speaker type
+    const agentLines = lines.filter((l) => l.startsWith('Agent:')).length;
+    const operatorLines = lines.filter((l) => l.startsWith('Operator:')).length;
+    const userLines = lines.filter((l) => l.startsWith('User:')).length;
+    const systemLines = lines.filter(
+      (l) => !l.startsWith('Agent:') && !l.startsWith('Operator:') && !l.startsWith('User:')
+    ).length;
+
+    // Count words per speaker
+    const agentWords = lines
+      .filter((l) => l.startsWith('Agent:'))
+      .join(' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 0).length;
+
+    const operatorWords = lines
+      .filter((l) => l.startsWith('Operator:'))
+      .join(' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 0).length;
+
+    const userWords = lines
+      .filter((l) => l.startsWith('User:'))
+      .join(' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 0).length;
 
     return {
       callId: call.id,
       hasTranscript: !!call.transcript,
       hasStructuredTranscript: !!call.elevenLabsConversation?.transcript,
+
+      // Overall stats on COMPLETE conversation
       wordCount: words.length,
       lineCount: lines.length,
       characterCount: transcript.length,
       estimatedReadingTimeMinutes: Math.ceil(words.length / 200), // Avg reading speed 200 wpm
-      duration: call.elevenLabsConversation?.durationSeconds || call.duration,
+
+      // Breakdown by speaker (shows AI + Operator contribution)
+      speakerBreakdown: {
+        agent: {
+          lines: agentLines,
+          words: agentWords,
+        },
+        operator: {
+          lines: operatorLines,
+          words: operatorWords,
+        },
+        user: {
+          lines: userLines,
+          words: userWords,
+        },
+        system: {
+          lines: systemLines,
+        },
+        total: {
+          lines: agentLines + operatorLines + userLines + systemLines,
+          words: agentWords + operatorWords + userWords,
+        },
+      },
+
+      // Use call.duration (total duration including operator phase)
+      // NOT elevenLabsConversation.durationSeconds (only AI phase)
+      duration: call.duration,
+
+      // Optional: AI phase stats for comparison
+      aiPhaseOnly: call.elevenLabsConversation
+        ? {
+            durationSeconds: call.elevenLabsConversation.durationSeconds,
+            messageCount: Array.isArray(call.elevenLabsConversation.transcript)
+              ? call.elevenLabsConversation.transcript.length
+              : 0,
+          }
+        : null,
     };
   }
 }

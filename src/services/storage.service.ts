@@ -1,5 +1,6 @@
 import { Storage } from '@google-cloud/storage';
 import { logger } from '@/utils/logger';
+import { getGoogleCredentialsPath } from '@/utils/google-credentials';
 import fs from 'fs';
 import path from 'path';
 
@@ -18,22 +19,14 @@ export class StorageService {
 
   constructor() {
     try {
-      // Résoudre le chemin absolu pour GOOGLE_APPLICATION_CREDENTIALS
-      const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-      let keyFilename: string | undefined;
+      // Auto-détection du fichier credentials dans config/
+      const keyFilename = getGoogleCredentialsPath();
 
-      if (credentialsPath) {
-        // Résoudre le chemin relatif si nécessaire
-        keyFilename = path.isAbsolute(credentialsPath)
-          ? credentialsPath
-          : path.resolve(process.cwd(), credentialsPath);
-
+      if (keyFilename) {
         logger.info('Using GCS credentials', { keyFilename });
       }
 
-      this.storage = new Storage({
-        keyFilename, // Utilise le chemin résolu
-      });
+      this.storage = new Storage({ keyFilename });
 
       logger.info('GCS client initialized successfully', { bucketName: this.bucketName });
 

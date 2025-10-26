@@ -1,6 +1,5 @@
 import { logger } from '@/utils/logger';
 import { loadSecrets } from '@/config/secrets.config';
-import FormData from 'form-data';
 
 /**
  * ElevenLabs Speech-to-Text Service
@@ -51,16 +50,21 @@ export class ElevenLabsSTTService {
     await this.initialize();
 
     try {
+      // Utiliser FormData natif de Node.js 18+ (compatible avec fetch)
       const formData = new FormData();
 
       // Model ID (scribe_v1 est le modèle standard, scribe_v1_experimental est en beta)
       formData.append('model_id', 'scribe_v1');
 
-      // Audio file (créer un blob à partir du buffer)
-      formData.append('file', audioBuffer, {
-        filename: `audio_${Date.now()}.webm`,
-        contentType: 'audio/webm',
-      });
+      // File format - Utiliser 'other' pour auto-detect (WebM, MP3, WAV, etc.)
+      // Note: L'audio vient probablement du navigateur en WebM/Opus ou MP3
+      formData.append('file_format', 'other');
+
+      // Audio file - Créer un Blob à partir du Buffer
+      // Le Blob est compatible avec FormData natif
+      // Utiliser audio/webm comme type par défaut (format navigateur courant)
+      const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' });
+      formData.append('file', audioBlob, `audio_${Date.now()}.webm`);
 
       // Language code (optionnel)
       if (options.languageCode) {
@@ -84,7 +88,7 @@ export class ElevenLabsSTTService {
         method: 'POST',
         headers: {
           'xi-api-key': this.apiKey,
-          ...formData.getHeaders(),
+          // Pas besoin de getHeaders() avec FormData natif
         },
         body: formData,
       });

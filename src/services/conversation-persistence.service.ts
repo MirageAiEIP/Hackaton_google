@@ -1,6 +1,7 @@
 import { prisma } from '@/utils/prisma';
 import { logger } from '@/utils/logger';
 import { elevenlabsConversationService } from './elevenlabs-conversation.service';
+import { loadSecrets } from '@/config/secrets.config';
 
 /**
  * Service for persisting ElevenLabs conversations to the database
@@ -81,18 +82,20 @@ export class ConversationPersistenceService {
 
       logger.info('ElevenLabsConversation record created', { conversationId });
 
-      // Update Call.transcript with plain text version
+      // Update call duration only - DO NOT overwrite call.transcript
+      // call.transcript contains the COMPLETE conversation (AI + Operator) captured in real-time
+      // elevenLabsConversation.transcript contains only the AI phase for reference
       await prisma.call.update({
         where: { id: callId },
         data: {
-          transcript: conversationData.transcript,
+          // transcript: conversationData.transcript, // REMOVED - would overwrite real-time transcript
           duration: durationSeconds,
         },
       });
 
-      logger.info('Call transcript updated', {
+      logger.info('Call duration updated (transcript preserved from real-time capture)', {
         callId,
-        transcriptLength: conversationData.transcript.length,
+        aiPhaseDuration: durationSeconds,
       });
 
       logger.info('Conversation persistence completed successfully', {
@@ -150,11 +153,14 @@ export class ConversationPersistenceService {
         return false;
       }
 
+      // Load secrets
+      const secrets = await loadSecrets();
+
       // Retry save
       await this.saveConversation({
         conversationId: handoff.conversationId,
         callId,
-        agentId: process.env.ELEVENLABS_AGENT_ID || '',
+        agentId: secrets.elevenlabsAgentId,
       });
 
       return true;

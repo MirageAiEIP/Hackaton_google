@@ -40,6 +40,15 @@ export interface QueuePongMessage {
   timestamp: string;
 }
 
+export interface QueueTranscriptUpdatedMessage {
+  type: 'queue:transcript-updated';
+  data: {
+    callId: string;
+    transcript: string;
+    lastUpdate: string;
+  };
+}
+
 // Incoming messages (client -> server)
 export interface QueuePingMessage {
   type: 'queue:ping';
@@ -49,7 +58,21 @@ export interface QueueSubscribeMessage {
   type: 'queue:subscribe';
 }
 
-export type QueueIncomingMessage = QueuePingMessage | QueueSubscribeMessage;
+export interface QueueSubscribeTranscriptMessage {
+  type: 'queue:subscribe-transcript';
+  callId: string;
+}
+
+export interface QueueUnsubscribeTranscriptMessage {
+  type: 'queue:unsubscribe-transcript';
+  callId: string;
+}
+
+export type QueueIncomingMessage =
+  | QueuePingMessage
+  | QueueSubscribeMessage
+  | QueueSubscribeTranscriptMessage
+  | QueueUnsubscribeTranscriptMessage;
 
 export type QueueOutgoingMessage =
   | QueueInitialMessage
@@ -57,7 +80,8 @@ export type QueueOutgoingMessage =
   | QueueUpdatedMessage
   | QueueRemovedMessage
   | QueueErrorMessage
-  | QueuePongMessage;
+  | QueuePongMessage
+  | QueueTranscriptUpdatedMessage;
 
 /**
  * Queue Entry Data (sent to dashboard)

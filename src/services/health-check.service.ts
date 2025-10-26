@@ -1,4 +1,5 @@
 import { logger } from '@/utils/logger';
+import { loadSecrets } from '@/config/secrets.config';
 
 interface HealthStatus {
   service: string;
@@ -45,8 +46,9 @@ export class HealthCheckService {
     const startTime = Date.now();
 
     try {
-      // Vérifier que l'API key est disponible
-      const apiKey = process.env.ELEVENLABS_API_KEY;
+      // Load secrets
+      const secrets = await loadSecrets();
+      const apiKey = secrets.elevenlabsApiKey;
 
       if (!apiKey) {
         throw new Error('ELEVENLABS_API_KEY not configured');

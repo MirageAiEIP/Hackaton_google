@@ -50,7 +50,7 @@ export class TwilioElevenLabsProxyService {
 
     const secrets = await loadSecrets();
     this.apiKey = secrets.elevenlabsApiKey;
-    this.agentId = process.env.ELEVENLABS_AGENT_ID || '';
+    this.agentId = secrets.elevenlabsAgentId;
 
     if (!this.agentId) {
       throw new Error('ELEVENLABS_AGENT_ID not configured');
@@ -404,6 +404,11 @@ export class TwilioElevenLabsProxyService {
             });
           }
 
+          // Capturer le conversation_id d'ElevenLabs et le mapper au callId
+          if (message.conversation_id && callId) {
+            this.storeConversationMapping(message.conversation_id, callId);
+          }
+
           // Gérer les ping events (keep-alive)
           if (message.type === 'ping' && message.ping_event) {
             logger.debug('Ping event received', {
@@ -739,10 +744,9 @@ export class TwilioElevenLabsProxyService {
     // Audio buffers pour transcription par batch (réduit les appels API)
     const operatorAudioBuffer: Buffer[] = [];
     const patientAudioBuffer: Buffer[] = [];
-    const operatorBufferTimeout: NodeJS.Timeout | null = null;
-    const patientBufferTimeout: NodeJS.Timeout | null = null;
-    // TODO: Réactiver quand transcription sera corrigée
-    // const TRANSCRIBE_BATCH_MS = 3000; // Transcrire tous les 3 secondes
+    let operatorBufferTimeout: NodeJS.Timeout | null = null;
+    let patientBufferTimeout: NodeJS.Timeout | null = null;
+    const TRANSCRIBE_BATCH_MS = 3000; // Transcrire tous les 3 secondes
 
     // Helper pour transcrire un batch d'audio
     const transcribeBatch = async (
@@ -772,9 +776,9 @@ export class TwilioElevenLabsProxyService {
             callId,
           });
 
-          // Sauvegarder la transcription dans la conversation
-          // TODO: Créer une méthode dans callService pour append transcript
-          // await callService.appendTranscript(callId, speaker, result.text);
+          // Sauvegarder la transcription dans call.transcript (source de vérité complète)
+          const speakerLabel = speaker === 'operator' ? 'Operator' : 'User';
+          await callService.appendTranscript(callId, `${speakerLabel}: ${result.text}`);
 
           // Envoyer la transcription à l'opérateur pour affichage
           if (operatorWs.readyState === 1) {
@@ -897,17 +901,16 @@ export class TwilioElevenLabsProxyService {
             // Convertir base64 en buffer
             const audioBuffer = Buffer.from(message.audio_base_64, 'base64');
 
-            // TODO: Temporairement désactivé - format audio à corriger
             // Ajouter au buffer pour transcription
-            // operatorAudioBuffer.push(audioBuffer);
+            operatorAudioBuffer.push(audioBuffer);
 
             // Reset le timer de transcription
-            // if (operatorBufferTimeout) {
-            //   clearTimeout(operatorBufferTimeout);
-            // }
-            // operatorBufferTimeout = setTimeout(async () => {
-            //   await transcribeBatch(operatorAudioBuffer, 'operator', patientSession?.callId || '');
-            // }, TRANSCRIBE_BATCH_MS);
+            if (operatorBufferTimeout) {
+              clearTimeout(operatorBufferTimeout);
+            }
+            operatorBufferTimeout = setTimeout(async () => {
+              await transcribeBatch(operatorAudioBuffer, 'operator', patientSession?.callId || '');
+            }, TRANSCRIBE_BATCH_MS);
 
             // Forward audio au patient
             if (patientSession && patientSession.clientWs.readyState === 1) {
@@ -968,17 +971,16 @@ export class TwilioElevenLabsProxyService {
               // Convertir base64 en buffer
               const audioBuffer = Buffer.from(message.audio_base_64, 'base64');
 
-              // TODO: Temporairement désactivé - format audio à corriger
               // Ajouter au buffer pour transcription
-              // patientAudioBuffer.push(audioBuffer);
+              patientAudioBuffer.push(audioBuffer);
 
               // Reset le timer de transcription
-              // if (patientBufferTimeout) {
-              //   clearTimeout(patientBufferTimeout);
-              // }
-              // patientBufferTimeout = setTimeout(async () => {
-              //   await transcribeBatch(patientAudioBuffer, 'patient', patientSession.callId);
-              // }, TRANSCRIBE_BATCH_MS);
+              if (patientBufferTimeout) {
+                clearTimeout(patientBufferTimeout);
+              }
+              patientBufferTimeout = setTimeout(async () => {
+                await transcribeBatch(patientAudioBuffer, 'patient', patientSession.callId);
+              }, TRANSCRIBE_BATCH_MS);
 
               // Forward audio à l'opérateur
               if (operatorWs.readyState === 1) {

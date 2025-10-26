@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'http';
 import WS from 'ws';
 import { logger } from '@/utils/logger';
 import { queueService } from '@/services/queue.service';
+import { callService } from '@/services/call.service';
 import { loadConfig } from '@/config/index.async';
 import { verifyAccessTokenFromQuery } from '@/infrastructure/auth/jwt.util';
 import {
@@ -22,6 +23,7 @@ interface AuthenticatedConnection {
   role: 'OPERATOR' | 'ADMIN';
   operatorId: string | null;
   connectedAt: Date;
+  subscribedToCallId: string | null; // Track which call transcript the client is subscribed to
 }
 
 /**
@@ -90,6 +92,7 @@ export class QueueDashboardGateway {
         role: decoded.role,
         operatorId: decoded.operatorId,
         connectedAt: new Date(),
+        subscribedToCallId: null,
       };
 
       this.connections.set(connectionId, connection);
@@ -278,13 +281,20 @@ export class QueueDashboardGateway {
   /**
    * Handle incoming message from client
    */
-  private handleMessage(
+  private async handleMessage(
     connectionId: string,
     data: Buffer,
     connection: AuthenticatedConnection
-  ): void {
+  ): Promise<void> {
     try {
       const message: QueueIncomingMessage = JSON.parse(data.toString());
+
+      // IMPORTANT: Get connection from map to ensure we modify the right object
+      const storedConnection = this.connections.get(connectionId);
+      if (!storedConnection) {
+        logger.warn('Connection not found in map', { connectionId });
+        return;
+      }
 
       switch (message.type) {
         case 'queue:ping':
@@ -297,7 +307,30 @@ export class QueueDashboardGateway {
 
         case 'queue:subscribe':
           // Client requests to re-subscribe (after reconnection)
-          this.sendInitialSnapshot(connection.socket);
+          await this.sendInitialSnapshot(connection.socket);
+          break;
+
+        case 'queue:subscribe-transcript':
+          // Client wants to receive transcript updates for a specific call
+          // IMPORTANT: Modify the stored connection object, not the parameter
+          storedConnection.subscribedToCallId = message.callId;
+          logger.info('Client subscribed to transcript updates', {
+            connectionId,
+            callId: message.callId,
+            verified: storedConnection.subscribedToCallId === message.callId,
+          });
+
+          // Send current transcript immediately
+          await this.sendCurrentTranscript(connection.socket, message.callId);
+          break;
+
+        case 'queue:unsubscribe-transcript':
+          // Client no longer wants transcript updates
+          storedConnection.subscribedToCallId = null;
+          logger.info('Client unsubscribed from transcript updates', {
+            connectionId,
+            callId: message.callId,
+          });
           break;
 
         default:
@@ -384,6 +417,71 @@ export class QueueDashboardGateway {
   }
 
   /**
+   * Broadcast transcript update to clients subscribed to the specific call
+   */
+  public broadcastTranscriptUpdate(callId: string, transcript: string): void {
+    const message: QueueOutgoingMessage = {
+      type: 'queue:transcript-updated',
+      data: {
+        callId,
+        transcript,
+        lastUpdate: new Date().toISOString(),
+      },
+    };
+
+    let sent = 0;
+    const subscriptions: string[] = [];
+    for (const connection of this.connections.values()) {
+      subscriptions.push(connection.subscribedToCallId || 'null');
+      if (connection.subscribedToCallId === callId) {
+        this.sendMessage(connection.socket, message);
+        sent++;
+      }
+    }
+
+    logger.info('Broadcasted transcript update', {
+      callId,
+      clientsSent: sent,
+      totalConnections: this.connections.size,
+      subscriptions: subscriptions,
+    });
+  }
+
+  /**
+   * Send current transcript to a specific client when they subscribe
+   */
+  private async sendCurrentTranscript(socket: WebSocket, callId: string): Promise<void> {
+    try {
+      const call = await callService.getCallById(callId);
+
+      if (!call) {
+        logger.warn('Call not found for transcript subscription', { callId });
+        this.sendError(socket, 'CALL_NOT_FOUND', `Call ${callId} not found`);
+        return;
+      }
+
+      const message: QueueOutgoingMessage = {
+        type: 'queue:transcript-updated',
+        data: {
+          callId,
+          transcript: call.transcript || '',
+          lastUpdate: new Date().toISOString(),
+        },
+      };
+
+      this.sendMessage(socket, message);
+
+      logger.debug('Sent current transcript to client', {
+        callId,
+        transcriptLength: call.transcript?.length || 0,
+      });
+    } catch (error) {
+      logger.error('Failed to send current transcript', error as Error, { callId });
+      this.sendError(socket, 'TRANSCRIPT_FETCH_FAILED', 'Failed to fetch transcript');
+    }
+  }
+
+  /**
    * Generate unique connection ID
    */
   private generateConnectionId(): string {
@@ -433,3 +531,6 @@ export class QueueDashboardGateway {
     logger.info('QueueDashboardGateway shut down successfully');
   }
 }
+
+// Singleton instance for broadcast from services
+export const queueDashboardGateway = new QueueDashboardGateway();

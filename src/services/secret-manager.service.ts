@@ -1,6 +1,6 @@
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { logger } from '@/utils/logger';
-import path from 'path';
+import { getGoogleCredentialsPath } from '@/utils/google-credentials';
 
 /**
  * Service pour accéder aux secrets stockés dans Google Secret Manager
@@ -15,15 +15,8 @@ export class SecretManagerService {
   private cacheTTL = 300000; // 5 minutes
 
   constructor() {
-    // Résoudre le chemin des credentials
-    const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    let keyFilename: string | undefined;
-
-    if (credentialsPath) {
-      keyFilename = path.isAbsolute(credentialsPath)
-        ? credentialsPath
-        : path.resolve(process.cwd(), credentialsPath);
-    }
+    // Auto-détection du fichier credentials dans config/
+    const keyFilename = getGoogleCredentialsPath();
 
     this.client = new SecretManagerServiceClient({ keyFilename });
 

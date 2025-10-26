@@ -157,6 +157,34 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 10px;
+        position: relative;
+      }
+
+      .remove-btn {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #f56565;
+        color: white;
+        border: 2px solid white;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        transition: all 0.2s;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .remove-btn:hover {
+        background: #e53e3e;
+        transform: scale(1.1);
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
       }
 
       .priority-badge {
@@ -538,6 +566,13 @@
             renderQueue();
             break;
 
+          case 'queue:transcript-updated':
+            // Update transcript in modal if it's open and for the same call
+            if (currentSubscribedCallId === message.data.callId) {
+              renderTranscript(message.data.transcript);
+            }
+            break;
+
           case 'queue:pong':
             console.log('Pong received:', message.timestamp);
             break;
@@ -584,6 +619,9 @@
 
         return `
           <div class="queue-card ${entry.priority}" onclick="openTranscriptModal('${entry.callId}')">
+            <button class="remove-btn" onclick="event.stopPropagation(); removeFromQueue('${entry.id}')" title="Retirer de la queue">
+              ×
+            </button>
             <div class="card-header">
               <span class="priority-badge ${entry.priority}">${entry.priority}</span>
               <span class="status-badge ${entry.status}">${entry.status}</span>
@@ -594,7 +632,7 @@
             <div class="patient-info">
               ${entry.patientAge ? `Age: ${entry.patientAge}` : 'Age: N/A'} •
               ${entry.patientGender || 'N/A'} •
-              ${entry.location ? `📍 ${entry.location}` : 'Location unknown'}
+              ${entry.location || 'Location unknown'}
             </div>
 
             <div class="ai-summary">
@@ -616,7 +654,7 @@
             ${
               entry.redFlags && entry.redFlags.length > 0
                 ? `<div class="symptoms">
-                    ${entry.redFlags.map((f) => `<span class="red-flag">⚠️ ${f}</span>`).join('')}
+                    ${entry.redFlags.map((f) => `<span class="red-flag">${f}</span>`).join('')}
                   </div>`
                 : ''
             }
@@ -624,17 +662,17 @@
             ${
               entry.claimedBy
                 ? `<div class="patient-info" style="margin-top: 8px;">
-                    👨‍⚕️ Claimed by: ${entry.claimedBy}
+                    Claimed by: ${entry.claimedBy}
                   </div>`
                 : ''
             }
 
-            <div class="waiting-time">⏱️ Waiting: ${waitingDisplay}</div>
+            <div class="waiting-time">Waiting: ${waitingDisplay}</div>
           </div>
         `;
       }
 
-      let transcriptRefreshInterval = null;
+      let currentSubscribedCallId = null;
 
       async function openTranscriptModal(callId) {
         const modal = document.getElementById('transcriptModal');
@@ -643,89 +681,119 @@
         title.textContent = `Transcription - Call ${callId}`;
         modal.classList.add('active');
 
-        await fetchTranscript(callId);
+        // Show loading state
+        document.getElementById('transcriptContainer').innerHTML = `
+          <div class="transcript-empty">
+            Chargement de la transcription...
+          </div>
+        `;
 
-        if (transcriptRefreshInterval) {
-          clearInterval(transcriptRefreshInterval);
+        // Subscribe to transcript updates via WebSocket
+        // The server will send the current transcript immediately upon subscription
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'queue:subscribe-transcript',
+            callId: callId
+          }));
+          currentSubscribedCallId = callId;
+        } else {
+          document.getElementById('transcriptContainer').innerHTML = `
+            <div class="transcript-empty">
+              ❌ WebSocket non connecté. Veuillez vous reconnecter.
+            </div>
+          `;
         }
-
-        transcriptRefreshInterval = setInterval(() => {
-          fetchTranscript(callId);
-        }, 3000);
       }
 
       function closeTranscriptModal() {
         const modal = document.getElementById('transcriptModal');
         modal.classList.remove('active');
 
-        if (transcriptRefreshInterval) {
-          clearInterval(transcriptRefreshInterval);
-          transcriptRefreshInterval = null;
+        // Unsubscribe from transcript updates
+        if (ws && ws.readyState === WebSocket.OPEN && currentSubscribedCallId) {
+          ws.send(JSON.stringify({
+            type: 'queue:unsubscribe-transcript',
+            callId: currentSubscribedCallId
+          }));
+          currentSubscribedCallId = null;
         }
       }
 
-      async function fetchTranscript(callId) {
-        const container = document.getElementById('transcriptContainer');
+      async function removeFromQueue(queueEntryId) {
+        if (!confirm('Êtes-vous sûr de vouloir retirer cette entrée de la queue ?')) {
+          return;
+        }
 
         try {
-          const response = await fetch(`http://localhost:8080/api/v1/calls/${callId}/transcript`);
-
-          if (!response.ok) {
-            throw new Error('Failed to fetch transcript');
-          }
-
-          const result = await response.json();
-
-          if (!result.success) {
-            container.innerHTML = `<div class="transcript-empty">Erreur: ${result.error}</div>`;
-            return;
-          }
-
-          const transcript = result.data.transcript;
-
-          if (!transcript || transcript.trim() === '') {
-            container.innerHTML = `
-              <div class="transcript-empty">
-                Aucune transcription disponible pour le moment.<br>
-                L'appel est en cours...
-              </div>
-            `;
-            return;
-          }
-
-          const lines = transcript.split('\n').filter(line => line.trim() !== '');
-
-          if (lines.length === 0) {
-            container.innerHTML = `
-              <div class="transcript-empty">
-                Aucune transcription disponible pour le moment.<br>
-                L'appel est en cours...
-              </div>
-            `;
-            return;
-          }
-
-          let html = '';
-          lines.forEach(line => {
-            const isUser = line.toLowerCase().includes('user:') || line.toLowerCase().includes('patient:') || line.toLowerCase().includes('caller:');
-            const isAgent = line.toLowerCase().includes('agent:') || line.toLowerCase().includes('assistant:');
-
-            if (isUser) {
-              html += `<div class="transcript-entry user">${line}</div>`;
-            } else if (isAgent) {
-              html += `<div class="transcript-entry agent">${line}</div>`;
-            } else {
-              html += `<div class="transcript-entry">${line}</div>`;
-            }
+          const response = await fetch(`http://localhost:8080/api/v1/queue/${queueEntryId}/status`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+              status: 'ABANDONED'
+            })
           });
 
-          container.innerHTML = html;
-          container.scrollTop = container.scrollHeight;
+          if (!response.ok) {
+            throw new Error('Échec de la suppression');
+          }
 
+          console.log('Entry removed from queue:', queueEntryId);
+
+          // La mise à jour sera automatiquement gérée par le WebSocket
+          // qui recevra un message queue:removed
         } catch (error) {
-          console.error('Failed to fetch transcript:', error);
-          container.innerHTML = `<div class="transcript-empty">Erreur lors du chargement de la transcription</div>`;
+          console.error('Error removing from queue:', error);
+          alert('Erreur lors du retrait de la queue. Veuillez réessayer.');
         }
+      }
+
+      function renderTranscript(transcript) {
+        const container = document.getElementById('transcriptContainer');
+
+        if (!transcript || transcript.trim() === '') {
+          container.innerHTML = `
+            <div class="transcript-empty">
+              Aucune transcription disponible pour le moment.<br>
+              L'appel est en cours...
+            </div>
+          `;
+          return;
+        }
+
+        const lines = transcript.split('\n').filter(line => line.trim() !== '');
+
+        if (lines.length === 0) {
+          container.innerHTML = `
+            <div class="transcript-empty">
+              Aucune transcription disponible pour le moment.<br>
+              L'appel est en cours...
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+        lines.forEach(line => {
+          const isUser = line.toLowerCase().includes('user:') || line.toLowerCase().includes('patient:') || line.toLowerCase().includes('caller:');
+          const isAgent = line.toLowerCase().includes('agent:') || line.toLowerCase().includes('assistant:');
+          const isOperator = line.toLowerCase().includes('operator:');
+
+          if (isUser) {
+            html += `<div class="transcript-entry user">${line}</div>`;
+          } else if (isAgent) {
+            html += `<div class="transcript-entry agent">${line}</div>`;
+          } else if (isOperator) {
+            html += `<div class="transcript-entry agent" style="background: #fef3c7; color: #92400e;">${line}</div>`;
+          } else {
+            html += `<div class="transcript-entry">${line}</div>`;
+          }
+        });
+
+        container.innerHTML = html;
+        container.scrollTop = container.scrollHeight;
       }
 
       // Auto-connect on page load if we have credentials
