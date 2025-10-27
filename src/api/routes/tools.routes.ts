@@ -4,18 +4,11 @@ import {
   getPharmacyOnDutySchema,
 } from '@/tools/get-pharmacy-on-duty.tool';
 import {
-  executeRequestHumanHandoff,
-  requestHumanHandoffSchema,
-} from '@/tools/request-human-handoff.tool';
-import {
   executeGetCurrentCallInfo,
   getCurrentCallInfoSchema,
 } from '@/tools/get-current-call-info.tool';
 import { executeUpdateCallInfo, updateCallInfoSchema } from '@/tools/update-call-info.tool';
-import {
-  executeCheckOperatorAvailable,
-  checkOperatorAvailableSchema,
-} from '@/tools/check-operator-available.tool';
+import { dispatchSMURTool } from '@/tools/dispatch-smur.tool';
 import { logger } from '@/utils/logger';
 
 /**
@@ -104,90 +97,6 @@ export const toolsRoutes = (app: FastifyInstance) => {
   );
 
   /**
-   * Request Human Handoff Tool
-   * POST /api/v1/tools/request_human_handoff
-   *
-   * Called by AI agent when human intervention is needed
-   * Returns: handoff ID, status, assigned operator
-   */
-  app.post(
-    '/request_human_handoff',
-    {
-      schema: {
-        tags: ['tools'],
-        summary: 'Request human handoff',
-        description: 'ElevenLabs Client Tool: Request handoff from AI to human operator',
-        body: {
-          type: 'object',
-          required: ['callId', 'conversationId', 'reason', 'transcript', 'patientSummary'],
-          properties: {
-            callId: {
-              type: 'string',
-              description: 'Unique call identifier',
-            },
-            conversationId: {
-              type: 'string',
-              description: 'ElevenLabs conversation ID',
-            },
-            reason: {
-              type: 'string',
-              description: 'Reason for handoff',
-            },
-            transcript: {
-              type: 'string',
-              description: 'Full conversation transcript',
-            },
-            patientSummary: {
-              type: 'string',
-              description: 'AI-generated patient summary',
-            },
-            aiContext: {
-              type: 'object',
-              description: 'Additional AI context',
-            },
-          },
-        },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              success: { type: 'boolean' },
-              handoffId: { type: 'string' },
-              status: { type: 'string' },
-              message: { type: 'string' },
-              assignedOperatorId: { type: 'string' },
-              instructions: { type: 'string' },
-            },
-          },
-        },
-      },
-    },
-    async (request, reply) => {
-      try {
-        // Validate input with Zod
-        const input = requestHumanHandoffSchema.parse(request.body);
-
-        logger.info('Tool webhook: request_human_handoff', {
-          callId: input.callId,
-          conversationId: input.conversationId,
-        });
-
-        // Execute tool
-        const result = await executeRequestHumanHandoff(input);
-
-        return reply.send(result);
-      } catch (error) {
-        logger.error('Tool webhook failed: request_human_handoff', error as Error);
-        return reply.status(400 as 200).send({
-          success: false,
-          error: 'Invalid input',
-          message: (error as Error).message,
-        });
-      }
-    }
-  );
-
-  /**
    * Get Current Call Info Tool
    * POST /api/v1/tools/get_current_call_info
    *
@@ -236,31 +145,32 @@ export const toolsRoutes = (app: FastifyInstance) => {
   );
 
   /**
-   * Update Call Info Tool (UNIFIED)
+   * Update Call Info Tool (SIMPLIFIÉ)
    * POST /api/v1/tools/update_call_info
    *
-   * Updates patient info (admin) + call info (medical) in one call
-   * All fields optional - only provided fields are updated
+   * Met à jour les infos de l'appel - TOUS les champs sont optionnels et aplatis
    */
   app.post(
     '/update_call_info',
     {
       schema: {
         tags: ['tools'],
-        summary: 'Update call and patient info',
-        description: 'ElevenLabs Client Tool: Update patient (admin) + call (medical) info',
+        summary: 'Update call info (simplified)',
+        description: 'ElevenLabs Client Tool: Update call info with flat fields',
         body: {
           type: 'object',
-          required: ['callId'],
           properties: {
-            callId: { type: 'string' },
-            patientInfo: { type: 'object' },
+            conversation_id: { type: 'string' },
+            age: { type: 'number' },
+            gender: { type: 'string' },
+            address: { type: 'string' },
+            city: { type: 'string' },
+            postalCode: { type: 'string' },
             priority: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
             priorityReason: { type: 'string' },
             chiefComplaint: { type: 'string' },
             currentSymptoms: { type: 'string' },
-            vitalSigns: { type: 'object' },
-            contextInfo: { type: 'object' },
+            consciousness: { type: 'string' },
           },
         },
       },
@@ -289,43 +199,72 @@ export const toolsRoutes = (app: FastifyInstance) => {
   );
 
   /**
-   * Check Operator Available Tool
-   * POST /api/v1/tools/check_operator_available
+   * Dispatch SMUR Tool
+   * POST /api/v1/tools/dispatch_smur
    *
-   * Checks if a human operator is available
-   * If not: automatically adds call to queue
+   * Called by AI agent to dispatch emergency services (P0/P1 only)
+   * Returns: dispatch ID, ETA, confirmation message
    */
   app.post(
-    '/check_operator_available',
+    '/dispatch_smur',
     {
       schema: {
         tags: ['tools'],
-        summary: 'Check operator availability',
-        description: 'ElevenLabs Client Tool: Check if operator available (auto-queue if not)',
+        summary: 'Dispatch SMUR emergency services',
+        description: 'ElevenLabs Client Tool: Dispatch ambulance/SMUR for P0/P1 emergencies',
         body: {
           type: 'object',
-          required: ['callId', 'priority'],
+          required: ['priority', 'location', 'symptoms'],
           properties: {
-            callId: { type: 'string' },
-            priority: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
+            conversation_id: {
+              type: 'string',
+              description: 'ElevenLabs conversation ID (auto)',
+            },
+            priority: {
+              type: 'string',
+              enum: ['P0', 'P1'],
+              description:
+                'P0 pour urgence absolue (arrêt cardiaque), P1 pour urgence vitale (AVC, détresse respiratoire)',
+            },
+            location: {
+              type: 'string',
+              description:
+                'Adresse complète du patient (rue, ville, code postal, étage, code accès)',
+            },
+            symptoms: {
+              type: 'string',
+              description: 'Description des symptômes urgents',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              dispatchId: { type: 'string' },
+              callId: { type: 'string' },
+              eta: { type: 'string' },
+              message: { type: 'string' },
+            },
           },
         },
       },
     },
     async (request, reply) => {
       try {
-        const input = checkOperatorAvailableSchema.parse(request.body);
+        const input = dispatchSMURTool.parameters.parse(request.body);
 
-        logger.info('Tool webhook: check_operator_available', {
-          callId: input.callId,
+        logger.info('Tool webhook: dispatch_smur', {
           priority: input.priority,
+          location: input.location,
         });
 
-        const result = await executeCheckOperatorAvailable(input);
+        const result = await dispatchSMURTool.execute(input);
 
         return reply.send(result);
       } catch (error) {
-        logger.error('Tool webhook failed: check_operator_available', error as Error);
+        logger.error('Tool webhook failed: dispatch_smur', error as Error);
         return reply.status(400 as 200).send({
           success: false,
           error: 'Invalid input',
@@ -396,14 +335,7 @@ export const toolsRoutes = (app: FastifyInstance) => {
     return reply.send({
       success: true,
       message: 'ElevenLabs Client Tools endpoints are healthy',
-      tools: [
-        'get_current_call_info',
-        'update_call_info',
-        'check_operator_available',
-        'get_pharmacy_on_duty',
-        'request_human_handoff',
-        'dispatch_smur',
-      ],
+      tools: ['get_current_call_info', 'update_call_info', 'dispatch_smur', 'get_pharmacy_on_duty'],
       timestamp: new Date().toISOString(),
     });
   });
