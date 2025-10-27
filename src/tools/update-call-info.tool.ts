@@ -57,21 +57,25 @@ export interface UpdateCallInfoResponse {
 export async function executeUpdateCallInfo(
   input: UpdateCallInfoInput
 ): Promise<UpdateCallInfoResponse> {
-  // Résoudre le callId depuis conversationId si nécessaire
-  let callId = input.callId;
-
-  if (!callId && input.conversation_id) {
-    callId = TwilioElevenLabsProxyService.getCallIdFromConversation(input.conversation_id);
-    logger.info('Resolved callId from conversationId', {
-      conversationId: input.conversation_id,
-      callId,
-    });
+  // Résoudre le callId depuis conversationId
+  if (!input.conversation_id) {
+    return {
+      success: false,
+      message: 'conversation_id requis',
+    };
   }
+
+  const callId = TwilioElevenLabsProxyService.getCallIdFromConversation(input.conversation_id);
+
+  logger.info('Resolved callId from conversationId', {
+    conversationId: input.conversation_id,
+    callId,
+  });
 
   if (!callId) {
     return {
       success: false,
-      message: 'callId ou conversation_id requis',
+      message: `Aucun appel trouvé pour conversation_id: ${input.conversation_id}`,
     };
   }
 

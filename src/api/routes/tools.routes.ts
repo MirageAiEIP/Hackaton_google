@@ -180,7 +180,7 @@ export const toolsRoutes = (app: FastifyInstance) => {
         const input = updateCallInfoSchema.parse(request.body);
 
         logger.info('Tool webhook: update_call_info', {
-          callId: input.callId,
+          conversationId: input.conversation_id,
           hasPriority: !!input.priority,
         });
 
