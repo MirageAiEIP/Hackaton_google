@@ -10,6 +10,7 @@ import { WebSessionStartedEvent } from '@/domain/call/events/WebSessionStarted.e
 import { WebSessionEndedEvent } from '@/domain/call/events/WebSessionEnded.event';
 import { elevenLabsSTTService } from './elevenlabs-stt.service';
 import { conversationPersistenceService } from './conversation-persistence.service';
+import { callInfoExtractionService } from './call-info-extraction.service';
 
 /**
  * Service proxy WebSocket entre Twilio Media Stream et ElevenLabs Conversational AI
@@ -89,6 +90,8 @@ export class TwilioElevenLabsProxyService {
     let callId: string | null = null;
     let streamSid: string | null = null;
     let conversationId: string | null = null;
+    let extractionInterval: NodeJS.Timeout | null = null;
+    let lastTranscriptLength = 0; // Éviter extractions inutiles si transcript identique
 
     // Connect to ElevenLabs WebSocket
     try {
@@ -121,6 +124,78 @@ export class TwilioElevenLabsProxyService {
         logger.info('Sent callId via conversation_initiation_client_data to ElevenLabs agent', {
           callSid,
           callId,
+        });
+
+        // ===== EXTRACTION AUTOMATIQUE TOUTES LES 10 SECONDES =====
+        logger.info('[EXTRACTION] Starting real-time extraction every 10 seconds', { callId });
+
+        extractionInterval = setInterval(async () => {
+          if (!callId) {
+            logger.debug('[EXTRACTION] Skipping - no callId yet');
+            return;
+          }
+
+          try {
+            logger.debug('[EXTRACTION] Fetching call data...', { callId });
+            const call = await callService.getCallById(callId);
+
+            if (!call) {
+              logger.warn('[EXTRACTION] Call not found in database', { callId });
+              return;
+            }
+
+            if (!call.transcript || call.transcript.trim().length === 0) {
+              logger.debug('[EXTRACTION] Skipping - transcript is empty', {
+                callId,
+                transcriptLength: 0,
+              });
+              return;
+            }
+
+            // Optimisation: Skip si transcript n'a pas changé
+            const currentLength = call.transcript.length;
+            if (currentLength === lastTranscriptLength) {
+              logger.debug('[EXTRACTION] Skipping - transcript unchanged', {
+                callId,
+                transcriptLength: currentLength,
+              });
+              return;
+            }
+
+            lastTranscriptLength = currentLength;
+
+            logger.info('[EXTRACTION] Transcript changed - running extraction', {
+              callId,
+              transcriptLength: currentLength,
+              transcriptPreview: call.transcript.substring(0, 100) + '...',
+            });
+
+            const result = await callInfoExtractionService.extractAndUpdateCall({
+              callId,
+              transcript: call.transcript,
+              call, // Passer l'objet call pour éviter double fetch
+            });
+
+            if (result.success && result.updated.length > 0) {
+              logger.info('[EXTRACTION] Successfully updated fields', {
+                callId,
+                updatedCount: result.updated.length,
+                updated: result.updated,
+              });
+            } else if (result.success && result.updated.length === 0) {
+              logger.debug('[EXTRACTION] No new fields to update', { callId });
+            } else {
+              logger.warn('[EXTRACTION] Extraction failed', { callId });
+            }
+          } catch (error) {
+            logger.error('[EXTRACTION] Error during extraction', error as Error, { callId });
+          }
+        }, 10000); // Toutes les 10 secondes (optimisé)
+
+        logger.info('[EXTRACTION] Interval started successfully', {
+          callId,
+          intervalSeconds: 10,
+          intervalId: extractionInterval ? 'SET' : 'NULL',
         });
       });
 
@@ -179,10 +254,31 @@ export class TwilioElevenLabsProxyService {
 
       elevenLabsWs.on('error', (error: Error) => {
         logger.error('ElevenLabs WebSocket error', error, { callSid });
+
+        // Cleanup extraction interval on error
+        if (extractionInterval) {
+          clearInterval(extractionInterval);
+          extractionInterval = null;
+          logger.info('[EXTRACTION] Cleared extraction interval due to ElevenLabs error', {
+            callSid,
+            callId,
+          });
+        }
       });
 
       elevenLabsWs.on('close', () => {
         logger.info('ElevenLabs WebSocket closed', { callSid });
+
+        // Cleanup extraction interval
+        if (extractionInterval) {
+          clearInterval(extractionInterval);
+          extractionInterval = null;
+          logger.info('[EXTRACTION] Cleared extraction interval on ElevenLabs close', {
+            callSid,
+            callId,
+          });
+        }
+
         twilioWs.close();
       });
     } catch (error) {
@@ -254,6 +350,17 @@ export class TwilioElevenLabsProxyService {
         if (message.event === 'stop') {
           logger.info('Twilio Media Stream stopped', { streamSid, callSid });
 
+          // Cleanup extraction interval
+          if (extractionInterval) {
+            clearInterval(extractionInterval);
+            extractionInterval = null;
+            logger.info('[EXTRACTION] Cleared extraction interval on stream stop', {
+              streamSid,
+              callSid,
+              callId,
+            });
+          }
+
           if (elevenLabsWs) {
             elevenLabsWs.close();
           }
@@ -291,10 +398,30 @@ export class TwilioElevenLabsProxyService {
 
     twilioWs.on('error', (error: Error) => {
       logger.error('Twilio WebSocket error', error, { callSid });
+
+      // Cleanup extraction interval on error
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval due to Twilio error', {
+          callSid,
+          callId,
+        });
+      }
     });
 
     twilioWs.on('close', () => {
       logger.info('Twilio WebSocket closed', { callSid });
+
+      // Cleanup extraction interval
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval on Twilio close', {
+          callSid,
+          callId,
+        });
+      }
 
       if (elevenLabsWs) {
         elevenLabsWs.close();
@@ -317,6 +444,8 @@ export class TwilioElevenLabsProxyService {
 
     let elevenLabsWs: WebSocket | null = null;
     let conversationId: string | null = null;
+    let extractionInterval: NodeJS.Timeout | null = null;
+    let lastTranscriptLength = 0; // Éviter extractions inutiles si transcript identique
 
     // Connect to ElevenLabs WebSocket
     try {
@@ -377,6 +506,91 @@ export class TwilioElevenLabsProxyService {
           // Broadcast session started event to dashboard
           this.broadcastSessionStarted(callId, sessionId).catch((err) => {
             logger.error('Failed to broadcast session started event', err as Error);
+          });
+        }
+
+        // ===== EXTRACTION AUTOMATIQUE TOUTES LES 10 SECONDES (WEB) =====
+        if (callId) {
+          logger.info('[EXTRACTION] Starting real-time extraction every 10 seconds (Web)', {
+            callId,
+            sessionId,
+          });
+
+          extractionInterval = setInterval(async () => {
+            if (!callId) {
+              logger.debug('[EXTRACTION] Skipping - no callId yet');
+              return;
+            }
+
+            try {
+              logger.debug('[EXTRACTION] Fetching call data...', { callId, sessionId });
+              const call = await callService.getCallById(callId);
+
+              if (!call) {
+                logger.warn('[EXTRACTION] Call not found in database', { callId, sessionId });
+                return;
+              }
+
+              if (!call.transcript || call.transcript.trim().length === 0) {
+                logger.debug('[EXTRACTION] Skipping - transcript is empty', {
+                  callId,
+                  sessionId,
+                  transcriptLength: 0,
+                });
+                return;
+              }
+
+              // Optimisation: Skip si transcript n'a pas changé
+              const currentLength = call.transcript.length;
+              if (currentLength === lastTranscriptLength) {
+                logger.debug('[EXTRACTION] Skipping - transcript unchanged', {
+                  callId,
+                  sessionId,
+                  transcriptLength: currentLength,
+                });
+                return;
+              }
+
+              lastTranscriptLength = currentLength;
+
+              logger.info('[EXTRACTION] Transcript changed - running extraction', {
+                callId,
+                sessionId,
+                transcriptLength: currentLength,
+                transcriptPreview: call.transcript.substring(0, 100) + '...',
+              });
+
+              const result = await callInfoExtractionService.extractAndUpdateCall({
+                callId,
+                transcript: call.transcript,
+                call, // Passer l'objet call pour éviter double fetch
+              });
+
+              if (result.success && result.updated.length > 0) {
+                logger.info('[EXTRACTION] Successfully updated fields', {
+                  callId,
+                  sessionId,
+                  updatedCount: result.updated.length,
+                  updated: result.updated,
+                });
+              } else if (result.success && result.updated.length === 0) {
+                logger.debug('[EXTRACTION] No new fields to update', { callId, sessionId });
+              } else {
+                logger.warn('[EXTRACTION] Extraction failed', { callId, sessionId });
+              }
+            } catch (error) {
+              logger.error('[EXTRACTION] Error during extraction', error as Error, {
+                callId,
+                sessionId,
+              });
+            }
+          }, 10000); // Toutes les 10 secondes (optimisé)
+
+          logger.info('[EXTRACTION] Interval started successfully (Web)', {
+            callId,
+            sessionId,
+            intervalSeconds: 10,
+            intervalId: extractionInterval ? 'SET' : 'NULL',
           });
         }
 
@@ -468,10 +682,30 @@ export class TwilioElevenLabsProxyService {
 
       elevenLabsWs.on('error', (error: Error) => {
         logger.error('ElevenLabs WebSocket error', error, { sessionId });
+
+        // Cleanup extraction interval on error
+        if (extractionInterval) {
+          clearInterval(extractionInterval);
+          extractionInterval = null;
+          logger.info('[EXTRACTION] Cleared extraction interval due to ElevenLabs error (Web)', {
+            sessionId,
+            callId,
+          });
+        }
       });
 
       elevenLabsWs.on('close', async () => {
         logger.info('ElevenLabs WebSocket closed', { sessionId });
+
+        // Cleanup extraction interval
+        if (extractionInterval) {
+          clearInterval(extractionInterval);
+          extractionInterval = null;
+          logger.info('[EXTRACTION] Cleared extraction interval on ElevenLabs close (Web)', {
+            sessionId,
+            callId,
+          });
+        }
 
         // Save conversation transcript if we have the IDs
         if (callId && conversationId) {
@@ -518,6 +752,17 @@ export class TwilioElevenLabsProxyService {
       });
     } catch (error) {
       logger.error('Failed to connect to ElevenLabs', error as Error, { sessionId });
+
+      // Cleanup extraction interval on connection error
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval due to connection error (Web)', {
+          sessionId,
+          callId,
+        });
+      }
+
       clientWs.close();
       return;
     }
@@ -551,10 +796,30 @@ export class TwilioElevenLabsProxyService {
 
     clientWs.on('error', (error: Error) => {
       logger.error('Browser WebSocket error', error, { sessionId });
+
+      // Cleanup extraction interval on error
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval due to Browser error (Web)', {
+          sessionId,
+          callId,
+        });
+      }
     });
 
     clientWs.on('close', () => {
       logger.info('Browser WebSocket closed', { sessionId });
+
+      // Cleanup extraction interval
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval on Browser close (Web)', {
+          sessionId,
+          callId,
+        });
+      }
 
       if (elevenLabsWs) {
         elevenLabsWs.close();
