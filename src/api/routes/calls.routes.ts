@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { callService } from '@/services/call.service';
+import { callInfoExtractionService } from '@/services/call-info-extraction.service';
 import { logger } from '@/utils/logger';
 
 /**
@@ -21,6 +22,173 @@ const activeConversations = new Map<
 
 export const callsRoutes: FastifyPluginAsync = async (app) => {
   logger.info('📞 Registering Calls Routes at /api/v1/calls');
+
+  /**
+   * GET /api/v1/calls
+   * List all calls with pagination and filters
+   */
+  app.get(
+    '/',
+    {
+      schema: {
+        tags: ['calls'],
+        summary: 'List all calls',
+        description: 'Get all calls with pagination and optional status filter',
+        querystring: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['IN_PROGRESS', 'COMPLETED', 'ESCALATED', 'CANCELLED'],
+              description: 'Filter by call status',
+            },
+            limit: {
+              type: 'number',
+              default: 50,
+              description: 'Number of calls to return',
+            },
+            offset: {
+              type: 'number',
+              default: 0,
+              description: 'Number of calls to skip',
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const query = request.query as {
+        status?: 'IN_PROGRESS' | 'COMPLETED' | 'ESCALATED' | 'CANCELLED';
+        limit?: number;
+        offset?: number;
+      };
+
+      try {
+        const calls = await callService.listCalls({
+          status: query.status,
+          limit: query.limit || 50,
+          offset: query.offset || 0,
+        });
+
+        return {
+          success: true,
+          data: {
+            calls,
+            count: calls.length,
+            limit: query.limit || 50,
+            offset: query.offset || 0,
+          },
+        };
+      } catch (error) {
+        logger.error('Failed to list calls', error as Error);
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to list calls',
+        });
+      }
+    }
+  );
+
+  /**
+   * DELETE /api/v1/calls/:callId
+   * Delete a call and all associated data
+   */
+  app.delete(
+    '/:callId',
+    {
+      schema: {
+        tags: ['calls'],
+        summary: 'Delete a call',
+        description: 'Delete a call and all associated data (symptoms, triage report, etc.)',
+        params: {
+          type: 'object',
+          properties: {
+            callId: { type: 'string' },
+          },
+          required: ['callId'],
+        },
+      },
+    },
+    async (request, reply) => {
+      const { callId } = request.params as { callId: string };
+
+      try {
+        await callService.deleteCall(callId);
+
+        return {
+          success: true,
+          message: `Call ${callId} deleted successfully`,
+        };
+      } catch (error) {
+        logger.error('Failed to delete call', error as Error, { callId });
+
+        // Check if call was not found
+        if ((error as Error).message.includes('Record to delete does not exist')) {
+          return reply.status(404).send({
+            success: false,
+            error: 'Call not found',
+          });
+        }
+
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to delete call',
+        });
+      }
+    }
+  );
+
+  /**
+   * GET /api/v1/calls/:callId/transcript
+   * Get transcript for a call
+   */
+  app.get(
+    '/:callId/transcript',
+    {
+      schema: {
+        tags: ['calls'],
+        summary: 'Get call transcript',
+        params: {
+          type: 'object',
+          properties: {
+            callId: { type: 'string' },
+          },
+          required: ['callId'],
+        },
+      },
+    },
+    async (request, reply) => {
+      const { callId } = request.params as { callId: string };
+
+      try {
+        const call = await callService.getCallById(callId);
+
+        if (!call) {
+          return reply.status(404).send({
+            success: false,
+            error: 'Call not found',
+          });
+        }
+
+        return {
+          success: true,
+          data: {
+            callId: call.id,
+            transcript: call.transcript || '',
+            status: call.status,
+            createdAt: call.createdAt,
+          },
+        };
+      } catch (error) {
+        logger.error('Failed to get transcript', error as Error, { callId });
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to get transcript',
+        });
+      }
+    }
+  );
+
   /**
    * Démarrer une nouvelle conversation web
    * Le frontend appelle cette route, le backend gère tout
@@ -106,11 +274,9 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
           sessionId,
         });
 
-        // 4. Retourner l'URL du WebSocket backend (pas la signed URL ElevenLabs!)
-        // Frontend se connecte à NOTRE WebSocket, qui fait proxy vers ElevenLabs
         const wsUrl =
           process.env.PUBLIC_API_URL?.replace('https://', 'wss://').replace('http://', 'ws://') ||
-          'ws://localhost:3000';
+          'ws://localhost:8080';
 
         return {
           success: true,
@@ -129,6 +295,143 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
           error: 'Failed to start conversation',
         });
         return;
+      }
+    }
+  );
+
+  /**
+   * POST /api/v1/calls/:callId/extract-info
+   * Extract call info from transcript with Gemini AI
+   */
+  app.post(
+    '/:callId/extract-info',
+    {
+      schema: {
+        tags: ['calls'],
+        summary: 'Extract call info from transcript',
+        description: 'Uses Gemini AI to automatically extract structured info from transcript',
+        params: {
+          type: 'object',
+          properties: {
+            callId: { type: 'string' },
+          },
+          required: ['callId'],
+        },
+      },
+    },
+    async (request, reply) => {
+      const { callId } = request.params as { callId: string };
+
+      logger.info('Manual call info extraction requested', { callId });
+
+      try {
+        const call = await callService.getCallById(callId);
+
+        if (!call) {
+          return reply.code(404).send({
+            success: false,
+            error: 'NOT_FOUND',
+            message: `Call ${callId} not found`,
+          });
+        }
+
+        if (!call.transcript) {
+          return reply.code(400).send({
+            success: false,
+            error: 'NO_TRANSCRIPT',
+            message: 'Call has no transcript to extract from',
+          });
+        }
+
+        const result = await callInfoExtractionService.extractAndUpdateCall({
+          callId,
+          transcript: call.transcript,
+        });
+
+        return reply.send({
+          success: true,
+          message: `Successfully extracted and updated ${result.updated.length} fields`,
+          data: {
+            callId,
+            updated: result.updated,
+          },
+        });
+      } catch (error) {
+        logger.error('Call info extraction failed', error as Error, { callId });
+        return reply.code(500).send({
+          success: false,
+          error: 'INTERNAL_ERROR',
+          message: (error as Error).message,
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /api/v1/calls/:callId/preview-extraction
+   * Preview extraction without updating the call
+   */
+  app.post(
+    '/:callId/preview-extraction',
+    {
+      schema: {
+        tags: ['calls'],
+        summary: 'Preview call info extraction',
+        description: 'Extract info from transcript without updating the call',
+        params: {
+          type: 'object',
+          properties: {
+            callId: { type: 'string' },
+          },
+          required: ['callId'],
+        },
+      },
+    },
+    async (request, reply) => {
+      const { callId } = request.params as { callId: string };
+
+      logger.info('Preview extraction requested', { callId });
+
+      try {
+        const call = await callService.getCallById(callId);
+
+        if (!call) {
+          return reply.code(404).send({
+            success: false,
+            error: 'NOT_FOUND',
+            message: `Call ${callId} not found`,
+          });
+        }
+
+        if (!call.transcript) {
+          return reply.code(400).send({
+            success: false,
+            error: 'NO_TRANSCRIPT',
+            message: 'Call has no transcript',
+          });
+        }
+
+        const result = await callInfoExtractionService.extractCallInfo({
+          callId,
+          transcript: call.transcript,
+        });
+
+        return reply.send({
+          success: true,
+          message: 'Extraction preview completed',
+          data: {
+            callId,
+            extracted: result.extracted,
+            fieldsCount: Object.keys(result.extracted).length,
+          },
+        });
+      } catch (error) {
+        logger.error('Preview extraction failed', error as Error, { callId });
+        return reply.code(500).send({
+          success: false,
+          error: 'INTERNAL_ERROR',
+          message: (error as Error).message,
+        });
       }
     }
   );

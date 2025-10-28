@@ -15,7 +15,7 @@ import { testDatabaseConnection, prisma } from '@/utils/prisma';
 import { Container } from '@/infrastructure/di/Container';
 import { getCorsConfig } from '@/config/cors.config';
 import { RealtimeDashboardGateway } from '@/presentation/websocket/RealtimeDashboard.gateway';
-import { QueueDashboardGateway } from '@/presentation/websocket/QueueDashboard.gateway';
+import { queueDashboardGateway } from '@/presentation/websocket/QueueDashboard.gateway';
 import { twilioRoutes } from '@/api/routes/twilio.routes';
 import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 import { callsRoutes } from '@/api/routes/calls.routes';
@@ -25,11 +25,14 @@ import { toolsRoutes } from '@/api/routes/tools.routes';
 import { handoffRoutes } from '@/api/routes/handoff.routes';
 import { authRoutes } from '@/api/routes/auth.routes';
 import { usersRoutes } from '@/api/routes/users.routes';
+import { transcriptsRoutes } from '@/api/routes/transcripts.routes';
+import { audioRoutes } from '@/api/routes/audio.routes';
+import { monitoringRoutes } from '@/api/routes/monitoring.routes';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 
 let dashboardGateway: RealtimeDashboardGateway | null = null;
-let queueDashboardGateway: QueueDashboardGateway | null = null;
+// Note: queueDashboardGateway is imported as singleton from the module
 
 const app = fastify({
   logger: false,
@@ -91,6 +94,9 @@ async function setupServer() {
         { name: 'User Management', description: 'User management (Admin only)' },
         { name: 'twilio', description: 'Twilio webhook endpoints for phone calls' },
         { name: 'calls', description: 'Emergency call management' },
+        { name: 'transcripts', description: 'Call transcript retrieval and search' },
+        { name: 'audio', description: 'Call audio recordings and playback' },
+        { name: 'monitoring', description: 'Real-time call monitoring and live audio streaming' },
       ],
       components: {
         securitySchemes: {
@@ -294,6 +300,15 @@ async function setupServer() {
   // Register handoff routes (AI to human handoff management)
   await app.register(handoffRoutes, { prefix: '/api/v1/handoff' });
 
+  // Register transcripts routes (transcript retrieval and search)
+  await app.register(transcriptsRoutes, { prefix: '/api/v1/transcripts' });
+
+  // Register audio routes (call recording playback)
+  await app.register(audioRoutes, { prefix: '/api/v1/audio' });
+
+  // Register monitoring routes (real-time call monitoring)
+  await app.register(monitoringRoutes, { prefix: '/api/v1/monitoring' });
+
   // WebSocket stats endpoint
   app.get('/api/v1/dashboard/stats', async () => {
     if (!dashboardGateway) {
@@ -369,8 +384,8 @@ async function startServer() {
     logger.info('Real-Time Dashboard Gateway initialized successfully');
 
     // Initialize Queue Dashboard WebSocket Gateway (Secured)
+    // Using the singleton instance imported from the module
     logger.info('Initializing Queue Dashboard Gateway...');
-    queueDashboardGateway = new QueueDashboardGateway();
     await queueDashboardGateway.initialize();
     logger.info('Queue Dashboard Gateway initialized successfully');
 

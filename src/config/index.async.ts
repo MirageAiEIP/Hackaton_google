@@ -15,7 +15,6 @@ const envSchema = z.object({
     .string()
     .transform((val) => val === 'true')
     .default('false'),
-  GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
   GCS_BUCKET_NAME: z.string().default('samu-ai-audio-files'),
   JWT_ACCESS_TOKEN_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_TOKEN_EXPIRY: z.string().default('7d'),
@@ -49,11 +48,20 @@ interface AppConfig {
   server: { port: number };
   logging: { level: string };
   database: { url: string };
+  redis: { url: string };
   ai: {
-    googleApiKey: string;
     model: string;
     maxTokens: number;
     temperature: number;
+  };
+  elevenlabs: {
+    apiKey: string;
+    agentId: string;
+  };
+  twilio: {
+    accountSid: string;
+    authToken: string;
+    phoneNumber: string;
   };
   security: {
     jwtSecret: string | undefined;
@@ -116,11 +124,25 @@ export async function loadConfig(): Promise<AppConfig> {
       url: secrets.databaseUrl,
     },
 
+    redis: {
+      url: secrets.redisUrl,
+    },
+
     ai: {
-      googleApiKey: secrets.googleApiKey,
       model: 'gemini-2.0-flash-001',
       maxTokens: 2048,
       temperature: 0.7,
+    },
+
+    elevenlabs: {
+      apiKey: secrets.elevenlabsApiKey,
+      agentId: secrets.elevenlabsAgentId,
+    },
+
+    twilio: {
+      accountSid: secrets.twilioAccountSid,
+      authToken: secrets.twilioAuthToken,
+      phoneNumber: secrets.twilioPhoneNumber,
     },
 
     security: {

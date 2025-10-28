@@ -40,12 +40,6 @@ export class QueueService {
       conversationId,
     } = input;
 
-    // Validation: P3 should receive direct advice from Agent 1, not be queued
-    // P0/P1/P2 can be queued if no operator is available
-    if (priority === 'P3') {
-      throw new Error('P3 should receive direct advice from Agent 1, not be queued');
-    }
-
     logger.info('Adding call to queue', {
       callId,
       priority,

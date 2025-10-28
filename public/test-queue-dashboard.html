@@ -157,6 +157,34 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 10px;
+        position: relative;
+      }
+
+      .remove-btn {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #f56565;
+        color: white;
+        border: 2px solid white;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        transition: all 0.2s;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .remove-btn:hover {
+        background: #e53e3e;
+        transform: scale(1.1);
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
       }
 
       .priority-badge {
@@ -268,6 +296,109 @@
       .empty-state h3 {
         margin-bottom: 10px;
       }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal.active {
+        display: flex;
+      }
+
+      .modal-content {
+        background: white;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .modal-header {
+        padding: 20px;
+        border-bottom: 2px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-header h2 {
+        margin: 0;
+        color: #667eea;
+      }
+
+      .close-modal {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #6b7280;
+      }
+
+      .close-modal:hover {
+        color: #111827;
+      }
+
+      .modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+      }
+
+      .transcript-container {
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 15px;
+        min-height: 300px;
+        max-height: 500px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .transcript-entry {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 5px;
+      }
+
+      .transcript-entry.user {
+        background: #dbeafe;
+        color: #1e3a8a;
+      }
+
+      .transcript-entry.agent {
+        background: #d1fae5;
+        color: #064e3b;
+      }
+
+      .transcript-empty {
+        text-align: center;
+        color: #9ca3af;
+        padding: 40px;
+      }
+
+      .cursor {
+        cursor: pointer;
+      }
+
+      .queue-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -298,6 +429,20 @@
       </div>
     </div>
 
+    <div class="modal" id="transcriptModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modalTitle">Transcription en direct</h2>
+          <button class="close-modal" onclick="closeTranscriptModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="transcript-container" id="transcriptContainer">
+            <div class="transcript-empty">Chargement de la transcription...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
       let ws = null;
       let accessToken = null;
@@ -312,7 +457,7 @@
         statusEl.textContent = '🔄 Authenticating...';
 
         try {
-          const response = await fetch('http://localhost:3000/api/v1/auth/login', {
+          const response = await fetch('http://localhost:8080/api/v1/auth/login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -325,7 +470,7 @@
           }
 
           const data = await response.json();
-          accessToken = data.data.accessToken;
+          accessToken = data.accessToken;
 
           statusEl.className = 'status disconnected';
           statusEl.textContent = '✅ Authenticated - Ready to connect';
@@ -333,7 +478,7 @@
           document.getElementById('connectBtn').disabled = false;
           document.getElementById('connectBtn').classList.remove('btn-disabled');
 
-          console.log('Login successful', data.data);
+          console.log('Login successful', data);
         } catch (error) {
           statusEl.className = 'status disconnected';
           statusEl.textContent = '❌ Authentication failed: ' + error.message;
@@ -351,7 +496,7 @@
         statusEl.className = 'status authenticating';
         statusEl.textContent = '🔄 Connecting...';
 
-        ws = new WebSocket(`ws://localhost:3000/ws/queue-dashboard?token=${accessToken}`);
+        ws = new WebSocket(`ws://localhost:8080/ws/queue-dashboard?token=${accessToken}`);
 
         ws.onopen = () => {
           statusEl.className = 'status connected';
@@ -421,6 +566,13 @@
             renderQueue();
             break;
 
+          case 'queue:transcript-updated':
+            // Update transcript in modal if it's open and for the same call
+            if (currentSubscribedCallId === message.data.callId) {
+              renderTranscript(message.data.transcript);
+            }
+            break;
+
           case 'queue:pong':
             console.log('Pong received:', message.timestamp);
             break;
@@ -466,7 +618,10 @@
           waitingMinutes < 1 ? '< 1 min' : waitingMinutes === 1 ? '1 min' : `${waitingMinutes} mins`;
 
         return `
-          <div class="queue-card ${entry.priority}">
+          <div class="queue-card ${entry.priority}" onclick="openTranscriptModal('${entry.callId}')">
+            <button class="remove-btn" onclick="event.stopPropagation(); removeFromQueue('${entry.id}')" title="Retirer de la queue">
+              ×
+            </button>
             <div class="card-header">
               <span class="priority-badge ${entry.priority}">${entry.priority}</span>
               <span class="status-badge ${entry.status}">${entry.status}</span>
@@ -477,7 +632,7 @@
             <div class="patient-info">
               ${entry.patientAge ? `Age: ${entry.patientAge}` : 'Age: N/A'} •
               ${entry.patientGender || 'N/A'} •
-              ${entry.location ? `📍 ${entry.location}` : 'Location unknown'}
+              ${entry.location || 'Location unknown'}
             </div>
 
             <div class="ai-summary">
@@ -499,7 +654,7 @@
             ${
               entry.redFlags && entry.redFlags.length > 0
                 ? `<div class="symptoms">
-                    ${entry.redFlags.map((f) => `<span class="red-flag">⚠️ ${f}</span>`).join('')}
+                    ${entry.redFlags.map((f) => `<span class="red-flag">${f}</span>`).join('')}
                   </div>`
                 : ''
             }
@@ -507,14 +662,138 @@
             ${
               entry.claimedBy
                 ? `<div class="patient-info" style="margin-top: 8px;">
-                    👨‍⚕️ Claimed by: ${entry.claimedBy}
+                    Claimed by: ${entry.claimedBy}
                   </div>`
                 : ''
             }
 
-            <div class="waiting-time">⏱️ Waiting: ${waitingDisplay}</div>
+            <div class="waiting-time">Waiting: ${waitingDisplay}</div>
           </div>
         `;
+      }
+
+      let currentSubscribedCallId = null;
+
+      async function openTranscriptModal(callId) {
+        const modal = document.getElementById('transcriptModal');
+        const title = document.getElementById('modalTitle');
+
+        title.textContent = `Transcription - Call ${callId}`;
+        modal.classList.add('active');
+
+        // Show loading state
+        document.getElementById('transcriptContainer').innerHTML = `
+          <div class="transcript-empty">
+            Chargement de la transcription...
+          </div>
+        `;
+
+        // Subscribe to transcript updates via WebSocket
+        // The server will send the current transcript immediately upon subscription
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'queue:subscribe-transcript',
+            callId: callId
+          }));
+          currentSubscribedCallId = callId;
+        } else {
+          document.getElementById('transcriptContainer').innerHTML = `
+            <div class="transcript-empty">
+              ❌ WebSocket non connecté. Veuillez vous reconnecter.
+            </div>
+          `;
+        }
+      }
+
+      function closeTranscriptModal() {
+        const modal = document.getElementById('transcriptModal');
+        modal.classList.remove('active');
+
+        // Unsubscribe from transcript updates
+        if (ws && ws.readyState === WebSocket.OPEN && currentSubscribedCallId) {
+          ws.send(JSON.stringify({
+            type: 'queue:unsubscribe-transcript',
+            callId: currentSubscribedCallId
+          }));
+          currentSubscribedCallId = null;
+        }
+      }
+
+      async function removeFromQueue(queueEntryId) {
+        if (!confirm('Êtes-vous sûr de vouloir retirer cette entrée de la queue ?')) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`http://localhost:8080/api/v1/queue/${queueEntryId}/status`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+              status: 'ABANDONED'
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Échec de la suppression');
+          }
+
+          console.log('Entry removed from queue:', queueEntryId);
+
+          // La mise à jour sera automatiquement gérée par le WebSocket
+          // qui recevra un message queue:removed
+        } catch (error) {
+          console.error('Error removing from queue:', error);
+          alert('Erreur lors du retrait de la queue. Veuillez réessayer.');
+        }
+      }
+
+      function renderTranscript(transcript) {
+        const container = document.getElementById('transcriptContainer');
+
+        if (!transcript || transcript.trim() === '') {
+          container.innerHTML = `
+            <div class="transcript-empty">
+              Aucune transcription disponible pour le moment.<br>
+              L'appel est en cours...
+            </div>
+          `;
+          return;
+        }
+
+        const lines = transcript.split('\n').filter(line => line.trim() !== '');
+
+        if (lines.length === 0) {
+          container.innerHTML = `
+            <div class="transcript-empty">
+              Aucune transcription disponible pour le moment.<br>
+              L'appel est en cours...
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+        lines.forEach(line => {
+          const isUser = line.toLowerCase().includes('user:') || line.toLowerCase().includes('patient:') || line.toLowerCase().includes('caller:');
+          const isAgent = line.toLowerCase().includes('agent:') || line.toLowerCase().includes('assistant:');
+          const isOperator = line.toLowerCase().includes('operator:');
+
+          if (isUser) {
+            html += `<div class="transcript-entry user">${line}</div>`;
+          } else if (isAgent) {
+            html += `<div class="transcript-entry agent">${line}</div>`;
+          } else if (isOperator) {
+            html += `<div class="transcript-entry agent" style="background: #fef3c7; color: #92400e;">${line}</div>`;
+          } else {
+            html += `<div class="transcript-entry">${line}</div>`;
+          }
+        });
+
+        container.innerHTML = html;
+        container.scrollTop = container.scrollHeight;
       }
 
       // Auto-connect on page load if we have credentials

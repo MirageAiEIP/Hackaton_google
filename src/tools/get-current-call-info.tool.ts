@@ -18,8 +18,7 @@ import { TwilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy
  */
 
 export const getCurrentCallInfoSchema = z.object({
-  callId: z.string().optional().describe("ID de l'appel en cours"),
-  conversation_id: z.string().optional().describe('ID de conversation ElevenLabs'),
+  conversation_id: z.string().describe('ID de conversation ElevenLabs'),
 });
 
 export type GetCurrentCallInfoInput = z.infer<typeof getCurrentCallInfoSchema>;
@@ -64,25 +63,25 @@ export interface GetCurrentCallInfoResponse {
 export async function executeGetCurrentCallInfo(
   input: GetCurrentCallInfoInput
 ): Promise<GetCurrentCallInfoResponse> {
-  // Résoudre le callId depuis conversationId si nécessaire
-  let callId = input.callId;
+  // Résoudre le callId depuis conversationId
+  const callId = TwilioElevenLabsProxyService.getCallIdFromConversation(input.conversation_id);
 
-  if (!callId && input.conversation_id) {
-    callId = TwilioElevenLabsProxyService.getCallIdFromConversation(input.conversation_id);
-    logger.info('Resolved callId from conversationId', {
-      conversationId: input.conversation_id,
-      callId,
-    });
-  }
+  logger.info('Resolved callId from conversationId', {
+    conversationId: input.conversation_id,
+    callId,
+  });
 
   if (!callId) {
     return {
       success: false,
-      message: 'callId ou conversation_id requis',
+      message: `Aucun appel trouvé pour conversation_id: ${input.conversation_id}`,
     };
   }
 
-  logger.info('Executing tool: get_current_call_info', { callId });
+  logger.info('Executing tool: get_current_call_info', {
+    callId,
+    conversationId: input.conversation_id,
+  });
 
   try {
     // Récupérer l'appel avec patient + historique
@@ -185,7 +184,8 @@ export async function executeGetCurrentCallInfo(
     };
 
     logger.info('Tool executed successfully: get_current_call_info', {
-      callId: input.callId,
+      conversationId: input.conversation_id,
+      callId,
       hasPatient: !!callWithPatient.patient,
       previousCallsCount: filteredPreviousCalls.length,
     });
@@ -193,7 +193,8 @@ export async function executeGetCurrentCallInfo(
     return response;
   } catch (error) {
     logger.error('Tool execution failed: get_current_call_info', error as Error, {
-      callId: input.callId,
+      conversationId: input.conversation_id,
+      callId,
     });
 
     return {

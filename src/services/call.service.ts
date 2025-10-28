@@ -22,6 +22,7 @@ import { CallStartedEvent } from '@/domain/triage/events/CallStarted.event';
 import { CallCompletedEvent } from '@/domain/triage/events/CallCompleted.event';
 import { CallEscalatedEvent } from '@/domain/triage/events/CallEscalated.event';
 import { CallCancelledEvent } from '@/domain/triage/events/CallCancelled.event';
+import { queueDashboardGateway } from '@/presentation/websocket/QueueDashboard.gateway';
 
 /**
  * Service responsable des opérations CRUD sur les appels et entités liées
@@ -197,6 +198,34 @@ export class CallService {
     } else if (status === 'CANCELLED') {
       await eventBus.publish(new CallCancelledEvent(callId, phoneHash, 'Call cancelled'));
     }
+  }
+
+  /**
+   * Ajoute une ligne à la transcription de l'appel
+   */
+  async appendTranscript(callId: string, line: string): Promise<void> {
+    const call = await prisma.call.findUnique({
+      where: { id: callId },
+      select: { transcript: true },
+    });
+
+    if (!call) {
+      logger.warn('Call not found for transcript append', { callId });
+      return;
+    }
+
+    const currentTranscript = call.transcript || '';
+    const newTranscript = currentTranscript ? `${currentTranscript}\n${line}` : line;
+
+    await prisma.call.update({
+      where: { id: callId },
+      data: { transcript: newTranscript },
+    });
+
+    // Broadcast transcript update to subscribed WebSocket clients
+    queueDashboardGateway.broadcastTranscriptUpdate(callId, newTranscript);
+
+    logger.debug('Transcript appended', { callId, line });
   }
 
   /**
@@ -387,7 +416,7 @@ export class CallService {
    * Utilisé par le dashboard des opérateurs
    */
   async getActiveCalls() {
-    logger.info('📋 Getting active calls');
+    logger.info('Getting active calls');
 
     try {
       const activeCalls = await prisma.call.findMany({
@@ -404,7 +433,7 @@ export class CallService {
             orderBy: {
               createdAt: 'desc',
             },
-            take: 1, // Dernier handoff seulement
+            take: 1,
           },
         },
         orderBy: {
@@ -412,12 +441,74 @@ export class CallService {
         },
       });
 
-      logger.info('✅ Active calls retrieved', { count: activeCalls.length });
+      logger.info('Active calls retrieved', { count: activeCalls.length });
 
       return activeCalls;
     } catch (error) {
       logger.error('Failed to get active calls', error as Error);
       throw new Error('Failed to get active calls');
+    }
+  }
+
+  /**
+   * Get patient's recent calls within the specified time window
+   * Used for providing call history context to the AI agent
+   * @param patientId - The patient's ID
+   * @param hoursAgo - Number of hours to look back (default: 24)
+   * @param excludeCallId - Optional call ID to exclude (e.g., the current call)
+   * @returns Array of recent calls with relevant information
+   */
+  async getRecentCallsByPatient(
+    patientId: string,
+    hoursAgo: number = 24,
+    excludeCallId?: string
+  ): Promise<
+    Array<{
+      id: string;
+      startedAt: Date;
+      endedAt: Date | null;
+      chiefComplaint: string | null;
+      priority: string | null;
+      status: string;
+    }>
+  > {
+    logger.info('Getting recent calls for patient', { patientId, hoursAgo, excludeCallId });
+
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setHours(cutoffDate.getHours() - hoursAgo);
+
+      const recentCalls = await prisma.call.findMany({
+        where: {
+          patientId,
+          startedAt: {
+            gte: cutoffDate,
+          },
+          ...(excludeCallId ? { id: { not: excludeCallId } } : {}),
+        },
+        select: {
+          id: true,
+          startedAt: true,
+          endedAt: true,
+          chiefComplaint: true,
+          priority: true,
+          status: true,
+        },
+        orderBy: {
+          startedAt: 'desc',
+        },
+        take: 5, // Limit to 5 most recent calls
+      });
+
+      logger.info('Recent calls retrieved for patient', {
+        patientId,
+        count: recentCalls.length,
+      });
+
+      return recentCalls;
+    } catch (error) {
+      logger.error('Failed to get recent calls for patient', error as Error, { patientId });
+      throw new Error('Failed to get recent calls for patient');
     }
   }
 
@@ -456,6 +547,25 @@ export class CallService {
     } catch (error) {
       logger.error('Failed to update call fields', error as Error, { callId });
       throw new Error('Failed to update call fields');
+    }
+  }
+
+  /**
+   * Supprime un appel et toutes ses données associées
+   */
+  async deleteCall(callId: string): Promise<void> {
+    logger.info('Deleting call', { callId });
+
+    try {
+      // Prisma cascade delete handles related entities (symptoms, redFlags, triageReport, etc.)
+      await prisma.call.delete({
+        where: { id: callId },
+      });
+
+      logger.info('Call deleted successfully', { callId });
+    } catch (error) {
+      logger.error('Failed to delete call', error as Error, { callId });
+      throw new Error(`Failed to delete call: ${(error as Error).message}`);
     }
   }
 }

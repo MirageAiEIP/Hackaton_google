@@ -9,6 +9,8 @@ import { Container } from '@/infrastructure/di/Container';
 import { WebSessionStartedEvent } from '@/domain/call/events/WebSessionStarted.event';
 import { WebSessionEndedEvent } from '@/domain/call/events/WebSessionEnded.event';
 import { elevenLabsSTTService } from './elevenlabs-stt.service';
+import { conversationPersistenceService } from './conversation-persistence.service';
+import { callInfoExtractionService } from './call-info-extraction.service';
 
 /**
  * Service proxy WebSocket entre Twilio Media Stream et ElevenLabs Conversational AI
@@ -42,6 +44,9 @@ export class TwilioElevenLabsProxyService {
   // Global mapping: conversationId → callId (pour les tools ElevenLabs)
   private static conversationToCallMap = new Map<string, string>();
 
+  // Store active ElevenLabs WebSocket connections by callId (for sending contextual updates)
+  private activeElevenLabsConnections = new Map<string, WebSocket>();
+
   private async initialize(): Promise<void> {
     if (this.initialized) {
       return;
@@ -49,7 +54,7 @@ export class TwilioElevenLabsProxyService {
 
     const secrets = await loadSecrets();
     this.apiKey = secrets.elevenlabsApiKey;
-    this.agentId = process.env.ELEVENLABS_AGENT_ID || '';
+    this.agentId = secrets.elevenlabsAgentId;
 
     if (!this.agentId) {
       throw new Error('ELEVENLABS_AGENT_ID not configured');
@@ -76,6 +81,37 @@ export class TwilioElevenLabsProxyService {
   }
 
   /**
+   * Send a contextual update to an active ElevenLabs conversation
+   * Used to notify the AI agent about external events (e.g., operator availability)
+   * @param callId - The call ID
+   * @param message - The message to send to the agent
+   * @returns true if message was sent successfully, false if no active connection found
+   */
+  sendContextualUpdate(callId: string, message: string): boolean {
+    const elevenLabsWs = this.activeElevenLabsConnections.get(callId);
+
+    if (!elevenLabsWs || elevenLabsWs.readyState !== WebSocket.OPEN) {
+      logger.warn('Cannot send contextual update: No active ElevenLabs connection', { callId });
+      return false;
+    }
+
+    try {
+      elevenLabsWs.send(
+        JSON.stringify({
+          type: 'contextual_update',
+          text: message,
+        })
+      );
+
+      logger.info('Sent contextual update to ElevenLabs agent', { callId, message });
+      return true;
+    } catch (error) {
+      logger.error('Failed to send contextual update', error as Error, { callId, message });
+      return false;
+    }
+  }
+
+  /**
    * Handle incoming Twilio Media Stream WebSocket connection
    */
   async handleTwilioConnection(twilioWs: FastifyWebSocket, request: FastifyRequest): Promise<void> {
@@ -87,6 +123,9 @@ export class TwilioElevenLabsProxyService {
     let elevenLabsWs: WebSocket | null = null;
     let callId: string | null = null;
     let streamSid: string | null = null;
+    let conversationId: string | null = null;
+    let extractionInterval: NodeJS.Timeout | null = null;
+    let lastTranscriptLength = 0; // Éviter extractions inutiles si transcript identique
 
     // Connect to ElevenLabs WebSocket
     try {
@@ -100,21 +139,103 @@ export class TwilioElevenLabsProxyService {
 
       logger.info('Connecting to ElevenLabs WebSocket', { callSid });
 
-      // Envoyer le callId à l'agent via contextual_update dès la connexion
+      // Envoyer le callId à l'agent via conversation_initiation_client_data dès la connexion
       elevenLabsWs.on('open', () => {
         logger.info('ElevenLabs WebSocket connected for Twilio call', { callSid, callId });
 
-        // Envoyer le callId comme contexte à l'agent
+        // Store the connection for potential contextual updates
+        if (callId) {
+          this.activeElevenLabsConnections.set(callId, elevenLabsWs!);
+          logger.info('Stored ElevenLabs connection for Twilio call', { callId });
+        }
+
+        // Envoyer le callId dans custom_llm_extra_body pour que l'agent puisse l'utiliser
         elevenLabsWs!.send(
           JSON.stringify({
-            type: 'contextual_update',
-            text: `callId: ${callId}`,
+            type: 'conversation_initiation_client_data',
+            conversation_initiation_client_data: {
+              custom_llm_extra_body: {
+                callId: callId,
+              },
+            },
           })
         );
 
-        logger.info('Sent callId via contextual_update to ElevenLabs agent', {
+        logger.info('Sent callId via conversation_initiation_client_data to ElevenLabs agent', {
           callSid,
           callId,
+        });
+
+        // ===== EXTRACTION AUTOMATIQUE TOUTES LES 10 SECONDES =====
+        logger.info('[EXTRACTION] Starting real-time extraction every 10 seconds', { callId });
+
+        extractionInterval = setInterval(async () => {
+          if (!callId) {
+            logger.debug('[EXTRACTION] Skipping - no callId yet');
+            return;
+          }
+
+          try {
+            logger.debug('[EXTRACTION] Fetching call data...', { callId });
+            const call = await callService.getCallById(callId);
+
+            if (!call) {
+              logger.warn('[EXTRACTION] Call not found in database', { callId });
+              return;
+            }
+
+            if (!call.transcript || call.transcript.trim().length === 0) {
+              logger.debug('[EXTRACTION] Skipping - transcript is empty', {
+                callId,
+                transcriptLength: 0,
+              });
+              return;
+            }
+
+            // Optimisation: Skip si transcript n'a pas changé
+            const currentLength = call.transcript.length;
+            if (currentLength === lastTranscriptLength) {
+              logger.debug('[EXTRACTION] Skipping - transcript unchanged', {
+                callId,
+                transcriptLength: currentLength,
+              });
+              return;
+            }
+
+            lastTranscriptLength = currentLength;
+
+            logger.info('[EXTRACTION] Transcript changed - running extraction', {
+              callId,
+              transcriptLength: currentLength,
+              transcriptPreview: call.transcript.substring(0, 100) + '...',
+            });
+
+            const result = await callInfoExtractionService.extractAndUpdateCall({
+              callId,
+              transcript: call.transcript,
+              call, // Passer l'objet call pour éviter double fetch
+            });
+
+            if (result.success && result.updated.length > 0) {
+              logger.info('[EXTRACTION] Successfully updated fields', {
+                callId,
+                updatedCount: result.updated.length,
+                updated: result.updated,
+              });
+            } else if (result.success && result.updated.length === 0) {
+              logger.debug('[EXTRACTION] No new fields to update', { callId });
+            } else {
+              logger.warn('[EXTRACTION] Extraction failed', { callId });
+            }
+          } catch (error) {
+            logger.error('[EXTRACTION] Error during extraction', error as Error, { callId });
+          }
+        }, 10000); // Toutes les 10 secondes (optimisé)
+
+        logger.info('[EXTRACTION] Interval started successfully', {
+          callId,
+          intervalSeconds: 10,
+          intervalId: extractionInterval ? 'SET' : 'NULL',
         });
       });
 
@@ -148,6 +269,16 @@ export class TwilioElevenLabsProxyService {
             );
           }
 
+          // Capture conversation ID from ElevenLabs
+          if (message.conversation_id && !conversationId) {
+            conversationId = message.conversation_id;
+            logger.info('Captured ElevenLabs conversation ID', {
+              conversationId,
+              callId,
+              callSid,
+            });
+          }
+
           // Log transcript
           if (message.type === 'transcript' && message.transcript_event) {
             logger.info('ElevenLabs transcript', {
@@ -163,10 +294,37 @@ export class TwilioElevenLabsProxyService {
 
       elevenLabsWs.on('error', (error: Error) => {
         logger.error('ElevenLabs WebSocket error', error, { callSid });
+
+        // Cleanup extraction interval on error
+        if (extractionInterval) {
+          clearInterval(extractionInterval);
+          extractionInterval = null;
+          logger.info('[EXTRACTION] Cleared extraction interval due to ElevenLabs error', {
+            callSid,
+            callId,
+          });
+        }
       });
 
       elevenLabsWs.on('close', () => {
         logger.info('ElevenLabs WebSocket closed', { callSid });
+
+        // Cleanup extraction interval
+        if (extractionInterval) {
+          clearInterval(extractionInterval);
+          extractionInterval = null;
+          logger.info('[EXTRACTION] Cleared extraction interval on ElevenLabs close', {
+            callSid,
+            callId,
+          });
+        }
+
+        // Remove the connection from active connections
+        if (callId) {
+          this.activeElevenLabsConnections.delete(callId);
+          logger.info('Removed ElevenLabs connection for Twilio call', { callId });
+        }
+
         twilioWs.close();
       });
     } catch (error) {
@@ -238,13 +396,45 @@ export class TwilioElevenLabsProxyService {
         if (message.event === 'stop') {
           logger.info('Twilio Media Stream stopped', { streamSid, callSid });
 
+          // Cleanup extraction interval
+          if (extractionInterval) {
+            clearInterval(extractionInterval);
+            extractionInterval = null;
+            logger.info('[EXTRACTION] Cleared extraction interval on stream stop', {
+              streamSid,
+              callSid,
+              callId,
+            });
+          }
+
           if (elevenLabsWs) {
             elevenLabsWs.close();
           }
 
-          // Update call status
+          // Update call status and save transcript
           if (callId) {
             await callService.updateCallStatus(callId, 'COMPLETED');
+
+            // Save ElevenLabs conversation transcript
+            if (conversationId) {
+              logger.info('Saving conversation transcript', { callId, conversationId });
+
+              // Save asynchronously - don't block call completion
+              conversationPersistenceService
+                .saveConversation({
+                  conversationId,
+                  callId,
+                  agentId: this.agentId,
+                })
+                .catch((err) => {
+                  logger.error('Failed to save conversation (async)', err as Error, {
+                    callId,
+                    conversationId,
+                  });
+                });
+            } else {
+              logger.warn('No conversation ID available for transcript saving', { callId });
+            }
           }
         }
       } catch (error) {
@@ -254,10 +444,30 @@ export class TwilioElevenLabsProxyService {
 
     twilioWs.on('error', (error: Error) => {
       logger.error('Twilio WebSocket error', error, { callSid });
+
+      // Cleanup extraction interval on error
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval due to Twilio error', {
+          callSid,
+          callId,
+        });
+      }
     });
 
     twilioWs.on('close', () => {
       logger.info('Twilio WebSocket closed', { callSid });
+
+      // Cleanup extraction interval
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval on Twilio close', {
+          callSid,
+          callId,
+        });
+      }
 
       if (elevenLabsWs) {
         elevenLabsWs.close();
@@ -279,6 +489,9 @@ export class TwilioElevenLabsProxyService {
     logger.info('Web conversation connected', { sessionId, callId });
 
     let elevenLabsWs: WebSocket | null = null;
+    let conversationId: string | null = null;
+    let extractionInterval: NodeJS.Timeout | null = null;
+    let lastTranscriptLength = 0; // Éviter extractions inutiles si transcript identique
 
     // Connect to ElevenLabs WebSocket
     try {
@@ -294,6 +507,12 @@ export class TwilioElevenLabsProxyService {
 
       elevenLabsWs.on('open', () => {
         logger.info('ElevenLabs WebSocket connected for web conversation', { sessionId });
+
+        // Store the connection for potential contextual updates
+        if (callId) {
+          this.activeElevenLabsConnections.set(callId, elevenLabsWs!);
+          logger.info('Stored ElevenLabs connection for web call', { callId });
+        }
 
         // Envoyer le message d'initialisation à ElevenLabs
         elevenLabsWs!.send(
@@ -342,12 +561,97 @@ export class TwilioElevenLabsProxyService {
           });
         }
 
+        // ===== EXTRACTION AUTOMATIQUE TOUTES LES 10 SECONDES (WEB) =====
+        if (callId) {
+          logger.info('[EXTRACTION] Starting real-time extraction every 10 seconds (Web)', {
+            callId,
+            sessionId,
+          });
+
+          extractionInterval = setInterval(async () => {
+            if (!callId) {
+              logger.debug('[EXTRACTION] Skipping - no callId yet');
+              return;
+            }
+
+            try {
+              logger.debug('[EXTRACTION] Fetching call data...', { callId, sessionId });
+              const call = await callService.getCallById(callId);
+
+              if (!call) {
+                logger.warn('[EXTRACTION] Call not found in database', { callId, sessionId });
+                return;
+              }
+
+              if (!call.transcript || call.transcript.trim().length === 0) {
+                logger.debug('[EXTRACTION] Skipping - transcript is empty', {
+                  callId,
+                  sessionId,
+                  transcriptLength: 0,
+                });
+                return;
+              }
+
+              // Optimisation: Skip si transcript n'a pas changé
+              const currentLength = call.transcript.length;
+              if (currentLength === lastTranscriptLength) {
+                logger.debug('[EXTRACTION] Skipping - transcript unchanged', {
+                  callId,
+                  sessionId,
+                  transcriptLength: currentLength,
+                });
+                return;
+              }
+
+              lastTranscriptLength = currentLength;
+
+              logger.info('[EXTRACTION] Transcript changed - running extraction', {
+                callId,
+                sessionId,
+                transcriptLength: currentLength,
+                transcriptPreview: call.transcript.substring(0, 100) + '...',
+              });
+
+              const result = await callInfoExtractionService.extractAndUpdateCall({
+                callId,
+                transcript: call.transcript,
+                call, // Passer l'objet call pour éviter double fetch
+              });
+
+              if (result.success && result.updated.length > 0) {
+                logger.info('[EXTRACTION] Successfully updated fields', {
+                  callId,
+                  sessionId,
+                  updatedCount: result.updated.length,
+                  updated: result.updated,
+                });
+              } else if (result.success && result.updated.length === 0) {
+                logger.debug('[EXTRACTION] No new fields to update', { callId, sessionId });
+              } else {
+                logger.warn('[EXTRACTION] Extraction failed', { callId, sessionId });
+              }
+            } catch (error) {
+              logger.error('[EXTRACTION] Error during extraction', error as Error, {
+                callId,
+                sessionId,
+              });
+            }
+          }, 10000); // Toutes les 10 secondes (optimisé)
+
+          logger.info('[EXTRACTION] Interval started successfully (Web)', {
+            callId,
+            sessionId,
+            intervalSeconds: 10,
+            intervalId: extractionInterval ? 'SET' : 'NULL',
+          });
+        }
+
         // Notify client that connection is ready
         clientWs.send(JSON.stringify({ type: 'connected', status: 'ready' }));
       });
 
       // ElevenLabs → Browser: Forward all messages
-      elevenLabsWs.on('message', (data: Buffer) => {
+      elevenLabsWs.on('message', async (data: Buffer) => {
         try {
           const message = JSON.parse(data.toString());
 
@@ -355,6 +659,16 @@ export class TwilioElevenLabsProxyService {
             type: message.type,
             sessionId,
           });
+
+          // Capture conversation ID from ElevenLabs
+          if (message.conversation_id && !conversationId) {
+            conversationId = message.conversation_id;
+            logger.info('Captured ElevenLabs conversation ID (web)', {
+              conversationId,
+              callId,
+              sessionId,
+            });
+          }
 
           // Capturer le conversation_id d'ElevenLabs et le mapper au callId
           if (message.conversation_id && callId) {
@@ -389,19 +703,29 @@ export class TwilioElevenLabsProxyService {
           // Forward message to browser
           clientWs.send(data.toString());
 
-          // Log transcript
+          // Log and save transcript to database
           if (message.type === 'user_transcript' && message.user_transcription_event) {
+            const userText = message.user_transcription_event.user_transcript;
             logger.info('User transcript', {
-              text: message.user_transcription_event.user_transcript,
+              text: userText,
               sessionId,
             });
+
+            if (callId) {
+              await callService.appendTranscript(callId, `User: ${userText}`);
+            }
           }
 
           if (message.type === 'agent_response' && message.agent_response_event) {
+            const agentText = message.agent_response_event.agent_response;
             logger.info('Agent response', {
-              text: message.agent_response_event.agent_response,
+              text: agentText,
               sessionId,
             });
+
+            if (callId) {
+              await callService.appendTranscript(callId, `Agent: ${agentText}`);
+            }
           }
         } catch (error) {
           logger.error('Failed to process ElevenLabs message', error as Error, { sessionId });
@@ -410,10 +734,61 @@ export class TwilioElevenLabsProxyService {
 
       elevenLabsWs.on('error', (error: Error) => {
         logger.error('ElevenLabs WebSocket error', error, { sessionId });
+
+        // Cleanup extraction interval on error
+        if (extractionInterval) {
+          clearInterval(extractionInterval);
+          extractionInterval = null;
+          logger.info('[EXTRACTION] Cleared extraction interval due to ElevenLabs error (Web)', {
+            sessionId,
+            callId,
+          });
+        }
       });
 
-      elevenLabsWs.on('close', () => {
+      elevenLabsWs.on('close', async () => {
         logger.info('ElevenLabs WebSocket closed', { sessionId });
+
+        // Cleanup extraction interval
+        if (extractionInterval) {
+          clearInterval(extractionInterval);
+          extractionInterval = null;
+          logger.info('[EXTRACTION] Cleared extraction interval on ElevenLabs close (Web)', {
+            sessionId,
+            callId,
+          });
+        }
+
+        // Remove the connection from active connections
+        if (callId) {
+          this.activeElevenLabsConnections.delete(callId);
+          logger.info('Removed ElevenLabs connection for web call', { callId });
+        }
+
+        // Save conversation transcript if we have the IDs
+        if (callId && conversationId) {
+          logger.info('Saving web conversation transcript', { callId, conversationId, sessionId });
+
+          // Save asynchronously - don't block WebSocket cleanup
+          conversationPersistenceService
+            .saveConversation({
+              conversationId,
+              callId,
+              agentId: this.agentId,
+            })
+            .catch((err) => {
+              logger.error('Failed to save web conversation (async)', err as Error, {
+                callId,
+                conversationId,
+                sessionId,
+              });
+            });
+
+          // Update call status to completed
+          await callService.updateCallStatus(callId, 'COMPLETED').catch((err) => {
+            logger.error('Failed to update call status', err as Error, { callId });
+          });
+        }
 
         // Check if we should keep client connected (operator takeover scenario)
         if (!sessionId) {
@@ -435,6 +810,17 @@ export class TwilioElevenLabsProxyService {
       });
     } catch (error) {
       logger.error('Failed to connect to ElevenLabs', error as Error, { sessionId });
+
+      // Cleanup extraction interval on connection error
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval due to connection error (Web)', {
+          sessionId,
+          callId,
+        });
+      }
+
       clientWs.close();
       return;
     }
@@ -468,10 +854,30 @@ export class TwilioElevenLabsProxyService {
 
     clientWs.on('error', (error: Error) => {
       logger.error('Browser WebSocket error', error, { sessionId });
+
+      // Cleanup extraction interval on error
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval due to Browser error (Web)', {
+          sessionId,
+          callId,
+        });
+      }
     });
 
     clientWs.on('close', () => {
       logger.info('Browser WebSocket closed', { sessionId });
+
+      // Cleanup extraction interval
+      if (extractionInterval) {
+        clearInterval(extractionInterval);
+        extractionInterval = null;
+        logger.info('[EXTRACTION] Cleared extraction interval on Browser close (Web)', {
+          sessionId,
+          callId,
+        });
+      }
 
       if (elevenLabsWs) {
         elevenLabsWs.close();
@@ -661,10 +1067,9 @@ export class TwilioElevenLabsProxyService {
     // Audio buffers pour transcription par batch (réduit les appels API)
     const operatorAudioBuffer: Buffer[] = [];
     const patientAudioBuffer: Buffer[] = [];
-    const operatorBufferTimeout: NodeJS.Timeout | null = null;
-    const patientBufferTimeout: NodeJS.Timeout | null = null;
-    // TODO: Réactiver quand transcription sera corrigée
-    // const TRANSCRIBE_BATCH_MS = 3000; // Transcrire tous les 3 secondes
+    let operatorBufferTimeout: NodeJS.Timeout | null = null;
+    let patientBufferTimeout: NodeJS.Timeout | null = null;
+    const TRANSCRIBE_BATCH_MS = 3000; // Transcrire tous les 3 secondes
 
     // Helper pour transcrire un batch d'audio
     const transcribeBatch = async (
@@ -694,9 +1099,9 @@ export class TwilioElevenLabsProxyService {
             callId,
           });
 
-          // Sauvegarder la transcription dans la conversation
-          // TODO: Créer une méthode dans callService pour append transcript
-          // await callService.appendTranscript(callId, speaker, result.text);
+          // Sauvegarder la transcription dans call.transcript (source de vérité complète)
+          const speakerLabel = speaker === 'operator' ? 'Operator' : 'User';
+          await callService.appendTranscript(callId, `${speakerLabel}: ${result.text}`);
 
           // Envoyer la transcription à l'opérateur pour affichage
           if (operatorWs.readyState === 1) {
@@ -819,17 +1224,16 @@ export class TwilioElevenLabsProxyService {
             // Convertir base64 en buffer
             const audioBuffer = Buffer.from(message.audio_base_64, 'base64');
 
-            // TODO: Temporairement désactivé - format audio à corriger
             // Ajouter au buffer pour transcription
-            // operatorAudioBuffer.push(audioBuffer);
+            operatorAudioBuffer.push(audioBuffer);
 
             // Reset le timer de transcription
-            // if (operatorBufferTimeout) {
-            //   clearTimeout(operatorBufferTimeout);
-            // }
-            // operatorBufferTimeout = setTimeout(async () => {
-            //   await transcribeBatch(operatorAudioBuffer, 'operator', patientSession?.callId || '');
-            // }, TRANSCRIBE_BATCH_MS);
+            if (operatorBufferTimeout) {
+              clearTimeout(operatorBufferTimeout);
+            }
+            operatorBufferTimeout = setTimeout(async () => {
+              await transcribeBatch(operatorAudioBuffer, 'operator', patientSession?.callId || '');
+            }, TRANSCRIBE_BATCH_MS);
 
             // Forward audio au patient
             if (patientSession && patientSession.clientWs.readyState === 1) {
@@ -890,17 +1294,16 @@ export class TwilioElevenLabsProxyService {
               // Convertir base64 en buffer
               const audioBuffer = Buffer.from(message.audio_base_64, 'base64');
 
-              // TODO: Temporairement désactivé - format audio à corriger
               // Ajouter au buffer pour transcription
-              // patientAudioBuffer.push(audioBuffer);
+              patientAudioBuffer.push(audioBuffer);
 
               // Reset le timer de transcription
-              // if (patientBufferTimeout) {
-              //   clearTimeout(patientBufferTimeout);
-              // }
-              // patientBufferTimeout = setTimeout(async () => {
-              //   await transcribeBatch(patientAudioBuffer, 'patient', patientSession.callId);
-              // }, TRANSCRIBE_BATCH_MS);
+              if (patientBufferTimeout) {
+                clearTimeout(patientBufferTimeout);
+              }
+              patientBufferTimeout = setTimeout(async () => {
+                await transcribeBatch(patientAudioBuffer, 'patient', patientSession.callId);
+              }, TRANSCRIBE_BATCH_MS);
 
               // Forward audio à l'opérateur
               if (operatorWs.readyState === 1) {

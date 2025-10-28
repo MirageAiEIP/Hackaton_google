@@ -519,13 +519,13 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    console.log(`✅ Status updated to ${status}`);
+                    console.log(`Status updated to ${status}`);
                     loadOperators();
                 } else {
-                    alert(`❌ Erreur: ${result.error?.message || 'Unknown error'}`);
+                    alert(`Error: ${result.error?.message || 'Unknown error'}`);
                 }
             } catch (error) {
-                alert(`❌ Erreur: ${error.message}`);
+                alert(`Error: ${error.message}`);
             }
         }
 
