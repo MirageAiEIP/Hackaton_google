@@ -44,6 +44,9 @@ export class TwilioElevenLabsProxyService {
   // Global mapping: conversationId → callId (pour les tools ElevenLabs)
   private static conversationToCallMap = new Map<string, string>();
 
+  // Store active ElevenLabs WebSocket connections by callId (for sending contextual updates)
+  private activeElevenLabsConnections = new Map<string, WebSocket>();
+
   private async initialize(): Promise<void> {
     if (this.initialized) {
       return;
@@ -78,6 +81,37 @@ export class TwilioElevenLabsProxyService {
   }
 
   /**
+   * Send a contextual update to an active ElevenLabs conversation
+   * Used to notify the AI agent about external events (e.g., operator availability)
+   * @param callId - The call ID
+   * @param message - The message to send to the agent
+   * @returns true if message was sent successfully, false if no active connection found
+   */
+  sendContextualUpdate(callId: string, message: string): boolean {
+    const elevenLabsWs = this.activeElevenLabsConnections.get(callId);
+
+    if (!elevenLabsWs || elevenLabsWs.readyState !== WebSocket.OPEN) {
+      logger.warn('Cannot send contextual update: No active ElevenLabs connection', { callId });
+      return false;
+    }
+
+    try {
+      elevenLabsWs.send(
+        JSON.stringify({
+          type: 'contextual_update',
+          text: message,
+        })
+      );
+
+      logger.info('Sent contextual update to ElevenLabs agent', { callId, message });
+      return true;
+    } catch (error) {
+      logger.error('Failed to send contextual update', error as Error, { callId, message });
+      return false;
+    }
+  }
+
+  /**
    * Handle incoming Twilio Media Stream WebSocket connection
    */
   async handleTwilioConnection(twilioWs: FastifyWebSocket, request: FastifyRequest): Promise<void> {
@@ -108,6 +142,12 @@ export class TwilioElevenLabsProxyService {
       // Envoyer le callId à l'agent via conversation_initiation_client_data dès la connexion
       elevenLabsWs.on('open', () => {
         logger.info('ElevenLabs WebSocket connected for Twilio call', { callSid, callId });
+
+        // Store the connection for potential contextual updates
+        if (callId) {
+          this.activeElevenLabsConnections.set(callId, elevenLabsWs!);
+          logger.info('Stored ElevenLabs connection for Twilio call', { callId });
+        }
 
         // Envoyer le callId dans custom_llm_extra_body pour que l'agent puisse l'utiliser
         elevenLabsWs!.send(
@@ -277,6 +317,12 @@ export class TwilioElevenLabsProxyService {
             callSid,
             callId,
           });
+        }
+
+        // Remove the connection from active connections
+        if (callId) {
+          this.activeElevenLabsConnections.delete(callId);
+          logger.info('Removed ElevenLabs connection for Twilio call', { callId });
         }
 
         twilioWs.close();
@@ -461,6 +507,12 @@ export class TwilioElevenLabsProxyService {
 
       elevenLabsWs.on('open', () => {
         logger.info('ElevenLabs WebSocket connected for web conversation', { sessionId });
+
+        // Store the connection for potential contextual updates
+        if (callId) {
+          this.activeElevenLabsConnections.set(callId, elevenLabsWs!);
+          logger.info('Stored ElevenLabs connection for web call', { callId });
+        }
 
         // Envoyer le message d'initialisation à ElevenLabs
         elevenLabsWs!.send(
@@ -705,6 +757,12 @@ export class TwilioElevenLabsProxyService {
             sessionId,
             callId,
           });
+        }
+
+        // Remove the connection from active connections
+        if (callId) {
+          this.activeElevenLabsConnections.delete(callId);
+          logger.info('Removed ElevenLabs connection for web call', { callId });
         }
 
         // Save conversation transcript if we have the IDs
