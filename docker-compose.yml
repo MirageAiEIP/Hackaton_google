@@ -41,7 +41,9 @@ services:
       # Rate limiting
       RATE_LIMIT_WINDOW_MS: 60000
       RATE_LIMIT_MAX_REQUESTS: 100
-      # Google Cloud Secret Manager
+      # Google Cloud (Service Account + Vertex AI)
+      GOOGLE_APPLICATION_CREDENTIALS: /app/config/samu-ai-474822-ad24ee114e83.json
+      GOOGLE_CLOUD_PROJECT: hackathon-google-451307
       GCP_PROJECT_ID: ${GCP_PROJECT_ID}
       USE_SECRET_MANAGER: ${USE_SECRET_MANAGER:-false}
       # JWT configuration (expiry only, secrets loaded from Secret Manager)

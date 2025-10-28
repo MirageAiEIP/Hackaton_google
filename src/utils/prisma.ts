@@ -10,7 +10,8 @@ const globalForPrisma = globalThis as typeof globalThis & {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: config.isDevelopment ? ['query', 'info', 'warn', 'error'] : ['warn', 'error'],
+    // Retirer 'query' pour alléger les logs en dev (trop verbeux)
+    log: config.isDevelopment ? ['info', 'warn', 'error'] : ['warn', 'error'],
   });
 
 if (!config.isProduction) {

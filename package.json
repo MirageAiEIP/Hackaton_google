@@ -63,6 +63,8 @@
     "@google-cloud/secret-manager": "^6.1.0",
     "@google-cloud/speech": "^7.2.1",
     "@google-cloud/storage": "^7.17.2",
+    "@google-cloud/vertexai": "^1.10.0",
+    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.22.0",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",

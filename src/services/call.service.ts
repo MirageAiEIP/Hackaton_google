@@ -487,6 +487,25 @@ export class CallService {
       throw new Error('Failed to update call fields');
     }
   }
+
+  /**
+   * Supprime un appel et toutes ses données associées
+   */
+  async deleteCall(callId: string): Promise<void> {
+    logger.info('Deleting call', { callId });
+
+    try {
+      // Prisma cascade delete handles related entities (symptoms, redFlags, triageReport, etc.)
+      await prisma.call.delete({
+        where: { id: callId },
+      });
+
+      logger.info('Call deleted successfully', { callId });
+    } catch (error) {
+      logger.error('Failed to delete call', error as Error, { callId });
+      throw new Error(`Failed to delete call: ${(error as Error).message}`);
+    }
+  }
 }
 
 export const callService = new CallService();

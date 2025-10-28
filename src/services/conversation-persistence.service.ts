@@ -2,6 +2,7 @@ import { prisma } from '@/utils/prisma';
 import { logger } from '@/utils/logger';
 import { elevenlabsConversationService } from './elevenlabs-conversation.service';
 import { loadSecrets } from '@/config/secrets.config';
+import { callInfoExtractionService } from './call-info-extraction.service';
 
 /**
  * Service for persisting ElevenLabs conversations to the database
@@ -103,6 +104,31 @@ export class ConversationPersistenceService {
         callId,
         durationSeconds,
       });
+
+      // ===== EXTRACTION AUTOMATIQUE DES INFOS AVEC GEMINI =====
+      // Extraire et mettre à jour automatiquement les informations depuis le transcript
+      try {
+        logger.info('Starting automatic call info extraction', { callId, conversationId });
+
+        const extractionResult = await callInfoExtractionService.extractAndUpdateCall({
+          callId,
+          transcript: conversationData.transcript,
+        });
+
+        if (extractionResult.success && extractionResult.updated.length > 0) {
+          logger.info('Call info auto-extracted and updated', {
+            callId,
+            fieldsUpdated: extractionResult.updated,
+          });
+        } else {
+          logger.warn('No info extracted from transcript', { callId });
+        }
+      } catch (extractionError) {
+        logger.error('Failed to auto-extract call info', extractionError as Error, {
+          callId,
+        });
+        // Don't throw - extraction failure shouldn't break conversation persistence
+      }
     } catch (error) {
       logger.error('Failed to save conversation', error as Error, {
         conversationId,
