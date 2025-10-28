@@ -12,6 +12,8 @@ import { RedisTokenStore } from '@/infrastructure/auth/RedisTokenStore';
 import { AuthService } from '@/services/auth.service';
 import { UserService } from '@/services/user.service';
 import { CallStartedHandler } from '@/application/events/CallStartedHandler';
+import { OperatorAvailableHandler } from '@/application/events/OperatorAvailableHandler';
+import { CallHistoryNotificationHandler } from '@/application/events/CallHistoryNotificationHandler';
 import { loadConfig } from '@/config/index.async';
 import { logger } from '@/utils/logger';
 
@@ -45,6 +47,8 @@ export class Container {
 
   // Event Handlers
   private callStartedHandler!: CallStartedHandler;
+  private operatorAvailableHandler!: OperatorAvailableHandler;
+  private callHistoryNotificationHandler!: CallHistoryNotificationHandler;
 
   private constructor() {}
 
@@ -147,9 +151,13 @@ export class Container {
   private async initializeEventHandlers(): Promise<void> {
     // Create event handlers
     this.callStartedHandler = new CallStartedHandler();
+    this.operatorAvailableHandler = new OperatorAvailableHandler();
+    this.callHistoryNotificationHandler = new CallHistoryNotificationHandler();
 
     // Register handlers with event bus
     await this.eventBus.subscribe('CallStartedEvent', this.callStartedHandler);
+    await this.eventBus.subscribe('OperatorStatusChangedEvent', this.operatorAvailableHandler);
+    await this.eventBus.subscribe('CallStartedEvent', this.callHistoryNotificationHandler);
 
     logger.info('Event handlers registered');
   }

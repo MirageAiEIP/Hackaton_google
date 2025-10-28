@@ -451,6 +451,68 @@ export class CallService {
   }
 
   /**
+   * Get patient's recent calls within the specified time window
+   * Used for providing call history context to the AI agent
+   * @param patientId - The patient's ID
+   * @param hoursAgo - Number of hours to look back (default: 24)
+   * @param excludeCallId - Optional call ID to exclude (e.g., the current call)
+   * @returns Array of recent calls with relevant information
+   */
+  async getRecentCallsByPatient(
+    patientId: string,
+    hoursAgo: number = 24,
+    excludeCallId?: string
+  ): Promise<
+    Array<{
+      id: string;
+      startedAt: Date;
+      endedAt: Date | null;
+      chiefComplaint: string | null;
+      priority: string | null;
+      status: string;
+    }>
+  > {
+    logger.info('Getting recent calls for patient', { patientId, hoursAgo, excludeCallId });
+
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setHours(cutoffDate.getHours() - hoursAgo);
+
+      const recentCalls = await prisma.call.findMany({
+        where: {
+          patientId,
+          startedAt: {
+            gte: cutoffDate,
+          },
+          ...(excludeCallId ? { id: { not: excludeCallId } } : {}),
+        },
+        select: {
+          id: true,
+          startedAt: true,
+          endedAt: true,
+          chiefComplaint: true,
+          priority: true,
+          status: true,
+        },
+        orderBy: {
+          startedAt: 'desc',
+        },
+        take: 5, // Limit to 5 most recent calls
+      });
+
+      logger.info('Recent calls retrieved for patient', {
+        patientId,
+        count: recentCalls.length,
+      });
+
+      return recentCalls;
+    } catch (error) {
+      logger.error('Failed to get recent calls for patient', error as Error, { patientId });
+      throw new Error('Failed to get recent calls for patient');
+    }
+  }
+
+  /**
    * Met à jour les informations du patient
    */
   async updatePatientInfo(patientId: string, fields: Record<string, unknown>): Promise<void> {
