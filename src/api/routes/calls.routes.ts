@@ -252,9 +252,14 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
           sessionId,
         });
 
-        const wsUrl =
-          process.env.PUBLIC_API_URL?.replace('https://', 'wss://').replace('http://', 'ws://') ||
-          'ws://localhost:8080';
+        if (!process.env.PUBLIC_API_URL) {
+          throw new Error('PUBLIC_API_URL environment variable is not set');
+        }
+
+        const wsUrl = process.env.PUBLIC_API_URL.replace('https://', 'wss://').replace(
+          'http://',
+          'ws://'
+        );
 
         return {
           success: true,
