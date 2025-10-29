@@ -5,12 +5,12 @@ import { callInfoExtractionService } from '@/services/call-info-extraction.servi
 import { logger } from '@/utils/logger';
 
 /**
- * Routes pour gérer les conversations web
- * Le frontend appelle ces routes, le backend gère tout
- * Architecture: Signed URL - Le frontend se connecte directement à ElevenLabs
+ * Routes pour grer les conversations web
+ * Le frontend appelle ces routes, le backend gre tout
+ * Architecture: Signed URL - Le frontend se connecte directement  ElevenLabs
  */
 
-// Store des conversations actives en mémoire
+// Store des conversations actives en mmoire
 const activeConversations = new Map<
   string,
   {
@@ -21,7 +21,7 @@ const activeConversations = new Map<
 >();
 
 export const callsRoutes: FastifyPluginAsync = async (app) => {
-  logger.info('📞 Registering Calls Routes at /api/v1/calls');
+  logger.info('Registering Calls Routes at /api/v1/calls');
 
   /**
    * GET /api/v1/calls
@@ -190,26 +190,26 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
   );
 
   /**
-   * Démarrer une nouvelle conversation web
-   * Le frontend appelle cette route, le backend gère tout
+   * Dmarrer une nouvelle conversation web
+   * Le frontend appelle cette route, le backend gre tout
    */
   app.post(
     '/start-web',
     {
       schema: {
         tags: ['calls'],
-        summary: 'Démarrer conversation web',
-        description: "Lance une nouvelle conversation avec l'agent SAMU (backend gère tout)",
+        summary: 'Dmarrer conversation web',
+        description: "Lance une nouvelle conversation avec l'agent SAMU (backend gre tout)",
         body: {
           type: 'object',
           properties: {
             phoneNumber: {
               type: 'string',
-              description: 'Numéro de téléphone du patient (optionnel)',
+              description: 'Numro de tlphone du patient (optionnel)',
             },
             metadata: {
               type: 'object',
-              description: 'Métadonnées additionnelles (optionnel)',
+              description: 'Mtadonnes additionnelles (optionnel)',
             },
           },
         },
@@ -237,7 +237,7 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      logger.info('🎯 POST /api/v1/calls/start-web called');
+      logger.info('POST /api/v1/calls/start-web called');
 
       const bodySchema = z.object({
         phoneNumber: z.string().optional(),
@@ -246,20 +246,20 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
 
       const body = bodySchema.parse(request.body);
 
-      logger.info('📞 Starting web conversation', {
+      logger.info('Starting web conversation', {
         phoneNumber: body.phoneNumber,
         hasMetadata: !!body.metadata,
       });
 
       try {
-        // 1. Créer l'appel en DB
+        // 1. Crer l'appel en DB
         const call = await callService.createCall({
           phoneNumber: body.phoneNumber || 'WEB_CALL',
         });
 
         logger.info('Call created', { callId: call.id });
 
-        // 2. Générer un sessionId unique
+        // 2. Gnrer un sessionId unique
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         // 3. Stocker la conversation active
@@ -286,7 +286,7 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
             connectionType: 'websocket',
             wsUrl: `${wsUrl}/ws/web-conversation?sessionId=${sessionId}&callId=${call.id}`,
           },
-          message: 'Conversation démarrée avec succès',
+          message: 'Conversation dmarre avec succs',
         };
       } catch (error) {
         logger.error('Failed to start web conversation', error as Error);

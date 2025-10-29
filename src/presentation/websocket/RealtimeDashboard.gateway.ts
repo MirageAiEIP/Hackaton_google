@@ -252,7 +252,7 @@ export class RealtimeDashboardGateway {
     if (!roomClients || roomClients.size === 0) {
       const eventName =
         'eventName' in event ? event.eventName : 'type' in event ? event.type : 'unknown';
-      logger.warn('📭 No clients subscribed to room', {
+      logger.warn('No clients subscribed to room', {
         room,
         event: eventName,
       });
@@ -314,7 +314,7 @@ export class RealtimeDashboardGateway {
   private createEventHandler(room: string): IEventHandler {
     return {
       handle: async (event: DomainEvent) => {
-        logger.info('🔔 Dashboard gateway received event', {
+        logger.info('Dashboard gateway received event', {
           eventName: event.eventName,
           room,
           subscriberCount: this.roomSubscriptions.get(room)?.size || 0,

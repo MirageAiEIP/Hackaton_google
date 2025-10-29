@@ -10,7 +10,7 @@ export class TranscriptService {
    * Includes both Call.transcript and ElevenLabsConversation.transcript if available
    */
   async getCallTranscript(callId: string) {
-    logger.info('📝 Getting transcript for call', { callId });
+    logger.info('Getting transcript for call', { callId });
 
     const call = await prisma.call.findUnique({
       where: { id: callId },
@@ -63,7 +63,7 @@ export class TranscriptService {
    * Parses the ElevenLabs JSON transcript into a readable format
    */
   async getFormattedTranscript(callId: string) {
-    logger.info('📄 Getting formatted transcript for call', { callId });
+    logger.info('Getting formatted transcript for call', { callId });
 
     const transcriptData = await this.getCallTranscript(callId);
 
@@ -193,7 +193,7 @@ export class TranscriptService {
    * Get transcript for multiple calls (bulk retrieval)
    */
   async getCallTranscripts(callIds: string[]) {
-    logger.info('📚 Getting transcripts for multiple calls', { count: callIds.length });
+    logger.info('Getting transcripts for multiple calls', { count: callIds.length });
 
     const calls = await prisma.call.findMany({
       where: {
@@ -230,7 +230,7 @@ export class TranscriptService {
    * Search transcripts by keyword
    */
   async searchTranscripts(keyword: string, options: { limit?: number; offset?: number } = {}) {
-    logger.info('🔍 Searching transcripts for keyword', { keyword });
+    logger.info('Searching transcripts for keyword', { keyword });
 
     const limit = options.limit || 50;
     const offset = options.offset || 0;
@@ -313,7 +313,7 @@ export class TranscriptService {
    * Uses call.transcript which contains COMPLETE conversation (AI + Operator phases)
    */
   async getTranscriptStats(callId: string) {
-    logger.info('📊 Getting transcript stats for call', { callId });
+    logger.info('Getting transcript stats for call', { callId });
 
     const call = await prisma.call.findUnique({
       where: { id: callId },
