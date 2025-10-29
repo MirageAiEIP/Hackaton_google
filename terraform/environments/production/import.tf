@@ -37,21 +37,13 @@ import {
   id = "projects/samu-ai-474822/secrets/production-twilio-phone-number"
 }
 
-# Import des secrets database
-import {
-  to = module.samu_production.module.database.google_secret_manager_secret.database_url
-  id = "projects/samu-ai-474822/secrets/production-database-url"
-}
-
+# Import database secrets
 import {
   to = module.samu_production.module.database.google_secret_manager_secret.db_password
   id = "projects/samu-ai-474822/secrets/production-database-password"
 }
 
-# Le secret public-api-url sera créé par Terraform automatiquement
-
-# Import du service Cloud Run existant (évite Error 409)
 import {
-  to = module.samu_production.module.cloud_run.google_cloud_run_v2_service.samu_api
-  id = "projects/samu-ai-474822/locations/europe-west1/services/samu-ai-triage-production"
+  to = module.samu_production.module.database.google_secret_manager_secret.database_url
+  id = "projects/samu-ai-474822/secrets/production-database-url"
 }
