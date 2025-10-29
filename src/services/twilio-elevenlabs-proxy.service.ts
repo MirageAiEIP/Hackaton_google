@@ -355,13 +355,13 @@ export class TwilioElevenLabsProxyService {
           const audioPayload = message.media.payload;
 
           // Forward to ElevenLabs
-          // Note: Twilio sends mulaw 8kHz, might need conversion
+          // Note: Twilio sends mulaw 8kHz
           elevenLabsWs.send(
             JSON.stringify({
               type: 'audio',
               audio_event: {
                 audio_base_64: audioPayload,
-                // encoding: 'mulaw_8000', // Check ElevenLabs docs for format
+                encoding: 'mulaw_8000',
               },
             })
           );
