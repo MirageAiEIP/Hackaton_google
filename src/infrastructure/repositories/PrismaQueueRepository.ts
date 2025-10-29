@@ -6,9 +6,6 @@ import {
 } from '@prisma/client';
 import { IQueueRepository, QueueEntry } from '@/domain/triage/repositories/IQueueRepository';
 
-/**
- * Prisma implementation of Queue Repository
- */
 export class PrismaQueueRepository implements IQueueRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -97,9 +94,6 @@ export class PrismaQueueRepository implements IQueueRepository {
     });
   }
 
-  /**
-   * Convert Prisma model to domain object
-   */
   private toDomain(prismaEntry: PrismaQueueEntry): QueueEntry {
     return {
       id: prismaEntry.id,

@@ -4,21 +4,12 @@ import { logger } from '@/utils/logger';
 import { z } from 'zod';
 import { PriorityLevel, QueueStatus } from '@prisma/client';
 
-/**
- * Queue Routes
- * Routes pour gérer la file d'attente des appels (Dashboard opérateurs)
- */
-
 // Validation schemas
 const claimQueueEntrySchema = z.object({
   operatorId: z.string().cuid(),
 });
 
 export const queueRoutes = (app: FastifyInstance) => {
-  /**
-   * Liste de la queue
-   * GET /api/v1/queue
-   */
   app.get(
     '/',
     {
@@ -100,10 +91,6 @@ export const queueRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Statistiques de la queue
-   * GET /api/v1/queue/stats
-   */
   app.get(
     '/stats',
     {
@@ -159,10 +146,6 @@ export const queueRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Claim un appel de la queue
-   * POST /api/v1/queue/:queueEntryId/claim
-   */
   app.post(
     '/:queueEntryId/claim',
     {
@@ -236,10 +219,6 @@ export const queueRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Mettre à jour le statut d'une queue entry
-   * PATCH /api/v1/queue/:queueEntryId/status
-   */
   app.patch(
     '/:queueEntryId/status',
     {
@@ -308,10 +287,6 @@ export const queueRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Récupérer une queue entry par ID
-   * GET /api/v1/queue/:queueEntryId
-   */
   app.get(
     '/:queueEntryId',
     {

@@ -35,11 +35,6 @@ export interface RefreshResult {
   expiresIn: number;
 }
 
-/**
- * Authentication Service
- *
- * Handles user registration, login, token refresh, and logout
- */
 export class AuthService {
   constructor(
     private readonly userRepository: IUserRepository,
@@ -51,9 +46,6 @@ export class AuthService {
     private readonly refreshTokenExpiry: string = '7d'
   ) {}
 
-  /**
-   * Register a new user (Admin only)
-   */
   async register(data: RegisterUserData): Promise<{
     id: string;
     employeeId: string;
@@ -107,9 +99,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Login user
-   */
   async login(employeeId: string, password: string, userAgent?: string): Promise<LoginResult> {
     // Find user by employee ID
     const user = await this.userRepository.findByEmployeeId(employeeId);
@@ -185,9 +174,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Refresh access token
-   */
   async refreshAccessToken(refreshToken: string): Promise<RefreshResult> {
     // Verify refresh token
     const decoded = verifyRefreshToken(refreshToken, this.refreshTokenSecret);
@@ -233,9 +219,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Logout user (revoke refresh token)
-   */
   async logout(userId: string, refreshToken: string): Promise<void> {
     try {
       // Verify and decode refresh token to get tokenId
@@ -266,9 +249,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Logout from all devices (revoke all refresh tokens)
-   */
   async logoutAllDevices(userId: string): Promise<void> {
     try {
       // Revoke all user tokens
@@ -296,9 +276,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Validate user exists and is active
-   */
   async validateUser(userId: string): Promise<boolean> {
     const user = await this.userRepository.findById(userId);
     return user !== null && user.isActive;

@@ -1,9 +1,5 @@
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * Domain Event: Call Info Updated
- * Published when call information is automatically extracted and updated from transcript
- */
 export class CallInfoUpdatedEvent extends DomainEvent {
   constructor(
     public readonly callId: string,

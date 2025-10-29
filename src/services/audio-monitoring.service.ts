@@ -1,9 +1,6 @@
 import { logger } from '@/utils/logger';
 import type { WebSocket } from 'ws';
 
-/**
- * Types for audio monitoring
- */
 export interface TwilioStreamMessage {
   event: 'start' | 'media' | 'stop';
   streamSid?: string;
@@ -38,17 +35,10 @@ export interface ActiveCallStream {
   };
 }
 
-/**
- * Service for managing real-time audio monitoring
- * Relays Twilio audio streams to operator dashboard connections
- */
 export class AudioMonitoringService {
   // Map of CallSid -> ActiveCallStream
   private activeStreams: Map<string, ActiveCallStream> = new Map();
 
-  /**
-   * Register a new Twilio audio stream
-   */
   registerTwilioStream(
     callSid: string,
     streamSid: string,
@@ -69,9 +59,6 @@ export class AudioMonitoringService {
     logger.info('Twilio stream registered', { callSid, streamSid, metadata });
   }
 
-  /**
-   * Handle incoming Twilio WebSocket connection
-   */
   handleTwilioConnection(callSid: string, ws: WebSocket): void {
     const stream = this.activeStreams.get(callSid);
     if (!stream) {
@@ -102,9 +89,6 @@ export class AudioMonitoringService {
     });
   }
 
-  /**
-   * Handle Twilio stream messages and relay to operators
-   */
   private handleTwilioMessage(callSid: string, message: TwilioStreamMessage): void {
     const stream = this.activeStreams.get(callSid);
     if (!stream) {
@@ -133,16 +117,10 @@ export class AudioMonitoringService {
     }
   }
 
-  /**
-   * Handle Twilio message from external source (e.g., proxy service)
-   */
   handleTwilioMessageFromProxy(callSid: string, message: TwilioStreamMessage): void {
     this.handleTwilioMessage(callSid, message);
   }
 
-  /**
-   * Relay audio payload to all operators monitoring this call
-   */
   private relayAudioToOperators(callSid: string, message: TwilioStreamMessage): void {
     const stream = this.activeStreams.get(callSid);
     if (!stream || !message.media) {
@@ -200,9 +178,6 @@ export class AudioMonitoringService {
     }
   }
 
-  /**
-   * Register an operator connection to monitor a specific call
-   */
   addOperator(
     callSid: string,
     operatorId: string,
@@ -265,9 +240,6 @@ export class AudioMonitoringService {
     return true;
   }
 
-  /**
-   * Remove an operator from monitoring a call
-   */
   removeOperator(callSid: string, operatorId: string): void {
     const stream = this.activeStreams.get(callSid);
     if (!stream) {
@@ -284,9 +256,6 @@ export class AudioMonitoringService {
     }
   }
 
-  /**
-   * Clean up a stream when the call ends
-   */
   private cleanupStream(callSid: string): void {
     const stream = this.activeStreams.get(callSid);
     if (!stream) {
@@ -322,23 +291,14 @@ export class AudioMonitoringService {
     logger.info('Stream cleaned up', { callSid, operatorCount: stream.operators.size });
   }
 
-  /**
-   * Get all active streams
-   */
   getActiveStreams(): Map<string, ActiveCallStream> {
     return this.activeStreams;
   }
 
-  /**
-   * Get stream info for a specific call
-   */
   getStreamInfo(callSid: string): ActiveCallStream | undefined {
     return this.activeStreams.get(callSid);
   }
 
-  /**
-   * Get list of all calls available for monitoring
-   */
   getMonitorableCalls(): Array<{
     callSid: string;
     streamSid: string;
@@ -367,9 +327,6 @@ export class AudioMonitoringService {
     return calls.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
   }
 
-  /**
-   * Force cleanup all streams (useful for shutdown)
-   */
   cleanupAll(): void {
     const callSids = Array.from(this.activeStreams.keys());
     callSids.forEach((callSid) => this.cleanupStream(callSid));

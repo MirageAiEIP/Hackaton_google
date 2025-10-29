@@ -4,12 +4,6 @@ import { callService } from '@/services/call.service';
 import { callInfoExtractionService } from '@/services/call-info-extraction.service';
 import { logger } from '@/utils/logger';
 
-/**
- * Routes pour grer les conversations web
- * Le frontend appelle ces routes, le backend gre tout
- * Architecture: Signed URL - Le frontend se connecte directement  ElevenLabs
- */
-
 // Store des conversations actives en mmoire
 const activeConversations = new Map<
   string,
@@ -23,10 +17,6 @@ const activeConversations = new Map<
 export const callsRoutes: FastifyPluginAsync = async (app) => {
   logger.info('Registering Calls Routes at /api/v1/calls');
 
-  /**
-   * GET /api/v1/calls
-   * List all calls with pagination and filters
-   */
   app.get(
     '/',
     {
@@ -89,10 +79,6 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * DELETE /api/v1/calls/:callId
-   * Delete a call and all associated data
-   */
   app.delete(
     '/:callId',
     {
@@ -138,10 +124,6 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/calls/:callId/transcript
-   * Get transcript for a call
-   */
   app.get(
     '/:callId/transcript',
     {
@@ -189,10 +171,6 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * Dmarrer une nouvelle conversation web
-   * Le frontend appelle cette route, le backend gre tout
-   */
   app.post(
     '/start-web',
     {
@@ -299,10 +277,6 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/calls/:callId/extract-info
-   * Extract call info from transcript with Gemini AI
-   */
   app.post(
     '/:callId/extract-info',
     {
@@ -367,10 +341,6 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/calls/:callId/preview-extraction
-   * Preview extraction without updating the call
-   */
   app.post(
     '/:callId/preview-extraction',
     {

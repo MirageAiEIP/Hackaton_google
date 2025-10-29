@@ -7,10 +7,6 @@ import {
 import { IOperatorRepository } from '@/domain/operator/repositories/IOperatorRepository';
 import { Operator, OperatorStatus } from '@/domain/operator/entities/Operator.entity';
 
-/**
- * Prisma implementation of Operator Repository
- * Adapter that maps between domain entities and Prisma models
- */
 export class PrismaOperatorRepository implements IOperatorRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -100,9 +96,6 @@ export class PrismaOperatorRepository implements IOperatorRepository {
     };
   }
 
-  /**
-   * Convert Prisma model to domain entity
-   */
   private toDomain(prismaOperator: PrismaOperator): Operator {
     return new Operator({
       id: prismaOperator.id,
@@ -119,9 +112,6 @@ export class PrismaOperatorRepository implements IOperatorRepository {
     });
   }
 
-  /**
-   * Convert domain entity to Prisma model
-   */
   private toPrisma(operator: Operator): Prisma.OperatorCreateInput {
     const props = operator.toObject();
     return {

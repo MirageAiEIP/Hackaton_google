@@ -2,15 +2,6 @@ import { z } from 'zod';
 import { handoffService } from '@/services/handoff.service';
 import { logger } from '@/utils/logger';
 
-/**
- * ElevenLabs Client Tool: Request Human Handoff
- * Called by AI agent when patient requests human operator
- * or when AI determines human intervention is needed
- */
-
-/**
- * Tool input schema (validated with Zod)
- */
 export const requestHumanHandoffSchema = z.object({
   callId: z.string().describe('Unique call identifier'),
   conversationId: z.string().describe('ElevenLabs conversation ID'),
@@ -31,10 +22,6 @@ export const requestHumanHandoffSchema = z.object({
 
 export type RequestHumanHandoffInput = z.infer<typeof requestHumanHandoffSchema>;
 
-/**
- * Tool execution function
- * Called when ElevenLabs agent invokes this tool
- */
 export async function executeRequestHumanHandoff(input: RequestHumanHandoffInput) {
   const { callId, conversationId, reason, transcript, patientSummary, aiContext } = input;
 
@@ -86,9 +73,6 @@ export async function executeRequestHumanHandoff(input: RequestHumanHandoffInput
   }
 }
 
-/**
- * Tool definition for ElevenLabs dashboard configuration
- */
 export const requestHumanHandoffToolDefinition = {
   name: 'request_human_handoff',
   description:

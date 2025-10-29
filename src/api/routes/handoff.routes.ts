@@ -3,15 +3,7 @@ import { handoffService } from '@/services/handoff.service';
 import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 import { logger } from '@/utils/logger';
 
-/**
- * Handoff Routes
- * Manage handoff requests between AI and human operators
- */
 export const handoffRoutes = (app: FastifyInstance) => {
-  /**
-   * Get pending handoffs
-   * GET /api/v1/handoff/pending
-   */
   app.get(
     '/pending',
     {
@@ -41,10 +33,6 @@ export const handoffRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Operator takes control of an active call
-   * POST /api/v1/handoff/take-control
-   */
   app.post(
     '/take-control',
     {

@@ -308,9 +308,6 @@ export class QueueService {
     }
   }
 
-  /**
-   * Trouve une queue entry par callId
-   */
   async getQueueEntryByCallId(callId: string) {
     logger.info('Getting queue entry by callId', { callId });
 
@@ -327,9 +324,6 @@ export class QueueService {
     }
   }
 
-  /**
-   * Calcule la position dans la queue (ordre par priorité puis waitingSince)
-   */
   async getPositionInQueue(queueEntryId: string): Promise<number> {
     logger.info('Calculating queue position', { queueEntryId });
 

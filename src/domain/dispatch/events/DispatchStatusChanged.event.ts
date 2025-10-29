@@ -1,9 +1,5 @@
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * DispatchStatusChangedEvent
- * Published when dispatch status changes (EN_ROUTE → ON_SCENE → COMPLETED)
- */
 export class DispatchStatusChangedEvent extends DomainEvent {
   constructor(
     public readonly dispatchId: string,

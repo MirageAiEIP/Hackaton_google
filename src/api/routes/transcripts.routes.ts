@@ -3,9 +3,6 @@ import { z } from 'zod';
 import { transcriptService } from '@/services/transcript.service';
 import { logger } from '@/utils/logger';
 
-/**
- * Routes for managing and retrieving call transcripts
- */
 export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
   logger.info('Registering Transcripts Routes at /api/v1/transcripts');
 
@@ -186,10 +183,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/transcripts/:callId/stats
-   * Get transcript statistics
-   */
   app.get(
     '/:callId/stats',
     {
@@ -266,10 +259,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/transcripts/bulk
-   * Get transcripts for multiple calls
-   */
   app.post(
     '/bulk',
     {
@@ -344,10 +333,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/transcripts/search
-   * Search transcripts by keyword
-   */
   app.get(
     '/search',
     {
@@ -435,10 +420,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/transcripts/:callId/retry
-   * Retry fetching and saving transcript from ElevenLabs
-   */
   app.post(
     '/:callId/retry',
     {
@@ -508,10 +489,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/transcripts/bulk-retry
-   * Retry saving transcripts for multiple calls
-   */
   app.post(
     '/bulk-retry',
     {

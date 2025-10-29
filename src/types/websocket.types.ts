@@ -1,9 +1,5 @@
 import { PriorityLevel, QueueStatus } from '@prisma/client';
 
-/**
- * WebSocket message types for Queue Dashboard
- */
-
 // Outgoing messages (server -> client)
 export interface QueueInitialMessage {
   type: 'queue:initial';
@@ -83,9 +79,6 @@ export type QueueOutgoingMessage =
   | QueuePongMessage
   | QueueTranscriptUpdatedMessage;
 
-/**
- * Queue Entry Data (sent to dashboard)
- */
 export interface QueueEntryData {
   id: string;
   callId: string;
@@ -116,9 +109,6 @@ export interface QueueEntryData {
   conversationId: string | null;
 }
 
-/**
- * Queue Update Data (partial update)
- */
 export interface QueueUpdateData {
   id: string;
   status: QueueStatus;

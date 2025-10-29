@@ -33,14 +33,6 @@ export interface RefreshTokenData {
   expiresIn: number;
 }
 
-/**
- * Generate an access token (JWT)
- *
- * @param payload - Token payload
- * @param secret - JWT secret
- * @param expiresIn - Expiration time (default: 15m)
- * @returns Signed JWT token
- */
 export function generateAccessToken(
   payload: AccessTokenPayload,
   secret: string,
@@ -57,14 +49,6 @@ export function generateAccessToken(
   }
 }
 
-/**
- * Generate a refresh token (JWT)
- *
- * @param userId - User ID
- * @param secret - JWT secret
- * @param expiresIn - Expiration time (default: 7d)
- * @returns Refresh token data including token, tokenId, and expiration
- */
 export function generateRefreshToken(
   userId: string,
   secret: string,
@@ -99,14 +83,6 @@ export function generateRefreshToken(
   }
 }
 
-/**
- * Verify and decode an access token
- *
- * @param token - JWT token
- * @param secret - JWT secret
- * @returns Decoded token payload
- * @throws Error if token is invalid or expired
- */
 export function verifyAccessToken(token: string, secret: string): DecodedAccessToken {
   try {
     const decoded = jwt.verify(token, secret, {
@@ -125,15 +101,6 @@ export function verifyAccessToken(token: string, secret: string): DecodedAccessT
   }
 }
 
-/**
- * Verify access token from query parameter (WebSocket auth)
- *
- * @param token - JWT token from query param
- * @param secret - JWT secret
- * @param allowedRoles - Allowed roles for access
- * @returns Decoded token payload
- * @throws Error if token is invalid, expired, or role not allowed
- */
 export function verifyAccessTokenFromQuery(
   token: string | undefined,
   secret: string,
@@ -153,14 +120,6 @@ export function verifyAccessTokenFromQuery(
   return decoded;
 }
 
-/**
- * Verify and decode a refresh token
- *
- * @param token - JWT token
- * @param secret - JWT secret
- * @returns Decoded token payload
- * @throws Error if token is invalid or expired
- */
 export function verifyRefreshToken(token: string, secret: string): DecodedRefreshToken {
   try {
     const decoded = jwt.verify(token, secret, {
@@ -184,12 +143,6 @@ export function verifyRefreshToken(token: string, secret: string): DecodedRefres
   }
 }
 
-/**
- * Decode a token without verification (for debugging/logging)
- *
- * @param token - JWT token
- * @returns Decoded token payload or null
- */
 export function decodeToken(token: string): jwt.JwtPayload | string | null {
   try {
     const decoded = jwt.decode(token);
@@ -200,10 +153,6 @@ export function decodeToken(token: string): jwt.JwtPayload | string | null {
   }
 }
 
-/**
- * Parse expiration string to seconds
- * Supports: 15m, 1h, 7d, etc.
- */
 function parseExpirationToSeconds(expiration: string): number {
   const match = expiration.match(/^(\d+)([smhd])$/);
   if (!match || !match[1] || !match[2]) {

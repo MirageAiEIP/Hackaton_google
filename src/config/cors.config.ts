@@ -10,13 +10,6 @@ export interface CorsConfig {
   maxAge?: number;
 }
 
-/**
- * Get CORS configuration based on environment
- *
- * Development: Permissive - allows localhost on all ports
- * Staging: Restricted - allows specific staging domains
- * Production: Strict - allows only production domains
- */
 export function getCorsConfig(
   env: string = process.env.NODE_ENV || 'development'
 ): FastifyCorsOptions {
@@ -108,13 +101,6 @@ export function getCorsConfig(
   };
 }
 
-/**
- * Get cookie SameSite policy based on environment
- *
- * Development: 'lax' - allows cross-origin for localhost
- * Staging: 'lax' - allows some cross-origin
- * Production: 'strict' - maximum security
- */
 export function getCookieSameSitePolicy(
   env: string = process.env.NODE_ENV || 'development'
 ): 'strict' | 'lax' | 'none' {
@@ -133,9 +119,6 @@ export function getCookieSameSitePolicy(
   return 'strict';
 }
 
-/**
- * Get cookie domain based on environment
- */
 export function getCookieDomain(
   env: string = process.env.NODE_ENV || 'development'
 ): string | undefined {
@@ -149,9 +132,6 @@ export function getCookieDomain(
   return process.env.COOKIE_DOMAIN;
 }
 
-/**
- * Get cookie secure flag based on environment
- */
 export function getCookieSecure(env: string = process.env.NODE_ENV || 'development'): boolean {
   const isDevelopment = env === 'development' || env === 'test';
 

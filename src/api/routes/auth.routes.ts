@@ -30,10 +30,6 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   const authenticate = createAuthMiddleware(accessTokenSecret);
   const adminOnly = requireRole('ADMIN');
 
-  /**
-   * POST /api/v1/auth/register
-   * Admin creates a new user
-   */
   app.post<{ Body: RegisterInput }>(
     '/register',
     {
@@ -112,10 +108,6 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/auth/login
-   * User login
-   */
   app.post<{ Body: LoginInput }>(
     '/login',
     {
@@ -209,10 +201,6 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/auth/refresh
-   * Refresh access token using refresh token
-   */
   app.post(
     '/refresh',
     {
@@ -266,10 +254,6 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/auth/logout
-   * Logout current device
-   */
   app.post(
     '/logout',
     {
@@ -314,10 +298,6 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/auth/logout-all
-   * Logout from all devices
-   */
   app.post(
     '/logout-all',
     {
@@ -358,10 +338,6 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/auth/me
-   * Get current user info
-   */
   app.get(
     '/me',
     {
@@ -424,10 +400,6 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * PATCH /api/v1/auth/change-password
-   * Change own password
-   */
   app.patch<{ Body: ChangePasswordInput }>(
     '/change-password',
     {

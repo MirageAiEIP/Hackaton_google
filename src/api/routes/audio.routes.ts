@@ -3,17 +3,9 @@ import { z } from 'zod';
 import { audioService } from '@/services/audio.service';
 import { logger } from '@/utils/logger';
 
-/**
- * Routes for call audio recordings
- * Listen to, download, and manage call audio
- */
 export const audioRoutes: FastifyPluginAsync = async (app) => {
   logger.info('Registering Audio Routes at /api/v1/audio');
 
-  /**
-   * GET /api/v1/audio/:callId
-   * Get audio information for a call
-   */
   app.get(
     '/:callId',
     {
@@ -86,10 +78,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/audio/:callId/stream
-   * Stream audio file for a call
-   */
   app.get(
     '/:callId/stream',
     {
@@ -180,10 +168,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/audio/:callId/download
-   * Download audio file
-   */
   app.get(
     '/:callId/download',
     {
@@ -240,10 +224,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/audio/:callId/metadata
-   * Get audio metadata (duration, size, format)
-   */
   app.get(
     '/:callId/metadata',
     {
@@ -317,10 +297,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/audio/list
-   * List all calls with audio
-   */
   app.get(
     '/list',
     {
@@ -404,10 +380,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/audio/:callId/fetch
-   * Fetch audio from ElevenLabs if not already saved
-   */
   app.post(
     '/:callId/fetch',
     {
@@ -477,10 +449,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * DELETE /api/v1/audio/:callId
-   * Delete audio recording (cleanup)
-   */
   app.delete(
     '/:callId',
     {

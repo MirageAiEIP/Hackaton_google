@@ -1,9 +1,6 @@
 import { PrismaClient, Handoff as PrismaHandoff, HandoffStatus, Prisma } from '@prisma/client';
 import { IHandoffRepository, Handoff } from '@/domain/triage/repositories/IHandoffRepository';
 
-/**
- * Prisma implementation of Handoff Repository
- */
 export class PrismaHandoffRepository implements IHandoffRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -123,9 +120,6 @@ export class PrismaHandoffRepository implements IHandoffRepository {
     });
   }
 
-  /**
-   * Convert Prisma model to domain object
-   */
   private toDomain(prismaHandoff: PrismaHandoff): Handoff {
     return {
       id: prismaHandoff.id,

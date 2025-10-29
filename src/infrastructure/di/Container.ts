@@ -17,10 +17,6 @@ import { CallHistoryNotificationHandler } from '@/application/events/CallHistory
 import { loadConfig } from '@/config/index.async';
 import { logger } from '@/utils/logger';
 
-/**
- * Dependency Injection Container
- * Manages lifecycle and dependencies of all services
- */
 export class Container {
   private static instance: Container;
   private initialized = false;
@@ -59,9 +55,6 @@ export class Container {
     return Container.instance;
   }
 
-  /**
-   * Initialize all services
-   */
   async initialize(): Promise<void> {
     if (this.initialized) {
       logger.warn('Container already initialized');
@@ -91,9 +84,6 @@ export class Container {
     }
   }
 
-  /**
-   * Initialize infrastructure services
-   */
   private async initializeInfrastructure(): Promise<void> {
     // Prisma
     this.prisma = new PrismaClient();
@@ -108,9 +98,6 @@ export class Container {
     this.cacheService = this.redisConfig.getCacheService();
   }
 
-  /**
-   * Initialize repositories
-   */
   private initializeRepositories(): void {
     this.callRepository = new PrismaCallRepository(this.prisma);
     this.operatorRepository = new PrismaOperatorRepository(this.prisma);
@@ -124,9 +111,6 @@ export class Container {
     this.tokenStore = new RedisTokenStore(redisClient);
   }
 
-  /**
-   * Initialize services
-   */
   private async initializeServices(): Promise<void> {
     const config = await loadConfig();
 
@@ -145,9 +129,6 @@ export class Container {
     logger.info('Services initialized');
   }
 
-  /**
-   * Initialize and register event handlers
-   */
   private async initializeEventHandlers(): Promise<void> {
     // Create event handlers
     this.callStartedHandler = new CallStartedHandler();
@@ -162,9 +143,6 @@ export class Container {
     logger.info('Event handlers registered');
   }
 
-  /**
-   * Getters for services
-   */
   getPrisma(): PrismaClient {
     this.ensureInitialized();
     return this.prisma;
@@ -220,9 +198,6 @@ export class Container {
     return this.userService;
   }
 
-  /**
-   * Shutdown all services
-   */
   async shutdown(): Promise<void> {
     logger.info('Shutting down DI Container');
 
@@ -241,9 +216,6 @@ export class Container {
     logger.info('DI Container shut down');
   }
 
-  /**
-   * Ensure container is initialized before accessing services
-   */
   private ensureInitialized(): void {
     if (!this.initialized) {
       throw new Error('Container not initialized. Call initialize() first.');

@@ -2,25 +2,12 @@ import { z } from 'zod';
 import { Container } from '@/infrastructure/di/Container';
 import { logger } from '@/utils/logger';
 
-/**
- * ElevenLabs Client Tool: Get Patient History
- * Called by AI agent to retrieve patient's previous call history
- * Uses CQRS query handler with Redis caching
- */
-
-/**
- * Tool input schema (validated with Zod)
- */
 export const getPatientHistorySchema = z.object({
   phoneHash: z.string().describe('SHA-256 hash of patient phone number'),
 });
 
 export type GetPatientHistoryInput = z.infer<typeof getPatientHistorySchema>;
 
-/**
- * Tool execution function
- * Called when ElevenLabs agent invokes this tool
- */
 export async function executeGetPatientHistory(input: GetPatientHistoryInput) {
   const { phoneHash } = input;
 
@@ -109,9 +96,6 @@ export async function executeGetPatientHistory(input: GetPatientHistoryInput) {
   }
 }
 
-/**
- * Tool definition for ElevenLabs dashboard configuration
- */
 export const getPatientHistoryToolDefinition = {
   name: 'get_patient_history',
   description:

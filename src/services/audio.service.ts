@@ -3,15 +3,7 @@ import { logger } from '@/utils/logger';
 import { elevenlabsConversationService } from './elevenlabs-conversation.service';
 import { storageService } from './storage.service';
 
-/**
- * Service for managing call audio recordings
- * Handles fetching, storing, and streaming audio
- */
 export class AudioService {
-  /**
-   * Get audio URL for a call
-   * Returns existing URL or fetches from ElevenLabs if not yet saved
-   */
   async getCallAudio(callId: string): Promise<{
     hasAudio: boolean;
     audioUrl?: string;
@@ -102,10 +94,6 @@ export class AudioService {
     };
   }
 
-  /**
-   * Get audio as streaming buffer
-   * Fetches audio and returns as buffer for streaming
-   */
   async getCallAudioBuffer(callId: string): Promise<{
     buffer: Buffer;
     mimeType: string;
@@ -178,10 +166,6 @@ export class AudioService {
     return null;
   }
 
-  /**
-   * Upload audio to Cloud Storage and update database
-   * Useful for archiving audio from data URLs
-   */
   async uploadAudioToStorage(callId: string, conversationId: string): Promise<string | null> {
     logger.info('Uploading audio to Cloud Storage', { callId, conversationId });
 
@@ -222,9 +206,6 @@ export class AudioService {
     }
   }
 
-  /**
-   * Get audio metadata (duration, size, format)
-   */
   async getAudioMetadata(callId: string): Promise<{
     hasAudio: boolean;
     duration?: number;
@@ -268,9 +249,6 @@ export class AudioService {
     };
   }
 
-  /**
-   * List all calls with available audio
-   */
   async listCallsWithAudio(
     options: {
       limit?: number;
@@ -328,9 +306,6 @@ export class AudioService {
     }));
   }
 
-  /**
-   * Determine MIME type from URL
-   */
   private getMimeTypeFromUrl(url: string): string {
     if (url.includes('.mp3')) {
       return 'audio/mpeg';
@@ -351,9 +326,6 @@ export class AudioService {
     return 'audio/mpeg'; // Default
   }
 
-  /**
-   * Delete audio recording (cleanup)
-   */
   async deleteAudio(callId: string): Promise<boolean> {
     logger.info('Deleting audio for call', { callId });
 

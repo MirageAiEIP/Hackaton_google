@@ -1,17 +1,7 @@
 import { z } from 'zod';
 
-/**
- * Password validation regex
- * - At least 8 characters
- * - At least one uppercase letter
- * - At least one lowercase letter
- * - At least one number
- */
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
-/**
- * Register user schema
- */
 export const registerSchema = z.object({
   employeeId: z
     .string()
@@ -37,9 +27,6 @@ export const registerSchema = z.object({
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
-/**
- * Login schema
- */
 export const loginSchema = z.object({
   employeeId: z.string().min(1, 'Employee ID is required'),
   password: z.string().min(1, 'Password is required'),
@@ -47,9 +34,6 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-/**
- * Change password schema
- */
 export const changePasswordSchema = z.object({
   oldPassword: z.string().min(1, 'Current password is required'),
   newPassword: z
@@ -63,9 +47,6 @@ export const changePasswordSchema = z.object({
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
-/**
- * Reset password schema (admin only)
- */
 export const resetPasswordSchema = z.object({
   newPassword: z
     .string()
@@ -78,9 +59,6 @@ export const resetPasswordSchema = z.object({
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
-/**
- * Update user schema
- */
 export const updateUserSchema = z.object({
   fullName: z
     .string()
@@ -98,9 +76,6 @@ export const updateUserSchema = z.object({
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 
-/**
- * List users query schema
- */
 export const listUsersQuerySchema = z.object({
   role: z.enum(['OPERATOR', 'ADMIN']).optional(),
   isActive: z

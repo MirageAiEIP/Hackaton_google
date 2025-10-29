@@ -15,14 +15,7 @@ interface SystemHealth {
   timestamp: string;
 }
 
-/**
- * Service pour vérifier la santé des APIs externes (ElevenLabs)
- * Note: Les services d'analyse audio/STT/TTS sont maintenant gérés par ElevenLabs
- */
 export class HealthCheckService {
-  /**
-   * Vérifie toutes les APIs externes
-   */
   async checkAllServices(): Promise<SystemHealth> {
     const results = await Promise.allSettled([this.checkElevenLabs()]);
 
@@ -39,9 +32,6 @@ export class HealthCheckService {
     };
   }
 
-  /**
-   * Vérifie l'API ElevenLabs
-   */
   private async checkElevenLabs(): Promise<HealthStatus> {
     const startTime = Date.now();
 
@@ -91,9 +81,6 @@ export class HealthCheckService {
     }
   }
 
-  /**
-   * Calcule le statut global du système
-   */
   private calculateOverallStatus(services: HealthStatus[]): 'UP' | 'DOWN' | 'DEGRADED' {
     const downCount = services.filter((s) => s.status === 'DOWN').length;
     const degradedCount = services.filter((s) => s.status === 'DEGRADED').length;

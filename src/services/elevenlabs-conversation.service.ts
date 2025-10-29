@@ -1,12 +1,6 @@
 import { loadSecrets } from '@/config/secrets.config';
 import { logger } from '@/utils/logger';
 
-/**
- * Service pour gérer les conversations ElevenLabs
- * - Arrêter une conversation AI
- * - Récupérer les transcripts
- * - Gérer les transferts
- */
 export class ElevenLabsConversationService {
   private apiKey: string = '';
   private initialized = false;
@@ -21,10 +15,6 @@ export class ElevenLabsConversationService {
     this.initialized = true;
   }
 
-  /**
-   * Arrêter une conversation ElevenLabs en cours
-   * Utilisé lors d'un handoff vers opérateur humain
-   */
   async stopConversation(conversationId: string): Promise<void> {
     await this.initialize();
 
@@ -42,10 +32,6 @@ export class ElevenLabsConversationService {
     }
   }
 
-  /**
-   * Récupérer la conversation complète (transcript + audio)
-   * https://elevenlabs.io/docs/api-reference/get-conversation
-   */
   async getConversation(conversationId: string): Promise<{
     transcript: string;
     messages: Array<{
@@ -107,10 +93,6 @@ export class ElevenLabsConversationService {
     }
   }
 
-  /**
-   * Récupérer l'audio de la conversation
-   * https://elevenlabs.io/docs/api-reference/get-conversation-audio
-   */
   async getConversationAudio(conversationId: string): Promise<string> {
     await this.initialize();
 

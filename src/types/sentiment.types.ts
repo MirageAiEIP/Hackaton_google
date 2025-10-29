@@ -1,8 +1,3 @@
-/**
- * Types for sentiment analysis system
- * Defines contracts for text, audio, and hybrid analysis
- */
-
 export type SentimentType = 'CALM' | 'ANXIOUS' | 'PANICKED' | 'CONFUSED' | 'IN_PAIN';
 
 export type UrgencyMarker =
@@ -29,9 +24,6 @@ export type VolumeClassification = 'NORMAL' | 'WEAK' | 'LOUD';
 export type CoherenceType = 'COHERENT' | 'INCOHERENT';
 export type RecommendationType = 'INCREASE_PRIORITY' | 'MAINTAIN' | 'DECREASE_PRIORITY';
 
-/**
- * Text analysis result from transcript
- */
 export interface TextAnalysis {
   sentiment: SentimentType;
   stressLevel: number; // 0-100
@@ -41,9 +33,6 @@ export interface TextAnalysis {
   confidence: number; // 0-1
 }
 
-/**
- * Prosody analysis (voice characteristics)
- */
 export interface ProsodyAnalysis {
   pitch: {
     mean: number; // Hz
@@ -60,26 +49,17 @@ export interface ProsodyAnalysis {
   };
 }
 
-/**
- * Pause pattern analysis
- */
 export interface PauseAnalysis {
   frequency: number; // Pauses per minute
   avgDuration: number; // ms
   longPauses: number; // Count of pauses > 3s
 }
 
-/**
- * Audio emotion dimensions from punctuation analysis
- */
 export interface AudioEmotionDimensions {
   arousal: number; // 0-1 (calm → stressed)
   dominance: number; // 0-1 (weak → strong)
 }
 
-/**
- * Audio analysis result from voice stream
- */
 export interface AudioAnalysis {
   prosody: ProsodyAnalysis;
   breathiness: number; // 0-100
@@ -90,9 +70,6 @@ export interface AudioAnalysis {
   emotionDimensions?: AudioEmotionDimensions; // From HF model
 }
 
-/**
- * Hybrid analysis combining text and audio
- */
 export interface HybridAnalysis {
   textScore: number; // 0-100
   audioScore: number; // 0-100
@@ -104,18 +81,12 @@ export interface HybridAnalysis {
   reasoning: string;
 }
 
-/**
- * Input for sentiment analysis
- */
 export interface SentimentAnalysisInput {
   callId: string;
   transcript: string;
   audioUrl?: string;
 }
 
-/**
- * LLM API response for semantic sentiment analysis
- */
 export interface SemanticAnalysis {
   sentiment: SentimentType;
   painIntensity: number; // 0-100

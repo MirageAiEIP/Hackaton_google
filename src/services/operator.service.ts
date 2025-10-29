@@ -22,9 +22,6 @@ export interface ClaimCallInput {
 }
 
 export class OperatorService {
-  /**
-   * Create a new operator
-   */
   async createOperator(input: CreateOperatorInput) {
     const { name, email, role = 'operator' } = input;
 
@@ -51,9 +48,6 @@ export class OperatorService {
     }
   }
 
-  /**
-   * Get all operators
-   */
   async listOperators() {
     logger.info('Listing all operators');
 
@@ -73,9 +67,6 @@ export class OperatorService {
     }
   }
 
-  /**
-   * Get available operators
-   */
   async getAvailableOperators() {
     logger.info('Getting available operators');
 
@@ -98,9 +89,6 @@ export class OperatorService {
     }
   }
 
-  /**
-   * Update operator status (AVAILABLE/OFFLINE/BUSY/ON_BREAK)
-   */
   async updateOperatorStatus(input: UpdateOperatorStatusInput) {
     const { operatorId, status } = input;
 
@@ -151,9 +139,6 @@ export class OperatorService {
     }
   }
 
-  /**
-   * Claim a call from the queue
-   */
   async claimCall(input: ClaimCallInput) {
     const { operatorId, queueEntryId } = input;
 
@@ -232,9 +217,6 @@ export class OperatorService {
     }
   }
 
-  /**
-   * Get operator by ID
-   */
   async getOperatorById(id: string) {
     logger.info('Getting operator by ID', { id });
 

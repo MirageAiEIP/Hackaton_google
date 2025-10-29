@@ -1,8 +1,3 @@
-/**
- * Operator Entity
- * Domain model for human operators managing call queue
- */
-
 export enum OperatorStatus {
   AVAILABLE = 'AVAILABLE',
   BUSY = 'BUSY',
@@ -75,25 +70,16 @@ export class Operator {
     return this.props.updatedAt;
   }
 
-  /**
-   * Check if operator is available to claim calls
-   */
   isAvailable(): boolean {
     return this.props.status === OperatorStatus.AVAILABLE && !this.props.currentCallId;
   }
 
-  /**
-   * Set operator status to AVAILABLE
-   */
   setAvailable(): void {
     this.props.status = OperatorStatus.AVAILABLE;
     this.props.lastActiveAt = new Date();
     this.props.updatedAt = new Date();
   }
 
-  /**
-   * Set operator status to BUSY (handling a call)
-   */
   setBusy(callId: string): void {
     if (!this.isAvailable()) {
       throw new Error('Operator is not available');
@@ -104,18 +90,12 @@ export class Operator {
     this.props.updatedAt = new Date();
   }
 
-  /**
-   * Set operator status to OFFLINE
-   */
   setOffline(): void {
     this.props.status = OperatorStatus.OFFLINE;
     this.props.currentCallId = undefined;
     this.props.updatedAt = new Date();
   }
 
-  /**
-   * Complete current call and return to AVAILABLE
-   */
   completeCall(handleTime: number): void {
     if (!this.props.currentCallId) {
       throw new Error('Operator has no active call');
@@ -133,9 +113,6 @@ export class Operator {
     this.props.updatedAt = new Date();
   }
 
-  /**
-   * Convert to plain object
-   */
   toObject(): OperatorProps {
     return { ...this.props };
   }

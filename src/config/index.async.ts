@@ -93,10 +93,6 @@ interface AppConfig {
 
 let configCache: AppConfig | null = null;
 
-/**
- * Charge la configuration de l'application avec les secrets
- * Mode hybride: Secret Manager en production, .env en développement
- */
 export async function loadConfig(): Promise<AppConfig> {
   if (configCache) {
     return configCache;
@@ -181,10 +177,6 @@ export async function loadConfig(): Promise<AppConfig> {
   return configCache;
 }
 
-/**
- * Configuration statique (sans secrets sensibles)
- * Utiliser loadConfig() pour obtenir la config complète
- */
 export const staticConfig = {
   env: env.NODE_ENV,
   isDevelopment: env.NODE_ENV === 'development',

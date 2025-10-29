@@ -4,14 +4,6 @@ import { logger } from '@/utils/logger';
 import { queueService } from '@/services/queue.service';
 import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 
-/**
- * Event Handler: Notify ElevenLabs agents when an operator becomes available
- *
- * When an operator changes status to AVAILABLE:
- * 1. Get the first call in the queue
- * 2. Send a contextual update to the ElevenLabs agent handling that call
- * 3. The agent can then use the request_human_handoff tool to transfer the call
- */
 export class OperatorAvailableHandler implements IEventHandler<OperatorStatusChangedEvent> {
   constructor() {}
 

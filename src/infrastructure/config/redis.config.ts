@@ -2,9 +2,6 @@ import { RedisEventBus } from '@/infrastructure/messaging/RedisEventBus';
 import { RedisCacheService } from '@/infrastructure/caching/RedisCacheService';
 import { logger } from '@/utils/logger';
 
-/**
- * Redis configuration and initialization
- */
 export class RedisConfig {
   private static instance: RedisConfig;
   private eventBus: RedisEventBus | null = null;
@@ -19,9 +16,6 @@ export class RedisConfig {
     return RedisConfig.instance;
   }
 
-  /**
-   * Initialize Redis services
-   */
   async initialize(): Promise<void> {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 

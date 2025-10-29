@@ -2,10 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { logger } from './logger';
 
-/**
- * Auto-détecte le fichier de credentials Google Cloud dans le dossier config/
- * Cherche le premier fichier .json qui contient le project_id
- */
 export function getGoogleCredentialsPath(): string | undefined {
   const configDir = path.join(process.cwd(), 'config');
 
