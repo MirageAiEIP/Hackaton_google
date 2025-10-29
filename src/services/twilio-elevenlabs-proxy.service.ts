@@ -347,7 +347,11 @@ export class TwilioElevenLabsProxyService {
         }
 
         // Handle media (audio) from Twilio
-        if (message.event === 'media' && elevenLabsWs) {
+        if (
+          message.event === 'media' &&
+          elevenLabsWs &&
+          elevenLabsWs.readyState === WebSocket.OPEN
+        ) {
           const audioPayload = message.media.payload;
 
           // Forward to ElevenLabs
