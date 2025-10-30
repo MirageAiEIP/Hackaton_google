@@ -97,6 +97,8 @@ export class TwilioElevenLabsProxyService {
     let conversationId: string | null = null;
     let extractionInterval: NodeJS.Timeout | null = null;
     let lastTranscriptLength = 0; // Éviter extractions inutiles si transcript identique
+    let audioBuffer: Array<string> = []; // Buffer for audio before ElevenLabs ready
+    let elevenLabsReady = false;
 
     // Connect to ElevenLabs WebSocket
     try {
@@ -113,6 +115,27 @@ export class TwilioElevenLabsProxyService {
       // Envoyer le callId à l'agent via conversation_initiation_client_data dès la connexion
       elevenLabsWs.on('open', () => {
         logger.info('ElevenLabs WebSocket connected for Twilio call', { callSid, callId });
+        elevenLabsReady = true;
+
+        // Flush buffered audio packets
+        if (audioBuffer.length > 0) {
+          logger.info('Flushing buffered audio packets to ElevenLabs', {
+            count: audioBuffer.length,
+            callSid,
+          });
+          audioBuffer.forEach((payload) => {
+            elevenLabsWs!.send(
+              JSON.stringify({
+                type: 'audio',
+                audio_event: {
+                  audio_base_64: payload,
+                  encoding: 'mulaw_8000',
+                },
+              })
+            );
+          });
+          audioBuffer = [];
+        }
 
         // Store the connection for potential contextual updates
         if (callId) {
@@ -347,24 +370,32 @@ export class TwilioElevenLabsProxyService {
         }
 
         // Handle media (audio) from Twilio
-        if (
-          message.event === 'media' &&
-          elevenLabsWs &&
-          elevenLabsWs.readyState === WebSocket.OPEN
-        ) {
+        if (message.event === 'media') {
           const audioPayload = message.media.payload;
 
-          // Forward to ElevenLabs
-          // Note: Twilio sends mulaw 8kHz
-          elevenLabsWs.send(
-            JSON.stringify({
-              type: 'audio',
-              audio_event: {
-                audio_base_64: audioPayload,
-                encoding: 'mulaw_8000',
-              },
-            })
-          );
+          // Check if ElevenLabs is ready and connected
+          if (elevenLabsWs && elevenLabsReady && elevenLabsWs.readyState === WebSocket.OPEN) {
+            // Forward to ElevenLabs immediately
+            // Note: Twilio sends mulaw 8kHz
+            elevenLabsWs.send(
+              JSON.stringify({
+                type: 'audio',
+                audio_event: {
+                  audio_base_64: audioPayload,
+                  encoding: 'mulaw_8000',
+                },
+              })
+            );
+          } else {
+            // Buffer audio until ElevenLabs connects
+            audioBuffer.push(audioPayload);
+            if (audioBuffer.length === 1) {
+              logger.info('Buffering audio until ElevenLabs connects', {
+                callSid,
+                streamSid,
+              });
+            }
+          }
         }
 
         // Handle stream stop
