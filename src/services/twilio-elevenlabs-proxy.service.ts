@@ -61,6 +61,26 @@ export class TwilioElevenLabsProxyService {
     logger.info('Stored conversation mapping', { conversationId, callId });
   }
 
+  /**
+   * Extract conversation ID from ElevenLabs message
+   * Handles both top-level and nested conversation_id formats
+   */
+  private extractConversationId(message: {
+    conversation_id?: string;
+    conversation_initiation_metadata_event?: { conversation_id?: string };
+  }): string | undefined {
+    return (
+      message.conversation_id || message.conversation_initiation_metadata_event?.conversation_id
+    );
+  }
+
+  /**
+   * Send a contextual update to an active ElevenLabs conversation
+   * Used to notify the AI agent about external events (e.g., operator availability)
+   * @param callId - The call ID
+   * @param message - The message to send to the agent
+   * @returns true if message was sent successfully, false if no active connection found
+   */
   sendContextualUpdate(callId: string, message: string): boolean {
     const elevenLabsWs = this.activeElevenLabsConnections.get(callId);
 
@@ -215,14 +235,20 @@ export class TwilioElevenLabsProxyService {
         try {
           const message = JSON.parse(data.toString());
 
-          logger.debug('ElevenLabs message received', {
+          logger.info('ElevenLabs message received', {
             type: message.type,
+            hasConversationId: !!message.conversation_id,
+            conversationId: message.conversation_id || 'none',
+            messageKeys: Object.keys(message),
+            initMetadata: message.conversation_initiation_metadata_event,
             callSid,
           });
 
-          // Capturer le conversation_id d'ElevenLabs et le mapper au callId
-          if (message.conversation_id && callId) {
-            this.storeConversationMapping(message.conversation_id, callId);
+          // Capturer le conversation_id from initiation metadata or top level
+          const conversationIdFromMessage = this.extractConversationId(message);
+
+          if (conversationIdFromMessage && callId) {
+            this.storeConversationMapping(conversationIdFromMessage, callId);
           }
 
           // Forward audio to Twilio
@@ -240,9 +266,9 @@ export class TwilioElevenLabsProxyService {
             );
           }
 
-          // Capture conversation ID from ElevenLabs
-          if (message.conversation_id && !conversationId) {
-            conversationId = message.conversation_id;
+          // Capture conversation ID from ElevenLabs (from top level or initiation metadata)
+          if (conversationIdFromMessage && !conversationId) {
+            conversationId = conversationIdFromMessage;
             logger.info('Captured ElevenLabs conversation ID', {
               conversationId,
               callId,
@@ -627,9 +653,11 @@ export class TwilioElevenLabsProxyService {
             sessionId,
           });
 
-          // Capture conversation ID from ElevenLabs
-          if (message.conversation_id && !conversationId) {
-            conversationId = message.conversation_id;
+          // Capture conversation ID from ElevenLabs (from top level or initiation metadata)
+          const conversationIdFromMessage = this.extractConversationId(message);
+
+          if (conversationIdFromMessage && !conversationId) {
+            conversationId = conversationIdFromMessage;
             logger.info('Captured ElevenLabs conversation ID (web)', {
               conversationId,
               callId,
@@ -638,8 +666,8 @@ export class TwilioElevenLabsProxyService {
           }
 
           // Capturer le conversation_id d'ElevenLabs et le mapper au callId
-          if (message.conversation_id && callId) {
-            this.storeConversationMapping(message.conversation_id, callId);
+          if (conversationIdFromMessage && callId) {
+            this.storeConversationMapping(conversationIdFromMessage, callId);
           }
 
           // Gérer les ping events (keep-alive)

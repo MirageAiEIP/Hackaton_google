@@ -242,13 +242,18 @@ jobs:
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    needs: [setup]
+    needs: [setup, test-coverage]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage/
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
