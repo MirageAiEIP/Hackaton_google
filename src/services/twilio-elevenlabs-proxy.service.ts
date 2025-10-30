@@ -251,9 +251,10 @@ export class TwilioElevenLabsProxyService {
         try {
           const message = JSON.parse(data.toString());
 
-          logger.debug('ElevenLabs message received', {
+          logger.info('ElevenLabs message received', {
             type: message.type,
             callSid,
+            messagePreview: JSON.stringify(message).substring(0, 200),
           });
 
           // Capturer le conversation_id d'ElevenLabs et le mapper au callId
