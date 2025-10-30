@@ -104,17 +104,30 @@ export class TwilioElevenLabsProxyService {
     try {
       const elevenLabsUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${this.agentId}`;
 
+      logger.info('Attempting ElevenLabs WebSocket connection', {
+        callSid,
+        agentId: this.agentId,
+        apiKeyPrefix: this.apiKey?.substring(0, 10) + '...',
+        url: elevenLabsUrl,
+      });
+
       elevenLabsWs = new WebSocket(elevenLabsUrl, {
         headers: {
           'xi-api-key': this.apiKey,
         },
+        handshakeTimeout: 10000, // 10 seconds timeout
       });
 
-      logger.info('Connecting to ElevenLabs WebSocket', { callSid });
+      logger.info('ElevenLabs WebSocket object created, waiting for open event', { callSid });
 
       // Envoyer le callId à l'agent via conversation_initiation_client_data dès la connexion
       elevenLabsWs.on('open', () => {
-        logger.info('ElevenLabs WebSocket connected for Twilio call', { callSid, callId });
+        clearTimeout(connectionTimeout);
+        logger.info('ElevenLabs WebSocket connected successfully', {
+          callSid,
+          callId,
+          bufferedAudioPackets: audioBuffer.length,
+        });
         elevenLabsReady = true;
 
         // Flush buffered audio packets
@@ -286,8 +299,40 @@ export class TwilioElevenLabsProxyService {
         }
       });
 
+      // Timeout si connexion ne s'établit pas
+      const connectionTimeout = setTimeout(() => {
+        if (!elevenLabsReady) {
+          const timeoutError = new Error(
+            'ElevenLabs WebSocket connection timeout after 10 seconds'
+          );
+          logger.error('ElevenLabs WebSocket connection timeout after 10 seconds', timeoutError, {
+            callSid,
+            agentId: this.agentId,
+            wsReadyState: elevenLabsWs?.readyState,
+            readyStateText:
+              elevenLabsWs?.readyState === 0
+                ? 'CONNECTING'
+                : elevenLabsWs?.readyState === 1
+                  ? 'OPEN'
+                  : elevenLabsWs?.readyState === 2
+                    ? 'CLOSING'
+                    : 'CLOSED',
+          });
+          if (elevenLabsWs) {
+            elevenLabsWs.close();
+          }
+        }
+      }, 10000);
+
       elevenLabsWs.on('error', (error: Error) => {
-        logger.error('ElevenLabs WebSocket error', error, { callSid });
+        clearTimeout(connectionTimeout);
+        logger.error('ElevenLabs WebSocket error', error, {
+          callSid,
+          errorMessage: error.message,
+          errorStack: error.stack,
+          agentId: this.agentId,
+          apiKeyPrefix: this.apiKey?.substring(0, 10) + '...',
+        });
 
         // Cleanup extraction interval on error
         if (extractionInterval) {
@@ -300,8 +345,14 @@ export class TwilioElevenLabsProxyService {
         }
       });
 
-      elevenLabsWs.on('close', () => {
-        logger.info('ElevenLabs WebSocket closed', { callSid });
+      elevenLabsWs.on('close', (code: number, reason: Buffer) => {
+        clearTimeout(connectionTimeout);
+        logger.info('ElevenLabs WebSocket closed', {
+          callSid,
+          closeCode: code,
+          closeReason: reason.toString(),
+          wasConnected: elevenLabsReady,
+        });
 
         // Cleanup extraction interval
         if (extractionInterval) {
@@ -322,7 +373,13 @@ export class TwilioElevenLabsProxyService {
         twilioWs.close();
       });
     } catch (error) {
-      logger.error('Failed to connect to ElevenLabs', error as Error, { callSid });
+      logger.error('Failed to create ElevenLabs WebSocket', error as Error, {
+        callSid,
+        errorMessage: (error as Error).message,
+        errorStack: (error as Error).stack,
+        agentId: this.agentId,
+        apiKeyPrefix: this.apiKey?.substring(0, 10) + '...',
+      });
       twilioWs.close();
       return;
     }
@@ -390,9 +447,19 @@ export class TwilioElevenLabsProxyService {
             // Buffer audio until ElevenLabs connects
             audioBuffer.push(audioPayload);
             if (audioBuffer.length === 1) {
-              logger.info('Buffering audio until ElevenLabs connects', {
+              logger.warn('Started buffering audio - ElevenLabs not ready yet', {
                 callSid,
                 streamSid,
+                elevenLabsExists: !!elevenLabsWs,
+                elevenLabsReady,
+                wsReadyState: elevenLabsWs?.readyState,
+              });
+            }
+            if (audioBuffer.length % 50 === 0) {
+              logger.warn('Audio buffer growing', {
+                callSid,
+                bufferSize: audioBuffer.length,
+                elevenLabsReady,
               });
             }
           }
