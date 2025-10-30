@@ -81,6 +81,17 @@ export class TwilioElevenLabsProxyService {
   }
 
   /**
+   * Extract conversation ID from ElevenLabs message
+   * Handles both top-level and nested conversation_id formats
+   */
+  private extractConversationId(message: any): string | undefined {
+    return (
+      message.conversation_id ||
+      message.conversation_initiation_metadata_event?.conversation_id
+    );
+  }
+
+  /**
    * Send a contextual update to an active ElevenLabs conversation
    * Used to notify the AI agent about external events (e.g., operator availability)
    * @param callId - The call ID
@@ -254,9 +265,7 @@ export class TwilioElevenLabsProxyService {
           });
 
           // Capturer le conversation_id from initiation metadata or top level
-          const conversationIdFromMessage =
-            message.conversation_id ||
-            message.conversation_initiation_metadata_event?.conversation_id;
+          const conversationIdFromMessage = this.extractConversationId(message);
 
           if (conversationIdFromMessage && callId) {
             this.storeConversationMapping(conversationIdFromMessage, callId);
@@ -669,9 +678,7 @@ export class TwilioElevenLabsProxyService {
           });
 
           // Capture conversation ID from ElevenLabs (from top level or initiation metadata)
-          const conversationIdFromMessage =
-            message.conversation_id ||
-            message.conversation_initiation_metadata_event?.conversation_id;
+          const conversationIdFromMessage = this.extractConversationId(message);
 
           if (conversationIdFromMessage && !conversationId) {
             conversationId = conversationIdFromMessage;

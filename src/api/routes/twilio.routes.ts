@@ -69,6 +69,13 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
       try {
         // Construire l'URL du WebSocket proxy (notre serveur)
         const publicUrl = process.env.PUBLIC_API_URL || `http://localhost:3000`;
+
+        // Validate PUBLIC_API_URL
+        if (!publicUrl.startsWith('http://') && !publicUrl.startsWith('https://')) {
+          logger.error('PUBLIC_API_URL must start with http:// or https://', { publicUrl });
+          throw new Error('Invalid PUBLIC_API_URL configuration');
+        }
+
         const wsUrl = publicUrl.replace('http://', 'wss://').replace('https://', 'wss://');
         const mediaStreamUrl = `${wsUrl}/ws/twilio-media?callSid=${body.CallSid}`;
 
@@ -76,6 +83,8 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
           callSid: body.CallSid,
           from: body.From,
           to: body.To,
+          publicUrl,
+          wsUrl,
           mediaStreamUrl,
         });
 
