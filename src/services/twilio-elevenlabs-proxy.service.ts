@@ -99,6 +99,7 @@ export class TwilioElevenLabsProxyService {
     let lastTranscriptLength = 0; // Éviter extractions inutiles si transcript identique
     let audioBuffer: Array<string> = []; // Buffer for audio before ElevenLabs ready
     let elevenLabsReady = false;
+    let audioPacketsSent = 0; // Count audio packets sent to ElevenLabs
 
     // Connect to ElevenLabs WebSocket
     try {
@@ -146,7 +147,14 @@ export class TwilioElevenLabsProxyService {
                 },
               })
             );
+            audioPacketsSent++;
           });
+          logger.info(
+            `Flushed ${audioBuffer.length} audio packets, total sent: ${audioPacketsSent}`,
+            {
+              callSid,
+            }
+          );
           audioBuffer = [];
         }
 
@@ -460,6 +468,14 @@ export class TwilioElevenLabsProxyService {
                 },
               })
             );
+            audioPacketsSent++;
+            if (audioPacketsSent === 1 || audioPacketsSent % 100 === 0) {
+              logger.info('Sending Twilio audio to ElevenLabs', {
+                callSid,
+                packetsSent: audioPacketsSent,
+                payloadLength: audioPayload.length,
+              });
+            }
           } else {
             // Buffer audio until ElevenLabs connects
             audioBuffer.push(audioPayload);
