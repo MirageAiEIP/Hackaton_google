@@ -44,9 +44,81 @@ vi.mock('@/infrastructure/di/Container', () => {
 
 describe('Twilio Routes', () => {
   let app: FastifyInstance;
+  const originalPublicApiUrl = process.env.PUBLIC_API_URL;
 
   beforeAll(async () => {
     app = await createApp();
+  });
+
+  describe('POST /api/v1/twilio/inbound', () => {
+    it('should return TwiML for valid https:// PUBLIC_API_URL', async () => {
+      process.env.PUBLIC_API_URL = 'https://example.com';
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/twilio/inbound',
+        payload: {
+          CallSid: 'CA123456789',
+          From: '+33612345678',
+          To: '+33612345679',
+          CallStatus: 'ringing',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/xml');
+      expect(response.body).toContain('<Response>');
+      expect(response.body).toContain('<Connect>');
+      expect(response.body).toContain('<Stream url="wss://example.com/ws/twilio-media?callSid=CA123456789">');
+
+      process.env.PUBLIC_API_URL = originalPublicApiUrl;
+    });
+
+    it('should return TwiML for valid http:// PUBLIC_API_URL', async () => {
+      process.env.PUBLIC_API_URL = 'http://localhost:3000';
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/twilio/inbound',
+        payload: {
+          CallSid: 'CA987654321',
+          From: '+33611111111',
+          To: '+33622222222',
+          CallStatus: 'ringing',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/xml');
+      expect(response.body).toContain('<Response>');
+      expect(response.body).toContain('<Stream url="wss://localhost:3000/ws/twilio-media?callSid=CA987654321">');
+
+      process.env.PUBLIC_API_URL = originalPublicApiUrl;
+    });
+
+    it('should return error TwiML for invalid PUBLIC_API_URL', async () => {
+      process.env.PUBLIC_API_URL = 'invalid-url-without-protocol';
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/twilio/inbound',
+        payload: {
+          CallSid: 'CA111111111',
+          From: '+33633333333',
+          To: '+33644444444',
+          CallStatus: 'ringing',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/xml');
+      expect(response.body).toContain('<Response>');
+      expect(response.body).toContain('<Say language="fr-FR">');
+      expect(response.body).toContain('indisponible');
+      expect(response.body).toContain('<Hangup />');
+
+      process.env.PUBLIC_API_URL = originalPublicApiUrl;
+    });
   });
 
   describe('POST /api/v1/twilio/post-call-webhook', () => {
