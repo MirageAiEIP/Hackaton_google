@@ -15,11 +15,6 @@ declare module 'fastify' {
   }
 }
 
-/**
- * Authentication middleware
- *
- * Verifies JWT token and attaches user to request
- */
 export function createAuthMiddleware(accessTokenSecret: string) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
@@ -91,11 +86,6 @@ export function createAuthMiddleware(accessTokenSecret: string) {
   };
 }
 
-/**
- * Role-based access control middleware
- *
- * Requires specific roles to access the route
- */
 export function requireRole(...allowedRoles: Array<'OPERATOR' | 'ADMIN'>) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     // User should be attached by auth middleware
@@ -131,11 +121,6 @@ export function requireRole(...allowedRoles: Array<'OPERATOR' | 'ADMIN'>) {
   };
 }
 
-/**
- * Optional authentication middleware
- *
- * Attaches user if token is present, but doesn't fail if missing
- */
 export function createOptionalAuthMiddleware(accessTokenSecret: string) {
   return async (request: FastifyRequest): Promise<void> => {
     try {

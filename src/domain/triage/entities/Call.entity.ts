@@ -1,9 +1,5 @@
 import { CallStatus } from '@prisma/client';
 
-/**
- * Call Entity (Domain Model)
- * Represents an emergency call in the domain layer
- */
 export class Call {
   constructor(
     public readonly id: string,
@@ -22,30 +18,18 @@ export class Call {
     public readonly qualityScore: number | null = null
   ) {}
 
-  /**
-   * Check if call is in progress
-   */
   isInProgress(): boolean {
     return this.status === 'IN_PROGRESS';
   }
 
-  /**
-   * Check if call is completed
-   */
   isCompleted(): boolean {
     return this.status === 'COMPLETED';
   }
 
-  /**
-   * Check if call was escalated
-   */
   isEscalated(): boolean {
     return this.status === 'ESCALATED';
   }
 
-  /**
-   * Calculate call duration in seconds
-   */
   calculateDuration(): number | null {
     if (!this.endedAt) {
       return null;
@@ -53,9 +37,6 @@ export class Call {
     return Math.floor((this.endedAt.getTime() - this.startedAt.getTime()) / 1000);
   }
 
-  /**
-   * Convert to plain object
-   */
   toJSON() {
     return {
       id: this.id,

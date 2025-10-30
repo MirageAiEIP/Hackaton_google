@@ -4,15 +4,7 @@ import { elevenlabsConversationService } from './elevenlabs-conversation.service
 import { loadSecrets } from '@/config/secrets.config';
 import { callInfoExtractionService } from './call-info-extraction.service';
 
-/**
- * Service for persisting ElevenLabs conversations to the database
- * Handles fetching transcripts from ElevenLabs API and saving them
- */
 export class ConversationPersistenceService {
-  /**
-   * Save ElevenLabs conversation to database
-   * Fetches full transcript from ElevenLabs API and persists it
-   */
   async saveConversation(params: {
     conversationId: string;
     callId: string;
@@ -140,10 +132,6 @@ export class ConversationPersistenceService {
     }
   }
 
-  /**
-   * Retry saving conversation if previous attempt failed
-   * Useful for manual retries or background jobs
-   */
   async retrySaveConversation(callId: string): Promise<boolean> {
     logger.info('Attempting to retry conversation save', { callId });
 
@@ -196,10 +184,6 @@ export class ConversationPersistenceService {
     }
   }
 
-  /**
-   * Save conversation with audio
-   * Fetches both transcript and audio from ElevenLabs
-   */
   async saveConversationWithAudio(params: {
     conversationId: string;
     callId: string;
@@ -234,10 +218,6 @@ export class ConversationPersistenceService {
     }
   }
 
-  /**
-   * Bulk save conversations for multiple calls
-   * Useful for batch processing or recovery
-   */
   async bulkSaveConversations(callIds: string[]): Promise<{ success: number; failed: number }> {
     logger.info('Starting bulk conversation save', { count: callIds.length });
 

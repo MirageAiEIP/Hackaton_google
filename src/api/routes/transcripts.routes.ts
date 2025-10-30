@@ -3,16 +3,9 @@ import { z } from 'zod';
 import { transcriptService } from '@/services/transcript.service';
 import { logger } from '@/utils/logger';
 
-/**
- * Routes for managing and retrieving call transcripts
- */
 export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
-  logger.info('📝 Registering Transcripts Routes at /api/v1/transcripts');
+  logger.info('Registering Transcripts Routes at /api/v1/transcripts');
 
-  /**
-   * GET /api/v1/transcripts/:callId
-   * Get transcript for a specific call
-   */
   app.get(
     '/:callId',
     {
@@ -68,7 +61,7 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callId } = paramsSchema.parse(request.params);
 
-        logger.info('📝 GET /api/v1/transcripts/:callId called', { callId });
+        logger.info('GET /api/v1/transcripts/:callId called', { callId });
 
         const transcript = await transcriptService.getCallTranscript(callId);
 
@@ -96,10 +89,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/transcripts/:callId/formatted
-   * Get formatted transcript with conversation structure
-   */
   app.get(
     '/:callId/formatted',
     {
@@ -166,7 +155,7 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callId } = paramsSchema.parse(request.params);
 
-        logger.info('📄 GET /api/v1/transcripts/:callId/formatted called', { callId });
+        logger.info('GET /api/v1/transcripts/:callId/formatted called', { callId });
 
         const formattedTranscript = await transcriptService.getFormattedTranscript(callId);
 
@@ -194,10 +183,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/transcripts/:callId/stats
-   * Get transcript statistics
-   */
   app.get(
     '/:callId/stats',
     {
@@ -246,7 +231,7 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callId } = paramsSchema.parse(request.params);
 
-        logger.info('📊 GET /api/v1/transcripts/:callId/stats called', { callId });
+        logger.info('GET /api/v1/transcripts/:callId/stats called', { callId });
 
         const stats = await transcriptService.getTranscriptStats(callId);
 
@@ -274,10 +259,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/transcripts/bulk
-   * Get transcripts for multiple calls
-   */
   app.post(
     '/bulk',
     {
@@ -331,7 +312,7 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callIds } = bodySchema.parse(request.body);
 
-        logger.info('📚 POST /api/v1/transcripts/bulk called', { count: callIds.length });
+        logger.info('POST /api/v1/transcripts/bulk called', { count: callIds.length });
 
         const transcripts = await transcriptService.getCallTranscripts(callIds);
 
@@ -352,10 +333,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/transcripts/search
-   * Search transcripts by keyword
-   */
   app.get(
     '/search',
     {
@@ -421,7 +398,7 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { keyword, limit, offset } = querySchema.parse(request.query);
 
-        logger.info('🔍 GET /api/v1/transcripts/search called', { keyword, limit, offset });
+        logger.info('GET /api/v1/transcripts/search called', { keyword, limit, offset });
 
         const results = await transcriptService.searchTranscripts(keyword, { limit, offset });
 
@@ -443,10 +420,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/transcripts/:callId/retry
-   * Retry fetching and saving transcript from ElevenLabs
-   */
   app.post(
     '/:callId/retry',
     {
@@ -484,7 +457,7 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callId } = paramsSchema.parse(request.params);
 
-        logger.info('🔄 POST /api/v1/transcripts/:callId/retry called', { callId });
+        logger.info('POST /api/v1/transcripts/:callId/retry called', { callId });
 
         const { conversationPersistenceService } = await import(
           '@/services/conversation-persistence.service'
@@ -516,10 +489,6 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/transcripts/bulk-retry
-   * Retry saving transcripts for multiple calls
-   */
   app.post(
     '/bulk-retry',
     {
@@ -559,7 +528,7 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callIds } = bodySchema.parse(request.body);
 
-        logger.info('🔄 POST /api/v1/transcripts/bulk-retry called', { count: callIds.length });
+        logger.info('POST /api/v1/transcripts/bulk-retry called', { count: callIds.length });
 
         const { conversationPersistenceService } = await import(
           '@/services/conversation-persistence.service'
@@ -584,5 +553,5 @@ export const transcriptsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  logger.info('✅ Transcripts routes registered successfully');
+  logger.info('Transcripts routes registered successfully');
 };

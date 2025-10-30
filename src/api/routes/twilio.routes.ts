@@ -3,26 +3,7 @@ import { z } from 'zod';
 import { callService } from '@/services/call.service';
 import { logger } from '@/utils/logger';
 
-/**
- * Routes Twilio pour intégration téléphonique avec ElevenLabs Conversational AI
- *
- * POST /inbound - Webhook Twilio pour appels entrants (retourne TwiML)
- * POST /outbound - API pour lancer des appels sortants
- * POST /post-call-webhook - Webhook post-appel pour analytics
- *
- * Architecture:
- * 1. Twilio reçoit l'appel et appelle /inbound
- * 2. Backend crée un call en DB et génère signed URL ElevenLabs
- * 3. Backend retourne TwiML <Connect><Stream> pour connecter Twilio à ElevenLabs
- * 4. ElevenLabs agent gère la conversation (TTS/STT/VAD/LLM)
- * 5. Les tools de l'agent (dispatch_smur) appellent nos webhooks
- */
-
 export const twilioRoutes: FastifyPluginAsync = async (app) => {
-  /**
-   * Webhook Twilio - Appels entrants
-   * Twilio appelle ce endpoint quand un appel arrive sur votre numéro SAMU
-   */
   app.post(
     '/inbound',
     {
@@ -122,9 +103,6 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * API pour lancer un appel sortant via Twilio
-   */
   app.post(
     '/outbound',
     {
@@ -209,10 +187,6 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * Post-call webhook
-   * Appelé après chaque appel pour sauvegarder analytics et transcription
-   */
   app.post(
     '/post-call-webhook',
     {

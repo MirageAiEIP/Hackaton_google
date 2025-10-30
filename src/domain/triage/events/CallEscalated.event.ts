@@ -1,9 +1,5 @@
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * CallEscalatedEvent
- * Published when a call is escalated to higher priority or specialist
- */
 export class CallEscalatedEvent extends DomainEvent {
   constructor(
     public readonly callId: string,

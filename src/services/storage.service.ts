@@ -4,14 +4,6 @@ import { getGoogleCredentialsPath } from '@/utils/google-credentials';
 import fs from 'fs';
 import path from 'path';
 
-/**
- * Service de stockage des fichiers audio sur Google Cloud Storage
- *
- * Features:
- * - Upload/download audio files
- * - TTL automatique (1 heure par défaut)
- * - Fallback sur stockage local si GCS échoue
- */
 export class StorageService {
   private storage!: Storage;
   private bucketName = 'samu-ai-audio-files'; // À adapter
@@ -38,14 +30,6 @@ export class StorageService {
     }
   }
 
-  /**
-   * Upload un fichier audio vers GCS ou local
-   *
-   * @param audioBuffer - Buffer du fichier audio
-   * @param callId - ID de l'appel
-   * @param originalFilename - Nom original du fichier
-   * @returns URL du fichier (gs:// pour GCS, file:// pour local)
-   */
   async uploadAudio(
     audioBuffer: Buffer,
     callId: string,
@@ -95,9 +79,6 @@ export class StorageService {
     return this.saveLocal(audioBuffer, filename, callId);
   }
 
-  /**
-   * Sauvegarde locale (fallback)
-   */
   private saveLocal(audioBuffer: Buffer, filename: string, callId: string): string {
     const tempDir = path.join(process.cwd(), 'temp-audio');
 
@@ -127,12 +108,6 @@ export class StorageService {
     return localPath;
   }
 
-  /**
-   * Download un fichier depuis GCS ou local
-   *
-   * @param audioUrl - URL du fichier (gs:// ou file path)
-   * @returns Buffer du fichier
-   */
   async downloadAudio(audioUrl: string): Promise<Buffer> {
     // Si c'est une GCS URI
     if (audioUrl.startsWith('gs://')) {
@@ -175,9 +150,6 @@ export class StorageService {
     throw new Error(`Audio file not found: ${audioUrl}`);
   }
 
-  /**
-   * Supprime un fichier (manuel)
-   */
   async deleteAudio(audioUrl: string): Promise<void> {
     if (audioUrl.startsWith('gs://')) {
       const uri = audioUrl.replace('gs://', '');
@@ -200,10 +172,6 @@ export class StorageService {
     }
   }
 
-  /**
-   * Génère une URL signée (pour download sécurisé)
-   * Valide 15 minutes
-   */
   async getSignedUrl(audioUrl: string): Promise<string> {
     if (!audioUrl.startsWith('gs://')) {
       throw new Error('Signed URLs only available for GCS files');

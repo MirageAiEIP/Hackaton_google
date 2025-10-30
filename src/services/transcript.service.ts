@@ -1,16 +1,9 @@
 import { prisma } from '@/utils/prisma';
 import { logger } from '@/utils/logger';
 
-/**
- * Service for managing and retrieving call transcripts
- */
 export class TranscriptService {
-  /**
-   * Get the transcript for a specific call
-   * Includes both Call.transcript and ElevenLabsConversation.transcript if available
-   */
   async getCallTranscript(callId: string) {
-    logger.info('📝 Getting transcript for call', { callId });
+    logger.info('Getting transcript for call', { callId });
 
     const call = await prisma.call.findUnique({
       where: { id: callId },
@@ -58,12 +51,8 @@ export class TranscriptService {
     };
   }
 
-  /**
-   * Get formatted transcript with conversation structure
-   * Parses the ElevenLabs JSON transcript into a readable format
-   */
   async getFormattedTranscript(callId: string) {
-    logger.info('📄 Getting formatted transcript for call', { callId });
+    logger.info('Getting formatted transcript for call', { callId });
 
     const transcriptData = await this.getCallTranscript(callId);
 
@@ -96,10 +85,6 @@ export class TranscriptService {
     };
   }
 
-  /**
-   * Format ElevenLabs JSON transcript
-   * The structure depends on ElevenLabs API response format
-   */
   private formatElevenLabsTranscript(transcript: unknown): Array<{
     index: number;
     timestamp: string | null;
@@ -138,10 +123,6 @@ export class TranscriptService {
     return [];
   }
 
-  /**
-   * Parse basic text transcript into messages
-   * Tries to detect speaker patterns like "Agent: " or "Patient: "
-   */
   private parseBasicTranscript(transcript: string): Array<{
     index: number;
     timestamp: string | null;
@@ -189,11 +170,8 @@ export class TranscriptService {
     return messages;
   }
 
-  /**
-   * Get transcript for multiple calls (bulk retrieval)
-   */
   async getCallTranscripts(callIds: string[]) {
-    logger.info('📚 Getting transcripts for multiple calls', { count: callIds.length });
+    logger.info('Getting transcripts for multiple calls', { count: callIds.length });
 
     const calls = await prisma.call.findMany({
       where: {
@@ -226,11 +204,8 @@ export class TranscriptService {
     }));
   }
 
-  /**
-   * Search transcripts by keyword
-   */
   async searchTranscripts(keyword: string, options: { limit?: number; offset?: number } = {}) {
-    logger.info('🔍 Searching transcripts for keyword', { keyword });
+    logger.info('Searching transcripts for keyword', { keyword });
 
     const limit = options.limit || 50;
     const offset = options.offset || 0;
@@ -277,9 +252,6 @@ export class TranscriptService {
     }));
   }
 
-  /**
-   * Extract excerpt from transcript around keyword
-   */
   private extractExcerpt(text: string, keyword: string, maxLength: number): string {
     if (!text) {
       return '';
@@ -308,12 +280,8 @@ export class TranscriptService {
     return excerpt;
   }
 
-  /**
-   * Get transcript statistics for a call
-   * Uses call.transcript which contains COMPLETE conversation (AI + Operator phases)
-   */
   async getTranscriptStats(callId: string) {
-    logger.info('📊 Getting transcript stats for call', { callId });
+    logger.info('Getting transcript stats for call', { callId });
 
     const call = await prisma.call.findUnique({
       where: { id: callId },

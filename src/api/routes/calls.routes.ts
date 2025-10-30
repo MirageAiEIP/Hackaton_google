@@ -4,13 +4,7 @@ import { callService } from '@/services/call.service';
 import { callInfoExtractionService } from '@/services/call-info-extraction.service';
 import { logger } from '@/utils/logger';
 
-/**
- * Routes pour gérer les conversations web
- * Le frontend appelle ces routes, le backend gère tout
- * Architecture: Signed URL - Le frontend se connecte directement à ElevenLabs
- */
-
-// Store des conversations actives en mémoire
+// Store des conversations actives en mmoire
 const activeConversations = new Map<
   string,
   {
@@ -21,12 +15,8 @@ const activeConversations = new Map<
 >();
 
 export const callsRoutes: FastifyPluginAsync = async (app) => {
-  logger.info('📞 Registering Calls Routes at /api/v1/calls');
+  logger.info('Registering Calls Routes at /api/v1/calls');
 
-  /**
-   * GET /api/v1/calls
-   * List all calls with pagination and filters
-   */
   app.get(
     '/',
     {
@@ -89,10 +79,6 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * DELETE /api/v1/calls/:callId
-   * Delete a call and all associated data
-   */
   app.delete(
     '/:callId',
     {
@@ -138,10 +124,6 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/calls/:callId/transcript
-   * Get transcript for a call
-   */
   app.get(
     '/:callId/transcript',
     {
@@ -189,27 +171,23 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * Démarrer une nouvelle conversation web
-   * Le frontend appelle cette route, le backend gère tout
-   */
   app.post(
     '/start-web',
     {
       schema: {
         tags: ['calls'],
-        summary: 'Démarrer conversation web',
-        description: "Lance une nouvelle conversation avec l'agent SAMU (backend gère tout)",
+        summary: 'Dmarrer conversation web',
+        description: "Lance une nouvelle conversation avec l'agent SAMU (backend gre tout)",
         body: {
           type: 'object',
           properties: {
             phoneNumber: {
               type: 'string',
-              description: 'Numéro de téléphone du patient (optionnel)',
+              description: 'Numro de tlphone du patient (optionnel)',
             },
             metadata: {
               type: 'object',
-              description: 'Métadonnées additionnelles (optionnel)',
+              description: 'Mtadonnes additionnelles (optionnel)',
             },
           },
         },
@@ -237,7 +215,7 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      logger.info('🎯 POST /api/v1/calls/start-web called');
+      logger.info('POST /api/v1/calls/start-web called');
 
       const bodySchema = z.object({
         phoneNumber: z.string().optional(),
@@ -246,20 +224,20 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
 
       const body = bodySchema.parse(request.body);
 
-      logger.info('📞 Starting web conversation', {
+      logger.info('Starting web conversation', {
         phoneNumber: body.phoneNumber,
         hasMetadata: !!body.metadata,
       });
 
       try {
-        // 1. Créer l'appel en DB
+        // 1. Crer l'appel en DB
         const call = await callService.createCall({
           phoneNumber: body.phoneNumber || 'WEB_CALL',
         });
 
         logger.info('Call created', { callId: call.id });
 
-        // 2. Générer un sessionId unique
+        // 2. Gnrer un sessionId unique
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         // 3. Stocker la conversation active
@@ -274,9 +252,14 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
           sessionId,
         });
 
-        const wsUrl =
-          process.env.PUBLIC_API_URL?.replace('https://', 'wss://').replace('http://', 'ws://') ||
-          'ws://localhost:8080';
+        if (!process.env.PUBLIC_API_URL) {
+          throw new Error('PUBLIC_API_URL environment variable is not set');
+        }
+
+        const wsUrl = process.env.PUBLIC_API_URL.replace('https://', 'wss://').replace(
+          'http://',
+          'ws://'
+        );
 
         return {
           success: true,
@@ -286,7 +269,7 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
             connectionType: 'websocket',
             wsUrl: `${wsUrl}/ws/web-conversation?sessionId=${sessionId}&callId=${call.id}`,
           },
-          message: 'Conversation démarrée avec succès',
+          message: 'Conversation dmarre avec succs',
         };
       } catch (error) {
         logger.error('Failed to start web conversation', error as Error);
@@ -299,10 +282,6 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/calls/:callId/extract-info
-   * Extract call info from transcript with Gemini AI
-   */
   app.post(
     '/:callId/extract-info',
     {
@@ -367,10 +346,6 @@ export const callsRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/calls/:callId/preview-extraction
-   * Preview extraction without updating the call
-   */
   app.post(
     '/:callId/preview-extraction',
     {

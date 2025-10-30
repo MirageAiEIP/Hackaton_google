@@ -3,10 +3,6 @@ import { dispatchService } from '@/services/dispatch.service';
 import { logger } from '@/utils/logger';
 import { TwilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 
-/**
- * Outil pour dispatcher les secours SMUR (P0/P1)
- * Utilisé par l'agent ElevenLabs via Client Tools
- */
 export const dispatchSMURTool = {
   description:
     'Dispatche les secours SMUR pour urgences absolues (P0) ou vitales (P1). À utiliser uniquement pour arrêt cardiaque, AVC, hémorragie massive, détresse respiratoire sévère.',

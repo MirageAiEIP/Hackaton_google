@@ -18,6 +18,7 @@ locals {
     twilio-auth-token   = "Twilio Auth Token"
     twilio-phone-number = "Twilio Phone Number"
     redis-url           = "Redis connection URL (Upstash)"
+    public-api-url      = "Public API URL for webhooks (Cloud Run URL)"
   }
 }
 
@@ -75,4 +76,8 @@ output "twilio_phone_number_name" {
 
 output "redis_url_name" {
   value = google_secret_manager_secret.secrets["redis-url"].secret_id
+}
+
+output "public_api_url_name" {
+  value = google_secret_manager_secret.secrets["public-api-url"].secret_id
 }

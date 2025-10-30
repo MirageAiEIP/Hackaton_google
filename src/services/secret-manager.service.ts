@@ -2,11 +2,6 @@ import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { logger } from '@/utils/logger';
 import { getGoogleCredentialsPath } from '@/utils/google-credentials';
 
-/**
- * Service pour accéder aux secrets stockés dans Google Secret Manager
- *
- * Sécurise les API keys, tokens et autres credentials sensibles
- */
 export class SecretManagerService {
   private client: SecretManagerServiceClient;
   private projectId: string;
@@ -40,11 +35,6 @@ export class SecretManagerService {
     });
   }
 
-  /**
-   * Récupère un secret depuis Google Secret Manager
-   * @param secretName - Nom du secret (ex: "openai-api-key")
-   * @param version - Version du secret (par défaut: "latest")
-   */
   async getSecret(secretName: string, version: string = 'latest'): Promise<string> {
     // Ajouter le préfixe d'environnement (dev-, staging- ou prod-)
     const fullSecretName = `${this.envPrefix}-${secretName}`;
@@ -89,9 +79,6 @@ export class SecretManagerService {
     }
   }
 
-  /**
-   * Récupère plusieurs secrets en parallèle
-   */
   async getSecrets(secretNames: string[]): Promise<Record<string, string>> {
     const results = await Promise.allSettled(secretNames.map((name) => this.getSecret(name)));
 
@@ -113,11 +100,6 @@ export class SecretManagerService {
     return secrets;
   }
 
-  /**
-   * Crée ou met à jour un secret
-   * @param secretName - Nom du secret
-   * @param secretValue - Valeur du secret
-   */
   async createOrUpdateSecret(secretName: string, secretValue: string): Promise<void> {
     try {
       const parent = `projects/${this.projectId}`;
@@ -166,9 +148,6 @@ export class SecretManagerService {
     }
   }
 
-  /**
-   * Efface le cache des secrets
-   */
   clearCache(): void {
     this.cache.clear();
     logger.info('Secret cache cleared');

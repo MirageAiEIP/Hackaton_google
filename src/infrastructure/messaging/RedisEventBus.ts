@@ -3,10 +3,6 @@ import { DomainEvent } from '@/domain/shared/DomainEvent';
 import { IEventBus, IEventHandler } from '@/domain/shared/IEventBus';
 import { logger } from '@/utils/logger';
 
-/**
- * Redis-based Event Bus implementation
- * Supports horizontal scaling via Redis Pub/Sub
- */
 export class RedisEventBus implements IEventBus {
   private readonly publisher: Redis;
   private readonly subscriber: Redis;
@@ -23,9 +19,6 @@ export class RedisEventBus implements IEventBus {
     logger.info('RedisEventBus initialized', { redisUrl: redisUrl.replace(/\/\/.*@/, '//***@') });
   }
 
-  /**
-   * Publish an event to all subscribers
-   */
   async publish(event: DomainEvent): Promise<void> {
     const channel = `events:${event.eventName}`;
     const message = JSON.stringify(event);

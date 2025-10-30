@@ -1,9 +1,5 @@
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * Domain Event: Call claimed by operator
- * Published when an operator claims a call from the queue
- */
 export class CallClaimedEvent extends DomainEvent {
   constructor(
     public readonly callId: string,

@@ -5,18 +5,6 @@ import { callService } from '@/services/call.service';
 import { logger } from '@/utils/logger';
 import { TwilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 
-/**
- * ElevenLabs Client Tool: check_operator_available
- *
- * Vérifie si un médecin régulateur humain est disponible.
- * Si NON disponible : ajoute automatiquement l'appel à la file d'attente.
- *
- * USAGE:
- * - Agent 1 (ARM) : Appelle après classification ABCD pour savoir s'il doit
- *   transférer à un humain ou à l'Agent 2
- * - Agent 2 (Medical) : Appelle périodiquement pour vérifier si un opérateur s'est libéré
- */
-
 export const checkOperatorAvailableSchema = z.object({
   callId: z.string().optional().describe("ID de l'appel"),
   conversation_id: z.string().optional().describe('ID de conversation ElevenLabs'),

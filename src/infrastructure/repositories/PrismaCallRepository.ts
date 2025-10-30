@@ -3,16 +3,9 @@ import { ICallRepository } from '@/domain/triage/repositories/ICallRepository';
 import { Call } from '@/domain/triage/entities/Call.entity';
 import { logger } from '@/utils/logger';
 
-/**
- * Prisma implementation of Call Repository
- * Maps between domain entities and Prisma models
- */
 export class PrismaCallRepository implements ICallRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  /**
-   * Save a call (create or update)
-   */
   async save(call: Call): Promise<void> {
     try {
       await this.prisma.call.upsert({
@@ -43,9 +36,6 @@ export class PrismaCallRepository implements ICallRepository {
     }
   }
 
-  /**
-   * Find call by ID
-   */
   async findById(id: string): Promise<Call | null> {
     try {
       const call = await this.prisma.call.findUnique({
@@ -71,9 +61,6 @@ export class PrismaCallRepository implements ICallRepository {
     }
   }
 
-  /**
-   * Find calls by phone hash
-   */
   async findByPhoneHash(phoneHash: string): Promise<Call[]> {
     try {
       const calls = await this.prisma.call.findMany({
@@ -106,9 +93,6 @@ export class PrismaCallRepository implements ICallRepository {
     }
   }
 
-  /**
-   * Find all active calls
-   */
   async findActiveCalls(): Promise<Call[]> {
     try {
       const calls = await this.prisma.call.findMany({
@@ -133,9 +117,6 @@ export class PrismaCallRepository implements ICallRepository {
     }
   }
 
-  /**
-   * Delete a call
-   */
   async delete(id: string): Promise<void> {
     try {
       await this.prisma.call.delete({
@@ -149,9 +130,6 @@ export class PrismaCallRepository implements ICallRepository {
     }
   }
 
-  /**
-   * Map Prisma model to domain entity
-   */
   private toDomain(prismaCall: PrismaCall): Call {
     return new Call(
       prismaCall.id,

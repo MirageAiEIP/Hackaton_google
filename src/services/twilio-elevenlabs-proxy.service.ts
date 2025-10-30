@@ -12,18 +12,6 @@ import { elevenLabsSTTService } from './elevenlabs-stt.service';
 import { conversationPersistenceService } from './conversation-persistence.service';
 import { callInfoExtractionService } from './call-info-extraction.service';
 
-/**
- * Service proxy WebSocket entre Twilio Media Stream et ElevenLabs Conversational AI
- *
- * Architecture:
- * Twilio Media Stream → Notre WebSocket → ElevenLabs WebSocket
- *
- * Flow:
- * 1. Twilio envoie audio (Media Stream format, mulaw 8kHz)
- * 2. On convertit et forward à ElevenLabs
- * 3. ElevenLabs retourne audio + transcription
- * 4. On forward à Twilio
- */
 export class TwilioElevenLabsProxyService {
   private apiKey: string = '';
   private agentId: string = '';
@@ -64,17 +52,10 @@ export class TwilioElevenLabsProxyService {
     logger.info('Twilio-ElevenLabs Proxy Service initialized');
   }
 
-  /**
-   * Méthode statique pour récupérer le callId depuis un conversationId
-   * Utilisée par les tools ElevenLabs qui reçoivent conversationId dans les webhooks
-   */
   static getCallIdFromConversation(conversationId: string): string | undefined {
     return this.conversationToCallMap.get(conversationId);
   }
 
-  /**
-   * Stocker le mapping conversationId → callId
-   */
   private storeConversationMapping(conversationId: string, callId: string): void {
     TwilioElevenLabsProxyService.conversationToCallMap.set(conversationId, callId);
     logger.info('Stored conversation mapping', { conversationId, callId });
@@ -124,9 +105,6 @@ export class TwilioElevenLabsProxyService {
     }
   }
 
-  /**
-   * Handle incoming Twilio Media Stream WebSocket connection
-   */
   async handleTwilioConnection(twilioWs: FastifyWebSocket, request: FastifyRequest): Promise<void> {
     await this.initialize();
 
@@ -494,10 +472,6 @@ export class TwilioElevenLabsProxyService {
     });
   }
 
-  /**
-   * Handle incoming Web Browser WebSocket connection
-   * Architecture: Browser → Notre WebSocket → ElevenLabs WebSocket
-   */
   async handleWebConnection(clientWs: FastifyWebSocket, request: FastifyRequest): Promise<void> {
     await this.initialize();
 
@@ -912,10 +886,6 @@ export class TwilioElevenLabsProxyService {
     });
   }
 
-  /**
-   * Terminate an active web session (used when operator takes control)
-   * @param closeClient - If false, keeps the client WebSocket open for operator takeover
-   */
   terminateWebSession(
     sessionId: string,
     reason: string = 'Operator takeover',
@@ -992,9 +962,6 @@ export class TwilioElevenLabsProxyService {
     return true;
   }
 
-  /**
-   * Get active sessions (for debugging/monitoring)
-   */
   getActiveSessions(): Array<{ sessionId: string; callId: string }> {
     return Array.from(this.activeWebSessions.values()).map((s) => ({
       sessionId: s.sessionId,
@@ -1002,9 +969,6 @@ export class TwilioElevenLabsProxyService {
     }));
   }
 
-  /**
-   * Find session by callId (used for operator takeover by callId)
-   */
   findSessionByCallId(callId: string): string | null {
     for (const [sessionId, session] of this.activeWebSessions.entries()) {
       if (session.callId === callId) {
@@ -1014,9 +978,6 @@ export class TwilioElevenLabsProxyService {
     return null;
   }
 
-  /**
-   * Broadcast session started event to dashboard
-   */
   private async broadcastSessionStarted(callId: string, sessionId: string): Promise<void> {
     try {
       const container = Container.getInstance();
@@ -1036,9 +997,6 @@ export class TwilioElevenLabsProxyService {
     }
   }
 
-  /**
-   * Broadcast session ended event to dashboard
-   */
   private async broadcastSessionEnded(
     callId: string,
     sessionId: string,
@@ -1061,12 +1019,6 @@ export class TwilioElevenLabsProxyService {
     }
   }
 
-  /**
-   * Handle incoming Operator WebSocket connection
-   * Architecture: Operator → Notre WebSocket → Patient (direct, pas d'ElevenLabs)
-   *
-   * Utilisé quand un opérateur prend la main après un handoff
-   */
   async handleOperatorConnection(
     operatorWs: FastifyWebSocket,
     request: FastifyRequest
@@ -1231,11 +1183,7 @@ export class TwilioElevenLabsProxyService {
       );
 
       logger.info('Operator ready to talk with patient', { handoffId, sessionId });
-
-      // ====================
       // ROUTING AUDIO BIDIRECTIONNEL OPERATOR ↔ PATIENT
-      // ====================
-
       // 1. Audio OPERATOR → PATIENT
       operatorWs.on('message', async (data: Buffer) => {
         try {

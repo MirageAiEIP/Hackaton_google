@@ -151,6 +151,17 @@ resource "google_cloud_run_v2_service" "samu_api" {
         }
       }
 
+      # Public API URL (secret)
+      env {
+        name = "PUBLIC_API_URL"
+        value_source {
+          secret_key_ref {
+            secret  = "${var.environment}-public-api-url"
+            version = "latest"
+          }
+        }
+      }
+
       # Liveness probe
       liveness_probe {
         http_get {

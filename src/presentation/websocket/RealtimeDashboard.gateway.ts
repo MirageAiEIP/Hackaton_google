@@ -4,17 +4,6 @@ import { logger } from '@/utils/logger';
 import { Container } from '@/infrastructure/di/Container';
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * Real-Time Dashboard WebSocket Gateway
- * Broadcasts domain events to connected dashboard clients
- *
- * Rooms:
- * - dispatches: Ambulance dispatch updates (map markers)
- * - queue: Call queue updates (pending calls)
- * - operators: Operator status updates (availability)
- * - all: Broadcast to all connected clients
- */
-
 interface WebSocketClient {
   id: string;
   socket: WebSocket;
@@ -43,10 +32,6 @@ export class RealtimeDashboardGateway {
 
   constructor(private readonly app: FastifyInstance) {}
 
-  /**
-   * Initialize WebSocket gateway
-   * Subscribes to Redis events for horizontal scaling
-   */
   async initialize(): Promise<void> {
     logger.info('Initializing Real-Time Dashboard Gateway');
 
@@ -87,9 +72,6 @@ export class RealtimeDashboardGateway {
     });
   }
 
-  /**
-   * Handle new WebSocket connection
-   */
   private handleConnection(socket: WebSocket, request: FastifyRequest): void {
     const clientId = this.generateClientId();
 
@@ -135,9 +117,6 @@ export class RealtimeDashboardGateway {
     });
   }
 
-  /**
-   * Handle client messages (subscribe, unsubscribe, ping)
-   */
   private handleClientMessage(client: WebSocketClient, message: unknown): void {
     // Type guard to ensure message has the expected structure
     if (typeof message !== 'object' || message === null) {
@@ -193,9 +172,6 @@ export class RealtimeDashboardGateway {
     }
   }
 
-  /**
-   * Handle client disconnection
-   */
   private handleDisconnection(client: WebSocketClient): void {
     // Remove from all rooms
     client.rooms.forEach((room) => {
@@ -212,9 +188,6 @@ export class RealtimeDashboardGateway {
     });
   }
 
-  /**
-   * Subscribe client to room
-   */
   private subscribeToRoom(client: WebSocketClient, room: string): void {
     client.rooms.add(room);
 
@@ -230,9 +203,6 @@ export class RealtimeDashboardGateway {
     });
   }
 
-  /**
-   * Unsubscribe client from room
-   */
   private unsubscribeFromRoom(client: WebSocketClient, room: string): void {
     client.rooms.delete(room);
     this.roomSubscriptions.get(room)?.delete(client.id);
@@ -244,15 +214,12 @@ export class RealtimeDashboardGateway {
     });
   }
 
-  /**
-   * Broadcast event to room
-   */
   public broadcastToRoom(room: string, event: BroadcastEvent): void {
     const roomClients = this.roomSubscriptions.get(room);
     if (!roomClients || roomClients.size === 0) {
       const eventName =
         'eventName' in event ? event.eventName : 'type' in event ? event.type : 'unknown';
-      logger.warn('📭 No clients subscribed to room', {
+      logger.warn('No clients subscribed to room', {
         room,
         event: eventName,
       });
@@ -292,29 +259,20 @@ export class RealtimeDashboardGateway {
     });
   }
 
-  /**
-   * Broadcast to all connected clients
-   */
   public broadcastToAll(event: BroadcastEvent): void {
     this.broadcastToRoom('all', event);
   }
 
-  /**
-   * Send message to specific client
-   */
   private sendToClient(client: WebSocketClient, message: unknown): void {
     if (client.socket.readyState === WebSocket.OPEN) {
       client.socket.send(JSON.stringify(message));
     }
   }
 
-  /**
-   * Create event handler that broadcasts to room
-   */
   private createEventHandler(room: string): IEventHandler {
     return {
       handle: async (event: DomainEvent) => {
-        logger.info('🔔 Dashboard gateway received event', {
+        logger.info('Dashboard gateway received event', {
           eventName: event.eventName,
           room,
           subscriberCount: this.roomSubscriptions.get(room)?.size || 0,
@@ -332,24 +290,15 @@ export class RealtimeDashboardGateway {
     };
   }
 
-  /**
-   * Validate room name
-   */
   private isValidRoom(room: string): boolean {
     const validRooms = ['dispatches', 'queue', 'operators', 'all'];
     return validRooms.includes(room);
   }
 
-  /**
-   * Generate unique client ID
-   */
   private generateClientId(): string {
     return `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   }
 
-  /**
-   * Get gateway statistics
-   */
   public getStats() {
     return {
       connectedClients: this.clients.size,
@@ -360,9 +309,6 @@ export class RealtimeDashboardGateway {
     };
   }
 
-  /**
-   * Shutdown gateway
-   */
   async shutdown(): Promise<void> {
     logger.info('Shutting down Real-Time Dashboard Gateway');
 

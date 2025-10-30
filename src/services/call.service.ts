@@ -24,21 +24,11 @@ import { CallEscalatedEvent } from '@/domain/triage/events/CallEscalated.event';
 import { CallCancelledEvent } from '@/domain/triage/events/CallCancelled.event';
 import { queueDashboardGateway } from '@/presentation/websocket/QueueDashboard.gateway';
 
-/**
- * Service responsable des opérations CRUD sur les appels et entités liées
- * Couche Infrastructure - encapsule Prisma
- */
 export class CallService {
-  /**
-   * Hash un numéro de téléphone pour anonymisation RGPD
-   */
   private hashPhoneNumber(phoneNumber: string): string {
     return crypto.createHash('sha256').update(phoneNumber).digest('hex');
   }
 
-  /**
-   * Récupère ou crée un patient basé sur son numéro de téléphone
-   */
   async findOrCreatePatient(payload: CreateCallPayload): Promise<Patient> {
     const phoneHash = this.hashPhoneNumber(payload.phoneNumber);
 
@@ -66,9 +56,6 @@ export class CallService {
     return patient;
   }
 
-  /**
-   * Crée un nouvel appel en base de données
-   */
   async createCall(payload: CreateCallPayload): Promise<Call> {
     const patient = await this.findOrCreatePatient(payload);
 
@@ -100,9 +87,6 @@ export class CallService {
     return call;
   }
 
-  /**
-   * Récupère un appel avec toutes ses relations
-   */
   async getCallById(callId: string): Promise<Call | null> {
     return prisma.call.findUnique({
       where: { id: callId },
@@ -115,9 +99,6 @@ export class CallService {
     });
   }
 
-  /**
-   * Met à jour le transcript de l'appel
-   */
   async updateTranscript(callId: string, newMessage: string): Promise<void> {
     const call = await prisma.call.findUnique({
       where: { id: callId },
@@ -141,9 +122,6 @@ export class CallService {
     logger.debug('Transcript updated', { callId });
   }
 
-  /**
-   * Met à jour le statut de l'appel
-   */
   async updateCallStatus(
     callId: string,
     status: CallStatus,
@@ -200,9 +178,6 @@ export class CallService {
     }
   }
 
-  /**
-   * Ajoute une ligne à la transcription de l'appel
-   */
   async appendTranscript(callId: string, line: string): Promise<void> {
     const call = await prisma.call.findUnique({
       where: { id: callId },
@@ -228,9 +203,6 @@ export class CallService {
     logger.debug('Transcript appended', { callId, line });
   }
 
-  /**
-   * Enregistre un symptôme détecté
-   */
   async createSymptom(callId: string, symptom: DetectedSymptom): Promise<Symptom> {
     return prisma.symptom.create({
       data: {
@@ -245,9 +217,6 @@ export class CallService {
     });
   }
 
-  /**
-   * Enregistre un drapeau rouge
-   */
   async createRedFlag(callId: string, redFlag: DetectedRedFlag): Promise<RedFlag> {
     return prisma.redFlag.create({
       data: {
@@ -259,9 +228,6 @@ export class CallService {
     });
   }
 
-  /**
-   * Enregistre tous les symptômes en batch
-   */
   async createSymptomsBatch(callId: string, symptoms: DetectedSymptom[]): Promise<void> {
     if (symptoms.length === 0) {
       return;
@@ -282,9 +248,6 @@ export class CallService {
     logger.info('Symptoms batch created', { callId, count: symptoms.length });
   }
 
-  /**
-   * Enregistre tous les drapeaux rouges en batch
-   */
   async createRedFlagsBatch(callId: string, redFlags: DetectedRedFlag[]): Promise<void> {
     if (redFlags.length === 0) {
       return;
@@ -302,9 +265,6 @@ export class CallService {
     logger.info('Red flags batch created', { callId, count: redFlags.length });
   }
 
-  /**
-   * Crée le rapport de triage final
-   */
   async createTriageReport(callId: string, decision: TriageDecision): Promise<TriageReport> {
     const session = await this.getSessionFromCall(callId);
 
@@ -354,10 +314,6 @@ export class CallService {
     return report;
   }
 
-  /**
-   * Récupère une session de triage à partir d'un appel
-   * (Conversion Call -> TriageSession)
-   */
   private async getSessionFromCall(callId: string): Promise<TriageSession | null> {
     const call = await this.getCallById(callId);
     if (!call) {
@@ -391,9 +347,6 @@ export class CallService {
     };
   }
 
-  /**
-   * Liste tous les appels (avec pagination)
-   */
   async listCalls(options: {
     status?: CallStatus;
     limit?: number;
@@ -411,10 +364,6 @@ export class CallService {
     });
   }
 
-  /**
-   * Récupère tous les appels actifs (IN_PROGRESS, ESCALATED)
-   * Utilisé par le dashboard des opérateurs
-   */
   async getActiveCalls() {
     logger.info('Getting active calls');
 
@@ -450,14 +399,6 @@ export class CallService {
     }
   }
 
-  /**
-   * Get patient's recent calls within the specified time window
-   * Used for providing call history context to the AI agent
-   * @param patientId - The patient's ID
-   * @param hoursAgo - Number of hours to look back (default: 24)
-   * @param excludeCallId - Optional call ID to exclude (e.g., the current call)
-   * @returns Array of recent calls with relevant information
-   */
   async getRecentCallsByPatient(
     patientId: string,
     hoursAgo: number = 24,
@@ -512,9 +453,6 @@ export class CallService {
     }
   }
 
-  /**
-   * Met à jour les informations du patient
-   */
   async updatePatientInfo(patientId: string, fields: Record<string, unknown>): Promise<void> {
     logger.info('Updating patient info', { patientId, fields: Object.keys(fields) });
 
@@ -531,9 +469,6 @@ export class CallService {
     }
   }
 
-  /**
-   * Met à jour les champs du call (priority, symptoms, vitalSigns, etc.)
-   */
   async updateCallFields(callId: string, fields: Record<string, unknown>): Promise<void> {
     logger.info('Updating call fields', { callId, fields: Object.keys(fields) });
 
@@ -550,9 +485,6 @@ export class CallService {
     }
   }
 
-  /**
-   * Supprime un appel et toutes ses données associées
-   */
   async deleteCall(callId: string): Promise<void> {
     logger.info('Deleting call', { callId });
 

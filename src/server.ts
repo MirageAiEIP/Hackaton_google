@@ -113,7 +113,7 @@ async function setupServer() {
   // Serve static files (frontend de test)
   // MUST be registered after Swagger but before routes
   const publicPath = path.join(process.cwd(), 'public');
-  logger.info('📁 Serving static files', { publicPath, prefix: '/test/' });
+  logger.info('Serving static files', { publicPath, prefix: '/test/' });
 
   await app.register(fastifyStatic, {
     root: publicPath,

@@ -4,16 +4,6 @@ import { logger } from '@/utils/logger';
 import { callService } from '@/services/call.service';
 import { twilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 
-/**
- * Event Handler: Notify ElevenLabs agent about patient's recent call history
- *
- * When a call starts:
- * 1. Get the patient's previous calls in the last 24 hours
- * 2. Format the call history in French
- * 3. Send as a contextual_update to the ElevenLabs agent
- *
- * This helps the agent provide better context-aware assistance
- */
 export class CallHistoryNotificationHandler implements IEventHandler<CallStartedEvent> {
   // Retry configuration for WebSocket connection readiness
   private readonly MAX_RETRIES = 5;
@@ -71,9 +61,6 @@ export class CallHistoryNotificationHandler implements IEventHandler<CallStarted
     }
   }
 
-  /**
-   * Format call history as a contextual message in French
-   */
   private formatCallHistory(
     calls: Array<{
       id: string;
@@ -108,10 +95,6 @@ export class CallHistoryNotificationHandler implements IEventHandler<CallStarted
     return `HISTORIQUE_PATIENT: Ce patient a contacté le SAMU dans les dernières 24 heures. Voici l'historique:\n${formattedCalls}\n\nTenez compte de ces appels précédents lors de votre évaluation.`;
   }
 
-  /**
-   * Send contextual update with exponential backoff retry
-   * Needed because WebSocket connection might not be ready immediately after CallStartedEvent
-   */
   private async sendContextualUpdateWithRetry(
     callId: string,
     message: string,

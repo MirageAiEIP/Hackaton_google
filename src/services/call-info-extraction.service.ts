@@ -5,12 +5,6 @@ import { Container } from '@/infrastructure/di/Container';
 import { CallInfoUpdatedEvent } from '@/domain/call/events/CallInfoUpdated.event';
 import { getGoogleCredentialsPath } from '@/utils/google-credentials';
 
-/**
- * Service pour extraire automatiquement les informations structurées
- * depuis le transcript d'une conversation avec Gemini via Vertex AI
- *
- * Utilise le compte de service Google Cloud (fichier JSON dans config/)
- */
 export class CallInfoExtractionService {
   private vertexAI: VertexAI | null = null;
   private model: GenerativeModel | null = null;
@@ -59,9 +53,6 @@ export class CallInfoExtractionService {
     });
   }
 
-  /**
-   * Extrait les informations structurées depuis un transcript de conversation
-   */
   async extractCallInfo(params: { callId: string; transcript: string }): Promise<{
     success: boolean;
     extracted: {
@@ -213,9 +204,6 @@ FORMAT DE RÉPONSE (JSON uniquement, sans markdown):
     }
   }
 
-  /**
-   * Extrait et met à jour automatiquement les informations du call
-   */
   async extractAndUpdateCall(params: {
     callId: string;
     transcript: string;

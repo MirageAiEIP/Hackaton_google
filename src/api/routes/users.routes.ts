@@ -37,10 +37,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
   const authenticate = createAuthMiddleware(accessTokenSecret);
   const adminOnly = requireRole('ADMIN');
 
-  /**
-   * GET /api/v1/users
-   * List all users (Admin only)
-   */
   app.get<{ Querystring: ListUsersQuery }>(
     '/',
     {
@@ -87,10 +83,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/users/:id
-   * Get user by ID (Admin only)
-   */
   app.get<{ Params: { id: string } }>(
     '/:id',
     {
@@ -136,10 +128,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * PATCH /api/v1/users/:id
-   * Update user (Admin only)
-   */
   app.patch<{ Params: { id: string }; Body: UpdateUserInput }>(
     '/:id',
     {
@@ -199,10 +187,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * DELETE /api/v1/users/:id
-   * Deactivate user (Admin only)
-   */
   app.delete<{ Params: { id: string } }>(
     '/:id',
     {
@@ -265,10 +249,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * PATCH /api/v1/users/:id/password
-   * Reset user password (Admin only)
-   */
   app.patch<{ Params: { id: string }; Body: ResetPasswordInput }>(
     '/:id/password',
     {
