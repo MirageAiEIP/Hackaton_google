@@ -251,10 +251,11 @@ export class TwilioElevenLabsProxyService {
         try {
           const message = JSON.parse(data.toString());
 
-          logger.info('ElevenLabs message received', {
-            type: message.type,
+          logger.info(`ElevenLabs message: ${message.type}`, {
             callSid,
-            messagePreview: JSON.stringify(message).substring(0, 200),
+            hasAudio: !!message.audio_event,
+            hasTranscript: !!message.transcript_event,
+            conversationId: message.conversation_id,
           });
 
           // Capturer le conversation_id d'ElevenLabs et le mapper au callId
@@ -264,6 +265,10 @@ export class TwilioElevenLabsProxyService {
 
           // Forward audio to Twilio
           if (message.type === 'audio' && message.audio_event) {
+            logger.info('Forwarding ElevenLabs audio to Twilio', {
+              callSid,
+              audioLength: message.audio_event.audio_base_64?.length || 0,
+            });
             const audioBase64 = message.audio_event.audio_base_64;
 
             twilioWs.send(
@@ -289,10 +294,21 @@ export class TwilioElevenLabsProxyService {
 
           // Log transcript
           if (message.type === 'transcript' && message.transcript_event) {
-            logger.info('ElevenLabs transcript', {
-              text: message.transcript_event.text,
-              role: message.transcript_event.role,
+            logger.info(
+              `ElevenLabs transcript [${message.transcript_event.role}]: ${message.transcript_event.text}`,
+              {
+                role: message.transcript_event.role,
+                callSid,
+                conversationId,
+              }
+            );
+          }
+
+          // Log other message types
+          if (message.type && !['audio', 'transcript'].includes(message.type)) {
+            logger.info(`ElevenLabs special message: ${message.type}`, {
               callSid,
+              messageKeys: Object.keys(message),
             });
           }
         } catch (error) {
