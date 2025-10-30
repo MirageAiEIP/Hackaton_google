@@ -26,11 +26,6 @@ interface AuthenticatedConnection {
   subscribedToCallId: string | null; // Track which call transcript the client is subscribed to
 }
 
-/**
- * WebSocket Gateway for Queue Dashboard
- * Secured route for OPERATOR and ADMIN roles only
- * Provides real-time queue updates with JWT authentication
- */
 export class QueueDashboardGateway {
   private connections: Map<string, AuthenticatedConnection> = new Map();
   private pingIntervals: Map<string, NodeJS.Timeout> = new Map();
@@ -67,10 +62,6 @@ export class QueueDashboardGateway {
     }
   }
 
-  /**
-   * Handle WebSocket connection
-   * Called from server.ts when client connects to /ws/queue-dashboard
-   */
   async handleConnection(socket: WebSocket, request: IncomingMessage): Promise<void> {
     const connectionId = this.generateConnectionId();
 
@@ -133,9 +124,6 @@ export class QueueDashboardGateway {
     }
   }
 
-  /**
-   * Send initial queue snapshot to client
-   */
   private async sendInitialSnapshot(socket: WebSocket): Promise<void> {
     try {
       // Get active queue entries (WAITING, CLAIMED, IN_PROGRESS)
@@ -181,9 +169,6 @@ export class QueueDashboardGateway {
     }
   }
 
-  /**
-   * Handle queue entry added event
-   */
   private async handleQueueEntryAdded(event: QueueEntryAddedEvent): Promise<void> {
     try {
       const queueEntry = await queueService.getQueueEntryById(event.queueEntryId);
@@ -226,9 +211,6 @@ export class QueueDashboardGateway {
     }
   }
 
-  /**
-   * Handle queue entry status changed event
-   */
   private async handleQueueEntryStatusChanged(event: QueueEntryStatusChangedEvent): Promise<void> {
     try {
       const queueEntry = await queueService.getQueueEntryById(event.queueEntryId);
@@ -278,9 +260,6 @@ export class QueueDashboardGateway {
     }
   }
 
-  /**
-   * Handle incoming message from client
-   */
   private async handleMessage(
     connectionId: string,
     data: Buffer,
@@ -344,9 +323,6 @@ export class QueueDashboardGateway {
     }
   }
 
-  /**
-   * Handle client disconnection
-   */
   private handleDisconnection(connectionId: string): void {
     const connection = this.connections.get(connectionId);
     if (connection) {
@@ -368,9 +344,6 @@ export class QueueDashboardGateway {
     }
   }
 
-  /**
-   * Start heartbeat (ping/pong) for connection
-   */
   private startHeartbeat(connectionId: string, socket: WebSocket): void {
     const interval = setInterval(() => {
       if (socket.readyState === WS.OPEN) {
@@ -400,9 +373,6 @@ export class QueueDashboardGateway {
     }
   }
 
-  /**
-   * Broadcast message to all connected clients
-   */
   private broadcastToAll(message: QueueOutgoingMessage): void {
     let sent = 0;
     for (const connection of this.connections.values()) {
@@ -416,9 +386,6 @@ export class QueueDashboardGateway {
     });
   }
 
-  /**
-   * Broadcast transcript update to clients subscribed to the specific call
-   */
   public broadcastTranscriptUpdate(callId: string, transcript: string): void {
     const message: QueueOutgoingMessage = {
       type: 'queue:transcript-updated',
@@ -447,9 +414,6 @@ export class QueueDashboardGateway {
     });
   }
 
-  /**
-   * Send current transcript to a specific client when they subscribe
-   */
   private async sendCurrentTranscript(socket: WebSocket, callId: string): Promise<void> {
     try {
       const call = await callService.getCallById(callId);
@@ -481,16 +445,10 @@ export class QueueDashboardGateway {
     }
   }
 
-  /**
-   * Generate unique connection ID
-   */
   private generateConnectionId(): string {
     return `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  /**
-   * Get current statistics
-   */
   getStats(): {
     totalConnections: number;
     connectionsByRole: Record<string, number>;
@@ -507,9 +465,6 @@ export class QueueDashboardGateway {
     };
   }
 
-  /**
-   * Shutdown gateway
-   */
   async shutdown(): Promise<void> {
     logger.info('Shutting down QueueDashboardGateway', {
       activeConnections: this.connections.size,

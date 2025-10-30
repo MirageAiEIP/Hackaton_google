@@ -4,19 +4,6 @@ import { logger } from '@/utils/logger';
 import { executeGetPatientHistory } from '@/tools/get-patient-history.tool';
 import { TwilioElevenLabsProxyService } from '@/services/twilio-elevenlabs-proxy.service';
 
-/**
- * ElevenLabs Client Tool: get_current_call_info
- *
- * Récupère les informations disponibles sur l'appel en cours et le patient
- * (identité, adresse, antécédents, appels précédents).
- *
- * USAGE: Les agents doivent TOUJOURS appeler ce tool en premier
- * au début de la conversation pour récupérer le contexte.
- *
- * NOTE: ElevenLabs envoie automatiquement `conversation_id` dans les webhooks.
- * Le tool résout automatiquement le callId depuis le conversationId.
- */
-
 export const getCurrentCallInfoSchema = z.object({
   conversation_id: z.string().describe('ID de conversation ElevenLabs'),
 });

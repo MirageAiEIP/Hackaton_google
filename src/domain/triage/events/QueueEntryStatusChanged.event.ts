@@ -1,9 +1,5 @@
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * QueueEntryStatusChangedEvent
- * Published when a queue entry's status changes (WAITING → CLAIMED → COMPLETED)
- */
 export class QueueEntryStatusChangedEvent extends DomainEvent {
   constructor(
     public readonly queueEntryId: string,

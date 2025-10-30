@@ -1,10 +1,6 @@
 import { logger } from '@/utils/logger';
 import { loadSecrets } from '@/config/secrets.config';
 
-/**
- * ElevenLabs Speech-to-Text Service
- * Transcrit l'audio en texte en utilisant l'API ElevenLabs STT
- */
 export class ElevenLabsSTTService {
   private apiKey: string = '';
   private initialized = false;
@@ -22,12 +18,6 @@ export class ElevenLabsSTTService {
     logger.info('ElevenLabs STT Service initialized');
   }
 
-  /**
-   * Transcrit un buffer audio en texte
-   * @param audioBuffer Buffer audio (format supporté: mp3, wav, webm, etc.)
-   * @param options Options de transcription
-   * @returns Transcription
-   */
   async transcribeAudio(
     audioBuffer: Buffer,
     options: {
@@ -134,10 +124,6 @@ export class ElevenLabsSTTService {
     }
   }
 
-  /**
-   * Transcrit un chunk audio (mode streaming)
-   * Accumule les chunks et transcrit par batch pour réduire les appels API
-   */
   async transcribeAudioChunk(
     audioChunk: Buffer,
     context: {

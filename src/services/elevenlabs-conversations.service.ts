@@ -1,11 +1,6 @@
 import { logger } from '@/utils/logger';
 import { loadSecrets } from '@/config/secrets.config';
 
-/**
- * Service pour gérer les conversations ElevenLabs
- * Documentation: https://elevenlabs.io/docs/api-reference/conversations
- */
-
 interface ConversationListItem {
   agent_id: string;
   conversation_id: string;
@@ -85,9 +80,6 @@ export class ElevenLabsConversationsService {
     }
   }
 
-  /**
-   * Liste les conversations avec pagination
-   */
   async listConversations(
     params: ListConversationsParams = {}
   ): Promise<ConversationsListResponse> {
@@ -139,9 +131,6 @@ export class ElevenLabsConversationsService {
     }
   }
 
-  /**
-   * Récupère toutes les conversations (toutes les pages)
-   */
   async getAllConversations(
     params: Omit<ListConversationsParams, 'cursor'> = {}
   ): Promise<ConversationListItem[]> {
@@ -173,9 +162,6 @@ export class ElevenLabsConversationsService {
     return allConversations;
   }
 
-  /**
-   * Récupère les détails d'une conversation
-   */
   async getConversationDetails(conversationId: string): Promise<ConversationDetails> {
     await this.initialize();
 
@@ -210,9 +196,6 @@ export class ElevenLabsConversationsService {
     }
   }
 
-  /**
-   * Télécharge l'audio d'une conversation
-   */
   async getConversationAudio(conversationId: string): Promise<Buffer> {
     await this.initialize();
 
@@ -247,9 +230,6 @@ export class ElevenLabsConversationsService {
     }
   }
 
-  /**
-   * Supprime une conversation
-   */
   async deleteConversation(conversationId: string): Promise<void> {
     await this.initialize();
 
@@ -276,9 +256,6 @@ export class ElevenLabsConversationsService {
     }
   }
 
-  /**
-   * Formate le transcript pour affichage
-   */
   formatTranscript(transcript: TranscriptMessage[]): string {
     return transcript
       .map((msg) => {
@@ -289,9 +266,6 @@ export class ElevenLabsConversationsService {
       .join('\n');
   }
 
-  /**
-   * Extrait les tool calls du transcript (si présents dans les messages)
-   */
   extractToolCalls(
     transcript: TranscriptMessage[]
   ): Array<{ tool: string; time: number; params: string }> {

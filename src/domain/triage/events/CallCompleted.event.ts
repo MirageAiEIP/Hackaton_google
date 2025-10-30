@@ -1,9 +1,5 @@
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * CallCompletedEvent
- * Published when a call is successfully completed
- */
 export class CallCompletedEvent extends DomainEvent {
   constructor(
     public readonly callId: string,

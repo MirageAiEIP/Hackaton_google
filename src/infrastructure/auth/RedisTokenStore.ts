@@ -8,26 +8,12 @@ interface TokenMetadata {
   userAgent?: string;
 }
 
-/**
- * Redis Token Store
- *
- * Manages refresh tokens in Redis with automatic expiration
- */
 export class RedisTokenStore {
   private readonly KEY_PREFIX = 'refresh_token';
   private readonly DEFAULT_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 
   constructor(private readonly redis: Redis) {}
 
-  /**
-   * Store a refresh token in Redis
-   *
-   * @param userId - User ID
-   * @param tokenId - Unique token ID
-   * @param employeeId - Employee ID for metadata
-   * @param expiresIn - TTL in seconds (default: 7 days)
-   * @param userAgent - Optional user agent string
-   */
   async storeRefreshToken(
     userId: string,
     tokenId: string,
@@ -55,13 +41,6 @@ export class RedisTokenStore {
     }
   }
 
-  /**
-   * Verify if a refresh token exists and is valid
-   *
-   * @param userId - User ID
-   * @param tokenId - Token ID
-   * @returns true if token exists and is valid
-   */
   async verifyRefreshToken(userId: string, tokenId: string): Promise<boolean> {
     const key = this.buildKey(userId, tokenId);
 
@@ -74,13 +53,6 @@ export class RedisTokenStore {
     }
   }
 
-  /**
-   * Get refresh token metadata
-   *
-   * @param userId - User ID
-   * @param tokenId - Token ID
-   * @returns Token metadata or null if not found
-   */
   async getTokenMetadata(userId: string, tokenId: string): Promise<TokenMetadata | null> {
     const key = this.buildKey(userId, tokenId);
 
@@ -93,12 +65,6 @@ export class RedisTokenStore {
     }
   }
 
-  /**
-   * Revoke a specific refresh token
-   *
-   * @param userId - User ID
-   * @param tokenId - Token ID
-   */
   async revokeRefreshToken(userId: string, tokenId: string): Promise<void> {
     const key = this.buildKey(userId, tokenId);
 
@@ -111,11 +77,6 @@ export class RedisTokenStore {
     }
   }
 
-  /**
-   * Revoke all refresh tokens for a user (logout from all devices)
-   *
-   * @param userId - User ID
-   */
   async revokeAllUserTokens(userId: string): Promise<void> {
     const pattern = `${this.KEY_PREFIX}:${userId}:*`;
 
@@ -135,12 +96,6 @@ export class RedisTokenStore {
     }
   }
 
-  /**
-   * Get count of active tokens for a user
-   *
-   * @param userId - User ID
-   * @returns Number of active tokens
-   */
   async getUserTokenCount(userId: string): Promise<number> {
     const pattern = `${this.KEY_PREFIX}:${userId}:*`;
 
@@ -153,9 +108,6 @@ export class RedisTokenStore {
     }
   }
 
-  /**
-   * Build Redis key for a token
-   */
   private buildKey(userId: string, tokenId: string): string {
     return `${this.KEY_PREFIX}:${userId}:${tokenId}`;
   }

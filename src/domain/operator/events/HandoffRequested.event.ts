@@ -1,9 +1,5 @@
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * Domain Event: Handoff requested (AI to Human)
- * Published when the AI agent or patient requests handoff to human operator
- */
 export class HandoffRequestedEvent extends DomainEvent {
   constructor(
     public readonly callId: string,

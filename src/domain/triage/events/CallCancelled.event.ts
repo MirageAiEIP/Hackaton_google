@@ -1,9 +1,5 @@
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * CallCancelledEvent
- * Published when a call is cancelled by caller or system
- */
 export class CallCancelledEvent extends DomainEvent {
   constructor(
     public readonly callId: string,

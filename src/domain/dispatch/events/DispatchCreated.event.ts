@@ -1,9 +1,5 @@
 import { DomainEvent } from '@/domain/shared/DomainEvent';
 
-/**
- * DispatchCreatedEvent
- * Published when SMUR dispatch is created for P0/P1 emergency
- */
 export class DispatchCreatedEvent extends DomainEvent {
   constructor(
     public readonly dispatchId: string,

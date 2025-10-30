@@ -3,17 +3,9 @@ import { z } from 'zod';
 import { audioService } from '@/services/audio.service';
 import { logger } from '@/utils/logger';
 
-/**
- * Routes for call audio recordings
- * Listen to, download, and manage call audio
- */
 export const audioRoutes: FastifyPluginAsync = async (app) => {
-  logger.info('🔊 Registering Audio Routes at /api/v1/audio');
+  logger.info('Registering Audio Routes at /api/v1/audio');
 
-  /**
-   * GET /api/v1/audio/:callId
-   * Get audio information for a call
-   */
   app.get(
     '/:callId',
     {
@@ -58,7 +50,7 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callId } = paramsSchema.parse(request.params);
 
-        logger.info('🔊 GET /api/v1/audio/:callId called', { callId });
+        logger.info('GET /api/v1/audio/:callId called', { callId });
 
         const audioData = await audioService.getCallAudio(callId);
 
@@ -86,10 +78,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/audio/:callId/stream
-   * Stream audio file for a call
-   */
   app.get(
     '/:callId/stream',
     {
@@ -132,7 +120,7 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
         const { callId } = paramsSchema.parse(request.params);
         const { download } = querySchema.parse(request.query);
 
-        logger.info('🔊 GET /api/v1/audio/:callId/stream called', { callId, download });
+        logger.info('GET /api/v1/audio/:callId/stream called', { callId, download });
 
         const audioData = await audioService.getCallAudioBuffer(callId);
 
@@ -180,10 +168,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/audio/:callId/download
-   * Download audio file
-   */
   app.get(
     '/:callId/download',
     {
@@ -211,7 +195,7 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callId } = paramsSchema.parse(request.params);
 
-        logger.info('📥 GET /api/v1/audio/:callId/download called', { callId });
+        logger.info('GET /api/v1/audio/:callId/download called', { callId });
 
         const audioData = await audioService.getCallAudioBuffer(callId);
 
@@ -240,10 +224,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/audio/:callId/metadata
-   * Get audio metadata (duration, size, format)
-   */
   app.get(
     '/:callId/metadata',
     {
@@ -289,7 +269,7 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callId } = paramsSchema.parse(request.params);
 
-        logger.info('📊 GET /api/v1/audio/:callId/metadata called', { callId });
+        logger.info('GET /api/v1/audio/:callId/metadata called', { callId });
 
         const metadata = await audioService.getAudioMetadata(callId);
 
@@ -317,10 +297,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * GET /api/v1/audio/list
-   * List all calls with audio
-   */
   app.get(
     '/list',
     {
@@ -383,7 +359,7 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { limit, offset, status } = querySchema.parse(request.query);
 
-        logger.info('📋 GET /api/v1/audio/list called', { limit, offset, status });
+        logger.info('GET /api/v1/audio/list called', { limit, offset, status });
 
         const calls = await audioService.listCallsWithAudio({ limit, offset, status });
 
@@ -404,10 +380,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * POST /api/v1/audio/:callId/fetch
-   * Fetch audio from ElevenLabs if not already saved
-   */
   app.post(
     '/:callId/fetch',
     {
@@ -445,7 +417,7 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callId } = paramsSchema.parse(request.params);
 
-        logger.info('🔄 POST /api/v1/audio/:callId/fetch called', { callId });
+        logger.info('POST /api/v1/audio/:callId/fetch called', { callId });
 
         // This will fetch from ElevenLabs if not in database
         const audioData = await audioService.getCallAudio(callId);
@@ -477,10 +449,6 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * DELETE /api/v1/audio/:callId
-   * Delete audio recording (cleanup)
-   */
   app.delete(
     '/:callId',
     {
@@ -517,7 +485,7 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { callId } = paramsSchema.parse(request.params);
 
-        logger.info('🗑️  DELETE /api/v1/audio/:callId called', { callId });
+        logger.info('DELETE /api/v1/audio/:callId called', { callId });
 
         const success = await audioService.deleteAudio(callId);
 
@@ -545,5 +513,5 @@ export const audioRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  logger.info('✅ Audio routes registered successfully');
+  logger.info('Audio routes registered successfully');
 };

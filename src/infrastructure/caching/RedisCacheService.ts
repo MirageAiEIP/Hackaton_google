@@ -1,9 +1,6 @@
 import Redis from 'ioredis';
 import { logger } from '@/utils/logger';
 
-/**
- * Cache Service interface
- */
 export interface ICacheService {
   get<T>(key: string): Promise<T | null>;
   set(key: string, value: unknown, ttl?: number): Promise<void>;
@@ -12,9 +9,6 @@ export interface ICacheService {
   has(key: string): Promise<boolean>;
 }
 
-/**
- * Redis-based cache implementation
- */
 export class RedisCacheService implements ICacheService {
   private readonly redis: Redis;
 
@@ -30,9 +24,6 @@ export class RedisCacheService implements ICacheService {
     });
   }
 
-  /**
-   * Get value from cache
-   */
   async get<T>(key: string): Promise<T | null> {
     try {
       const value = await this.redis.get(key);
@@ -50,10 +41,6 @@ export class RedisCacheService implements ICacheService {
     }
   }
 
-  /**
-   * Set value in cache
-   * @param ttl - Time to live in seconds (optional)
-   */
   async set(key: string, value: unknown, ttl?: number): Promise<void> {
     try {
       const serialized = JSON.stringify(value);
@@ -71,9 +58,6 @@ export class RedisCacheService implements ICacheService {
     }
   }
 
-  /**
-   * Delete value from cache
-   */
   async delete(key: string): Promise<void> {
     try {
       await this.redis.del(key);
@@ -83,10 +67,6 @@ export class RedisCacheService implements ICacheService {
     }
   }
 
-  /**
-   * Delete all keys matching pattern
-   * @param pattern - Redis pattern (e.g., "patient:*")
-   */
   async deletePattern(pattern: string): Promise<void> {
     try {
       const keys = await this.redis.keys(pattern);
@@ -100,9 +80,6 @@ export class RedisCacheService implements ICacheService {
     }
   }
 
-  /**
-   * Check if key exists
-   */
   async has(key: string): Promise<boolean> {
     try {
       const exists = await this.redis.exists(key);
@@ -113,9 +90,6 @@ export class RedisCacheService implements ICacheService {
     }
   }
 
-  /**
-   * Disconnect from Redis
-   */
   async disconnect(): Promise<void> {
     await this.redis.quit();
     logger.info('Redis cache disconnected');

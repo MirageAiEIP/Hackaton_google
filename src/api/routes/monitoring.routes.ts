@@ -4,22 +4,7 @@ import { audioMonitoringService } from '@/services/audio-monitoring.service';
 import { logger } from '@/utils/logger';
 import { z } from 'zod';
 
-/**
- * Routes for real-time call monitoring
- *
- * WebSocket endpoints:
- * - /monitoring/twilio-stream/:callSid - Receives audio stream from Twilio
- * - /monitoring/listen/:callSid - Operators connect to listen to active calls
- *
- * REST endpoints:
- * - GET /monitoring/active-calls - List all calls available for monitoring
- * - GET /monitoring/stream-info/:callSid - Get stream information
- */
 export const monitoringRoutes: FastifyPluginAsync = async (app) => {
-  /**
-   * WebSocket endpoint for Twilio audio stream
-   * Twilio sends audio here when using bidirectional streaming
-   */
   app.get('/twilio-stream/:callSid', { websocket: true }, async (connection, request) => {
     const { callSid } = request.params as { callSid: string };
 
@@ -29,10 +14,6 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
     audioMonitoringService.handleTwilioConnection(callSid, connection as unknown as WebSocket);
   });
 
-  /**
-   * WebSocket endpoint for operators to listen to active calls
-   * Operators/dashboard connects here to monitor a call in real-time
-   */
   app.get('/listen/:callSid', { websocket: true }, async (connection, request) => {
     const { callSid } = request.params as { callSid: string };
     const query = request.query as {
@@ -74,9 +55,6 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  /**
-   * REST endpoint to get all active calls available for monitoring
-   */
   app.get(
     '/active-calls',
     {
@@ -133,9 +111,6 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * REST endpoint to get stream information for a specific call
-   */
   app.get(
     '/stream-info/:callSid',
     {
@@ -216,9 +191,6 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  /**
-   * REST endpoint to register a new stream (called when inbound call starts)
-   */
   app.post(
     '/register-stream',
     {

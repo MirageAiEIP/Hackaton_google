@@ -122,9 +122,6 @@ export class PrismaUserRepository implements IUserRepository {
     return count > 0;
   }
 
-  /**
-   * Convert Prisma model to Domain entity
-   */
   private toDomain(prismaUser: Prisma.UserGetPayload<object>): User {
     return User.fromObject({
       id: prismaUser.id,

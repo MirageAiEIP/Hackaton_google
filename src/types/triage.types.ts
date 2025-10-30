@@ -17,9 +17,6 @@ export type {
   SeverityLevel,
 };
 
-/**
- * Message d'un échange dans la conversation de triage
- */
 export interface TriageMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -30,9 +27,6 @@ export interface TriageMessage {
   priorityAtTime?: PriorityLevel;
 }
 
-/**
- * État complet d'une session de triage
- */
 export interface TriageSession {
   callId: string;
   patientId?: string;
@@ -48,9 +42,6 @@ export interface TriageSession {
   updatedAt: Date;
 }
 
-/**
- * Symptôme détecté durant le triage
- */
 export interface DetectedSymptom {
   name: string;
   severity: SeverityLevel;
@@ -61,9 +52,6 @@ export interface DetectedSymptom {
   mentionedInMessages: number[];
 }
 
-/**
- * Drapeau rouge détecté (urgence vitale)
- */
 export interface DetectedRedFlag {
   flag: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM';
@@ -73,9 +61,6 @@ export interface DetectedRedFlag {
   confidence: number;
 }
 
-/**
- * Évaluation ABCD complète
- */
 export interface ABCDAssessment {
   airway: {
     status: ABCDStatus;
@@ -103,9 +88,6 @@ export interface ABCDAssessment {
   overallScore: number;
 }
 
-/**
- * Métadonnées de la session
- */
 export interface TriageMetadata {
   agentVersion: string;
   modelUsed: string;
@@ -116,9 +98,6 @@ export interface TriageMetadata {
   escalationReason?: string;
 }
 
-/**
- * Décision de triage finale
- */
 export interface TriageDecision {
   priorityLevel: PriorityLevel;
   confidence: number;
@@ -132,9 +111,6 @@ export interface TriageDecision {
   mitigatingFactors: string[];
 }
 
-/**
- * Contexte pour les outils de l'agent
- */
 export interface TriageToolContext {
   callId: string;
   currentSession: TriageSession;
@@ -142,9 +118,6 @@ export interface TriageToolContext {
   conversationHistory: TriageMessage[];
 }
 
-/**
- * Résultat d'analyse de priorité
- */
 export interface PriorityAnalysisResult {
   suggestedPriority: PriorityLevel;
   confidence: number;
@@ -159,9 +132,6 @@ export interface PriorityAnalysisResult {
   };
 }
 
-/**
- * Question ABCD à poser
- */
 export interface ABCDQuestion {
   category: 'AIRWAY' | 'BREATHING' | 'CIRCULATION' | 'DISABILITY';
   question: string;
@@ -170,9 +140,6 @@ export interface ABCDQuestion {
   expectedInfo: string[];
 }
 
-/**
- * Payload pour créer un nouvel appel
- */
 export interface CreateCallPayload {
   phoneNumber: string;
   initialMessage?: string;
@@ -186,18 +153,12 @@ export interface CreateCallPayload {
   audioUrl?: string;
 }
 
-/**
- * Payload pour continuer une conversation
- */
 export interface ContinueCallPayload {
   callId: string;
   message: string;
   audioUrl?: string;
 }
 
-/**
- * Réponse de l'agent
- */
 export interface AgentResponse {
   message: string;
   currentPriority: PriorityLevel;
@@ -213,9 +174,6 @@ export interface AgentResponse {
   };
 }
 
-/**
- * Options de configuration pour le service de triage
- */
 export interface TriageServiceConfig {
   enableAudioAnalysis: boolean;
   enableMemory: boolean;

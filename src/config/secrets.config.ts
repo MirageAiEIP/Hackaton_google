@@ -1,11 +1,6 @@
 import { secretManagerService } from '@/services/secret-manager.service';
 import { logger } from '@/utils/logger';
 
-/**
- * Configuration qui charge les secrets depuis Google Secret Manager
- * Fallback vers les variables d'environnement pour le développement local
- */
-
 interface AppSecrets {
   elevenlabsApiKey: string;
   elevenlabsAgentId: string;
@@ -22,10 +17,6 @@ interface AppSecrets {
 
 let secretsCache: AppSecrets | null = null;
 
-/**
- * Charge tous les secrets nécessaires à l'application
- * Mode hybride: Secret Manager en production, .env en développement
- */
 export async function loadSecrets(): Promise<AppSecrets> {
   // Retourner le cache si déjà chargé
   if (secretsCache) {
@@ -152,9 +143,6 @@ export async function loadSecrets(): Promise<AppSecrets> {
   }
 }
 
-/**
- * Récupère un secret spécifique
- */
 export async function getSecret(
   secretName: 'elevenlabs-api-key' | 'jwt-secret' | 'encryption-key' | 'database-url'
 ): Promise<string> {
@@ -175,9 +163,6 @@ export async function getSecret(
   return secrets[mappedKey];
 }
 
-/**
- * Recharge les secrets (utile après une mise à jour)
- */
 export function reloadSecrets(): void {
   secretsCache = null;
   secretManagerService.clearCache();

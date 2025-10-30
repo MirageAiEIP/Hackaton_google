@@ -13,31 +13,17 @@ export interface UpdateUserData {
   isActive?: boolean;
 }
 
-/**
- * User Service
- *
- * Handles user management operations
- */
 export class UserService {
   constructor(private readonly userRepository: IUserRepository) {}
 
-  /**
-   * Get user by ID
-   */
   async getUserById(id: string): Promise<User | null> {
     return this.userRepository.findById(id);
   }
 
-  /**
-   * Get user by employee ID
-   */
   async getUserByEmployeeId(employeeId: string): Promise<User | null> {
     return this.userRepository.findByEmployeeId(employeeId);
   }
 
-  /**
-   * List users with optional filters and pagination
-   */
   async listUsers(
     filters?: UserFilters,
     pagination?: PaginationOptions
@@ -45,9 +31,6 @@ export class UserService {
     return this.userRepository.findAll(filters, pagination);
   }
 
-  /**
-   * Update user information
-   */
   async updateUser(id: string, data: UpdateUserData): Promise<User> {
     // Get existing user
     const user = await this.userRepository.findById(id);
@@ -83,9 +66,6 @@ export class UserService {
     return updated;
   }
 
-  /**
-   * Deactivate user (soft delete)
-   */
   async deactivateUser(id: string): Promise<void> {
     const user = await this.userRepository.findById(id);
     if (!user) {
@@ -98,9 +78,6 @@ export class UserService {
     logger.info('User deactivated', { userId: id });
   }
 
-  /**
-   * Change user password
-   */
   async changePassword(id: string, oldPassword: string, newPassword: string): Promise<void> {
     // Get user
     const user = await this.userRepository.findById(id);
@@ -121,9 +98,6 @@ export class UserService {
     logger.info('User password changed', { userId: id });
   }
 
-  /**
-   * Reset user password (admin only)
-   */
   async resetPassword(id: string, newPassword: string): Promise<void> {
     // Get user
     const user = await this.userRepository.findById(id);

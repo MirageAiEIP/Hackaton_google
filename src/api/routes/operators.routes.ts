@@ -4,11 +4,6 @@ import { logger } from '@/utils/logger';
 import { z } from 'zod';
 import { OperatorStatus } from '@/domain/operator/entities/Operator.entity';
 
-/**
- * Operators Routes
- * Simple service-based architecture
- */
-
 // Validation schemas
 const createOperatorSchema = z.object({
   name: z.string().min(1),
@@ -25,10 +20,6 @@ const updateStatusSchema = z.object({
 });
 
 export const operatorsRoutes = (app: FastifyInstance) => {
-  /**
-   * Create operator
-   * POST /api/v1/operators
-   */
   app.post(
     '/',
     {
@@ -69,10 +60,6 @@ export const operatorsRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Get all operators
-   * GET /api/v1/operators
-   */
   app.get(
     '/',
     {
@@ -103,10 +90,6 @@ export const operatorsRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Update operator status
-   * PATCH /api/v1/operators/:operatorId/status
-   */
   app.patch(
     '/:operatorId/status',
     {
@@ -157,10 +140,6 @@ export const operatorsRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Claim a call from queue
-   * POST /api/v1/operators/:operatorId/claim/:queueEntryId
-   */
   app.post(
     '/:operatorId/claim/:queueEntryId',
     {
@@ -204,10 +183,6 @@ export const operatorsRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Get available operators
-   * GET /api/v1/operators/available
-   */
   app.get(
     '/available',
     {

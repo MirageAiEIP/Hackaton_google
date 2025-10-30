@@ -11,19 +11,7 @@ import { executeUpdateCallInfo, updateCallInfoSchema } from '@/tools/update-call
 import { dispatchSMURTool } from '@/tools/dispatch-smur.tool';
 import { logger } from '@/utils/logger';
 
-/**
- * ElevenLabs Client Tools Routes
- * These endpoints are called by the ElevenLabs agent via webhooks
- * Each tool is configured in the ElevenLabs dashboard
- */
 export const toolsRoutes = (app: FastifyInstance) => {
-  /**
-   * Get Pharmacy On Duty Tool
-   * POST /api/v1/tools/get_pharmacy_on_duty
-   *
-   * Called by AI agent to find nearby pharmacies on duty
-   * Returns: list of open pharmacies with addresses and phone numbers
-   */
   app.post(
     '/get_pharmacy_on_duty',
     {
@@ -96,13 +84,6 @@ export const toolsRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Get Current Call Info Tool
-   * POST /api/v1/tools/get_current_call_info
-   *
-   * Called by AI agent to retrieve complete call + patient + history context
-   * MUST be called FIRST at the beginning of the conversation
-   */
   app.post(
     '/get_current_call_info',
     {
@@ -144,12 +125,6 @@ export const toolsRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Update Call Info Tool (SIMPLIFIÉ)
-   * POST /api/v1/tools/update_call_info
-   *
-   * Met à jour les infos de l'appel - TOUS les champs sont optionnels et aplatis
-   */
   app.post(
     '/update_call_info',
     {
@@ -198,13 +173,6 @@ export const toolsRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Dispatch SMUR Tool
-   * POST /api/v1/tools/dispatch_smur
-   *
-   * Called by AI agent to dispatch emergency services (P0/P1 only)
-   * Returns: dispatch ID, ETA, confirmation message
-   */
   app.post(
     '/dispatch_smur',
     {
@@ -274,13 +242,6 @@ export const toolsRoutes = (app: FastifyInstance) => {
     }
   );
 
-  /**
-   * Conversation Initialization Webhook (DEBUG)
-   * POST /api/v1/tools/conversation-init
-   *
-   * Called by ElevenLabs at the START of each conversation to retrieve initial client data
-   * This endpoint logs everything ElevenLabs sends to help us understand the payload structure
-   */
   app.post('/conversation-init', async (request, reply) => {
     // ===== LOG EVERYTHING FROM ELEVENLABS =====
     logger.info('[DEBUG] ElevenLabs conversation-init webhook called', {
@@ -327,10 +288,6 @@ export const toolsRoutes = (app: FastifyInstance) => {
     });
   });
 
-  /**
-   * Health check for tools endpoints
-   * GET /api/v1/tools/health
-   */
   app.get('/health', async (_request, reply) => {
     return reply.send({
       success: true,

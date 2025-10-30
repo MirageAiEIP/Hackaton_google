@@ -31,10 +31,6 @@ export interface RequestHandoffFromAgentInput {
 }
 
 export class HandoffService {
-  /**
-   * Request handoff from AI agent
-   * Auto-assigns to available operator if one exists, otherwise creates pending handoff
-   */
   async requestHandoffFromAgent(input: RequestHandoffFromAgentInput) {
     const { callId, conversationId, reason, transcript, patientSummary, aiContext } = input;
 
