@@ -72,8 +72,11 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
 
         // Validate PUBLIC_API_URL
         if (!publicUrl.startsWith('http://') && !publicUrl.startsWith('https://')) {
-          logger.error('PUBLIC_API_URL must start with http:// or https://', { publicUrl });
-          throw new Error('Invalid PUBLIC_API_URL configuration');
+          const error = new Error('Invalid PUBLIC_API_URL configuration');
+          logger.error('PUBLIC_API_URL must start with http:// or https://', error, {
+            publicUrl,
+          });
+          throw error;
         }
 
         const wsUrl = publicUrl.replace('http://', 'wss://').replace('https://', 'wss://');

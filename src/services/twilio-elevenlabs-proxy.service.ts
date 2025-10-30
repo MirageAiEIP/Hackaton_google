@@ -84,10 +84,12 @@ export class TwilioElevenLabsProxyService {
    * Extract conversation ID from ElevenLabs message
    * Handles both top-level and nested conversation_id formats
    */
-  private extractConversationId(message: any): string | undefined {
+  private extractConversationId(message: {
+    conversation_id?: string;
+    conversation_initiation_metadata_event?: { conversation_id?: string };
+  }): string | undefined {
     return (
-      message.conversation_id ||
-      message.conversation_initiation_metadata_event?.conversation_id
+      message.conversation_id || message.conversation_initiation_metadata_event?.conversation_id
     );
   }
 
