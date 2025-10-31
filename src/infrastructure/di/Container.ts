@@ -14,6 +14,8 @@ import { UserService } from '@/services/user.service';
 import { CallStartedHandler } from '@/application/events/CallStartedHandler';
 import { OperatorAvailableHandler } from '@/application/events/OperatorAvailableHandler';
 import { CallHistoryNotificationHandler } from '@/application/events/CallHistoryNotificationHandler';
+import { AmbulanceLocationUpdatedHandler } from '@/application/events/AmbulanceLocationUpdatedHandler';
+import { AmbulanceDispatchedHandler } from '@/application/events/AmbulanceDispatchedHandler';
 import { loadConfig } from '@/config/index.async';
 import { logger } from '@/utils/logger';
 
@@ -45,6 +47,8 @@ export class Container {
   private callStartedHandler!: CallStartedHandler;
   private operatorAvailableHandler!: OperatorAvailableHandler;
   private callHistoryNotificationHandler!: CallHistoryNotificationHandler;
+  private ambulanceLocationUpdatedHandler!: AmbulanceLocationUpdatedHandler;
+  private ambulanceDispatchedHandler!: AmbulanceDispatchedHandler;
 
   private constructor() {}
 
@@ -134,13 +138,20 @@ export class Container {
     this.callStartedHandler = new CallStartedHandler();
     this.operatorAvailableHandler = new OperatorAvailableHandler();
     this.callHistoryNotificationHandler = new CallHistoryNotificationHandler();
+    this.ambulanceLocationUpdatedHandler = new AmbulanceLocationUpdatedHandler();
+    this.ambulanceDispatchedHandler = new AmbulanceDispatchedHandler();
 
     // Register handlers with event bus
     await this.eventBus.subscribe('CallStartedEvent', this.callStartedHandler);
     await this.eventBus.subscribe('OperatorStatusChangedEvent', this.operatorAvailableHandler);
     await this.eventBus.subscribe('CallStartedEvent', this.callHistoryNotificationHandler);
+    await this.eventBus.subscribe(
+      'ambulance.location.updated',
+      this.ambulanceLocationUpdatedHandler
+    );
+    await this.eventBus.subscribe('ambulance.dispatched', this.ambulanceDispatchedHandler);
 
-    logger.info('Event handlers registered');
+    logger.info('Event handlers registered (including ambulance tracking)');
   }
 
   getPrisma(): PrismaClient {
