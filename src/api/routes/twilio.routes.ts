@@ -77,7 +77,7 @@ export const twilioRoutes: FastifyPluginAsync = async (app) => {
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <Stream url="${mediaStreamUrl}" track="inbound_track">
+    <Stream url="${mediaStreamUrl}">
       <Parameter name="From" value="${body.From}" />
       <Parameter name="To" value="${body.To}" />
       <Parameter name="CallSid" value="${body.CallSid}" />
