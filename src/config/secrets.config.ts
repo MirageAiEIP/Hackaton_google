@@ -142,29 +142,3 @@ export async function loadSecrets(): Promise<AppSecrets> {
     return secretsCache;
   }
 }
-
-export async function getSecret(
-  secretName: 'elevenlabs-api-key' | 'jwt-secret' | 'encryption-key' | 'database-url'
-): Promise<string> {
-  const secrets = await loadSecrets();
-
-  const mapping: Record<string, keyof AppSecrets> = {
-    'elevenlabs-api-key': 'elevenlabsApiKey',
-    'jwt-secret': 'jwtSecret',
-    'encryption-key': 'encryptionKey',
-    'database-url': 'databaseUrl',
-  };
-
-  const mappedKey = mapping[secretName];
-  if (!mappedKey) {
-    throw new Error(`Unknown secret name: ${secretName}`);
-  }
-
-  return secrets[mappedKey];
-}
-
-export function reloadSecrets(): void {
-  secretsCache = null;
-  secretManagerService.clearCache();
-  logger.info('Secrets cache cleared');
-}
