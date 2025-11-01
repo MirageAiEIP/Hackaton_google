@@ -311,6 +311,7 @@ export class TwilioElevenLabsProxyService {
                 event: 'media',
                 streamSid,
                 media: {
+                  track: 'outbound',
                   payload: audioBase64,
                 },
               })
