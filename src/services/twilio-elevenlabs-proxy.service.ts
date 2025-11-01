@@ -480,44 +480,9 @@ export class TwilioElevenLabsProxyService {
               })
             );
             audioPacketsSent++;
-            // Log packets at different times to check if payload changes from silence to real audio
-            if (
-              audioPacketsSent === 1 ||
-              audioPacketsSent === 50 ||
-              audioPacketsSent === 100 ||
-              audioPacketsSent === 150
-            ) {
-              const timingMs = audioPacketsSent * 20; // Each packet is ~20ms
-              logger.info(
-                `Twilio audio packet #${audioPacketsSent} (~${timingMs}ms) - callSid: ${callSid}, length: ${audioPayload.length}, start: "${audioPayload.substring(0, 20)}", end: "${audioPayload.substring(audioPayload.length - 20)}"`
-              );
-            }
-            if (audioPacketsSent % 100 === 0) {
-              logger.info('Sending Twilio audio to ElevenLabs', {
-                callSid,
-                packetsSent: audioPacketsSent,
-                payloadLength: audioPayload.length,
-              });
-            }
           } else {
             // Buffer audio until ElevenLabs connects
             audioBuffer.push(audioPayload);
-            if (audioBuffer.length === 1) {
-              logger.warn('Started buffering audio - ElevenLabs not ready yet', {
-                callSid,
-                streamSid,
-                elevenLabsExists: !!elevenLabsWs,
-                elevenLabsReady,
-                wsReadyState: elevenLabsWs?.readyState,
-              });
-            }
-            if (audioBuffer.length % 50 === 0) {
-              logger.warn('Audio buffer growing', {
-                callSid,
-                bufferSize: audioBuffer.length,
-                elevenLabsReady,
-              });
-            }
           }
         }
 
