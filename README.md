@@ -5,7 +5,6 @@
 ### *Next-Generation Emergency Medical Triage powered by Conversational AI*
 
 [![CI/CD Pipeline](https://github.com/BitBricoleurs/backend-google-hackathon/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/BitBricoleurs/backend-google-hackathon/actions)
-[![Test Coverage](https://img.shields.io/badge/coverage-80%25-brightgreen)](https://github.com/BitBricoleurs/backend-google-hackathon)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green?logo=node.js)](https://nodejs.org/)
 [![Google Cloud](https://img.shields.io/badge/Cloud-Google%20Cloud-4285F4?logo=google-cloud)](https://cloud.google.com/)
@@ -32,7 +31,7 @@
 
 A **fully autonomous conversational AI agent** that:
 - 🎙️ Handles inbound phone calls via **Twilio** with natural voice interaction
-- 🧠 Performs medical triage using **Claude 3.5 Sonnet** (Anthropic) + **ElevenLabs Conversational AI**
+- 🧠 Performs medical triage using **Gemini 2.5 Flash** + **ElevenLabs Conversational AI**
 - 🏥 Applies **WHO ABCD protocol** (Airway-Breathing-Circulation-Disability)
 - 📊 Generates **structured triage reports** (P0-P4 priority levels)
 - 🚑 **Auto-dispatches** SMUR for P0/P1 emergencies
@@ -46,7 +45,7 @@ A **fully autonomous conversational AI agent** that:
 ### 🤖 **AI-Powered Voice Triage**
 - **Natural conversation** in French via phone (Twilio + ElevenLabs)
 - **Real-time speech-to-text** with voice activity detection (VAD)
-- **Claude 3.5 Sonnet** for medical reasoning and triage logic
+- **Gemini 2.5 Flash** for medical reasoning and triage logic
 - **Context-aware** follow-up questions based on symptoms
 - **Sentiment analysis** to detect patient distress levels
 
@@ -71,7 +70,7 @@ A **fully autonomous conversational AI agent** that:
 ### 🔐 **Security & Compliance**
 - **GDPR-compliant**: Phone numbers hashed (SHA-256), no PII logging
 - **HDS-ready**: Audit logs, data encryption, access control
-- **Role-based access control** (RBAC): OPERATOR, DOCTOR, ADMIN
+- **Role-based access control** (RBAC): OPERATOR, ADMIN roles
 - **JWT authentication** with Redis-backed token storage
 - **Encrypted secrets** via Google Cloud Secret Manager
 
@@ -83,7 +82,7 @@ A **fully autonomous conversational AI agent** that:
 - **Health checks** (/health, /health/live, /health/ready)
 
 ### 🧪 **Production-Ready**
-- **80%+ test coverage** (Vitest + Testcontainers)
+- **Comprehensive test suite** (Vitest + Testcontainers)
 - **TypeScript strict mode** (zero `any` types)
 - **CI/CD pipeline** (GitHub Actions + Google Cloud Build)
 - **Docker containerization** with multi-stage builds
@@ -144,7 +143,6 @@ A **fully autonomous conversational AI agent** that:
          │  │  1. dispatch_smur (P0/P1 auto-dispatch)  │  │
          │  │  2. get_patient_history                  │  │
          │  │  3. get_pharmacy_on_duty                 │  │
-         │  │  4. request_human_handoff                │  │
          │  └──────────────────────────────────────────┘  │
          └─────────────────────────────────────────────────┘
                     │                          │
@@ -167,7 +165,8 @@ A **fully autonomous conversational AI agent** that:
 
 #### **AI & Telephony**
 - **Conversational AI**: ElevenLabs (integrated STT/TTS/VAD)
-- **LLM**: Claude 3.5 Sonnet (via ElevenLabs)
+- **LLM**: Gemini 2.5 Flash (via ElevenLabs)
+- **Medical Analysis**: Gemini 2.5 Flash (info extraction & triage)
 - **Telephony**: Twilio Programmable Voice + Media Streams
 - **Audio Processing**: μ-law 8000 Hz (telephony standard)
 
@@ -185,7 +184,7 @@ A **fully autonomous conversational AI agent** that:
 
 #### **Testing & Quality**
 - **Test Framework**: Vitest
-- **Coverage**: 80%+ (lines/functions/statements)
+- **Test Coverage**: Comprehensive test suite with Testcontainers
 - **Containers**: Testcontainers (isolated DB tests)
 - **Linting**: ESLint + Prettier (strict)
 - **Type Safety**: TypeScript strict mode
@@ -225,7 +224,7 @@ npm run db:migrate
 npm run dev
 ```
 
-🎉 Server running at `http://localhost:3000`
+🎉 Server running at `http://localhost:8080`
 
 ### Docker Compose (Recommended for Development)
 
@@ -234,7 +233,7 @@ docker-compose up
 ```
 
 This starts:
-- **App** (port 3000)
+- **App** (port 8080)
 - **PostgreSQL** (port 5432)
 - **Redis** (port 6379)
 
@@ -268,8 +267,7 @@ src/
 ├── tools/                   # ElevenLabs Client Tools (AI-callable)
 │   ├── dispatch-smur.tool.ts
 │   ├── get-patient-history.tool.ts
-│   ├── get-pharmacy-on-duty.tool.ts
-│   └── request-human-handoff.tool.ts
+│   └── get-pharmacy-on-duty.tool.ts
 │
 ├── presentation/
 │   └── websocket/           # Real-time WebSocket gateways
@@ -328,7 +326,6 @@ POST /api/v1/queue/:id/claim          # Operator claims call
 ```http
 POST /api/v1/tools/get_patient_history    # Patient history lookup
 POST /api/v1/tools/get_pharmacy_on_duty   # Pharmacy finder
-POST /api/v1/tools/request_human_handoff  # Escalate to human
 POST /api/v1/test/dispatch-smur           # SMUR dispatch (P0/P1)
 ```
 
@@ -455,12 +452,13 @@ npm run test:ui
 npm run test src/services/call.service.test.ts
 ```
 
-### Coverage Requirements (CI)
+### Test Suite
 
-- **Lines**: 80%
-- **Functions**: 80%
-- **Branches**: 75%
-- **Statements**: 80%
+Our comprehensive test suite includes:
+- **Unit tests**: Service layer and business logic
+- **Integration tests**: Database and external APIs
+- **Route tests**: API endpoint validation
+- **Isolated testing**: Testcontainers for PostgreSQL
 
 ### Test Structure
 
@@ -545,7 +543,7 @@ git commit -m "fix(scope): description"
 ### Authentication & Authorization
 
 - **JWT tokens** (access + refresh)
-- **RBAC**: OPERATOR, DOCTOR, ADMIN roles
+- **RBAC**: OPERATOR, ADMIN roles
 - **Redis token storage** (logout all devices support)
 - **API key auth** for ElevenLabs tools
 
@@ -592,7 +590,7 @@ We welcome contributions! Please follow these steps:
 ### Code Standards
 
 - **TypeScript strict mode** (no `any` types)
-- **80%+ test coverage** for new features
+- **Comprehensive test coverage** for new features
 - **ESLint + Prettier** (auto-formatted on commit)
 - **Conventional Commits** for commit messages
 - **Documentation** for public APIs
@@ -619,10 +617,9 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 🙏 Acknowledgments
 
-- **Anthropic** - Claude 3.5 Sonnet LLM
+- **Google** - Gemini 2.5 Flash LLM & Google Cloud Platform
 - **ElevenLabs** - Conversational AI platform
 - **Twilio** - Programmable voice infrastructure
-- **Google Cloud** - Cloud Run, Cloud SQL, Secret Manager
 - **Fastify** - High-performance web framework
 - **Prisma** - Next-generation ORM
 
