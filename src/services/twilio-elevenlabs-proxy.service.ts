@@ -168,6 +168,11 @@ export class TwilioElevenLabsProxyService {
               })
             );
             audioPacketsSent++;
+            if (audioPacketsSent === 1) {
+              logger.info(
+                `First Twilio audio packet (buffered) - callSid: ${callSid}, length: ${payload.length}, start: "${payload.substring(0, 20)}", end: "${payload.substring(payload.length - 20)}"`
+              );
+            }
           });
           logger.info(
             `Flushed ${audioBuffer.length} audio packets, total sent: ${audioPacketsSent}`,
