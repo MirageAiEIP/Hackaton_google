@@ -70,7 +70,7 @@ describe('Twilio Routes', () => {
       expect(response.body).toContain('<Response>');
       expect(response.body).toContain('<Connect>');
       expect(response.body).toContain(
-        '<Stream url="wss://example.com/ws/twilio-media?callSid=CA123456789">'
+        '<Stream url="wss://example.com/ws/twilio-media?callSid=CA123456789" track="inbound_track">'
       );
 
       process.env.PUBLIC_API_URL = originalPublicApiUrl;
@@ -94,7 +94,7 @@ describe('Twilio Routes', () => {
       expect(response.headers['content-type']).toContain('text/xml');
       expect(response.body).toContain('<Response>');
       expect(response.body).toContain(
-        '<Stream url="wss://localhost:3000/ws/twilio-media?callSid=CA987654321">'
+        '<Stream url="wss://localhost:3000/ws/twilio-media?callSid=CA987654321" track="inbound_track">'
       );
 
       process.env.PUBLIC_API_URL = originalPublicApiUrl;
