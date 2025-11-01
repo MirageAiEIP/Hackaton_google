@@ -25,7 +25,8 @@ export class AmbulanceLocationUpdatedHandler
     try {
       // Broadcast to all map viewers if dashboard gateway is available
       if (dashboardGateway) {
-        dashboardGateway.broadcastToRoom('map', 'ambulance:location:updated', {
+        dashboardGateway.broadcastToRoom('map', {
+          type: 'ambulance:location:updated',
           ambulanceId: event.ambulanceId,
           location: event.location,
           status: event.status,
@@ -37,18 +38,15 @@ export class AmbulanceLocationUpdatedHandler
 
         // Also broadcast to dispatch-specific room if dispatchId exists
         if (event.dispatchId) {
-          dashboardGateway.broadcastToRoom(
-            `dispatch-${event.dispatchId}`,
-            'ambulance:location:updated',
-            {
-              ambulanceId: event.ambulanceId,
-              location: event.location,
-              status: event.status,
-              heading: event.heading,
-              speed: event.speed,
-              timestamp: event.occurredAt.toISOString(),
-            }
-          );
+          dashboardGateway.broadcastToRoom(`dispatch-${event.dispatchId}`, {
+            type: 'ambulance:location:updated',
+            ambulanceId: event.ambulanceId,
+            location: event.location,
+            status: event.status,
+            heading: event.heading,
+            speed: event.speed,
+            timestamp: event.occurredAt.toISOString(),
+          });
         }
 
         logger.info('Ambulance location update broadcasted', {

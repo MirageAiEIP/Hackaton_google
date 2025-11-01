@@ -23,7 +23,8 @@ export class AmbulanceDispatchedHandler implements IEventHandler<AmbulanceDispat
     try {
       // Broadcast to all map viewers if dashboard gateway is available
       if (dashboardGateway) {
-        dashboardGateway.broadcastToRoom('map', 'ambulance:dispatched', {
+        dashboardGateway.broadcastToRoom('map', {
+          type: 'ambulance:dispatched',
           ambulanceId: event.ambulanceId,
           dispatchId: event.dispatchId,
           currentLocation: event.currentLocation,
@@ -33,7 +34,8 @@ export class AmbulanceDispatchedHandler implements IEventHandler<AmbulanceDispat
         });
 
         // Broadcast to dispatch-specific room
-        dashboardGateway.broadcastToRoom(`dispatch-${event.dispatchId}`, 'ambulance:dispatched', {
+        dashboardGateway.broadcastToRoom(`dispatch-${event.dispatchId}`, {
+          type: 'ambulance:dispatched',
           ambulanceId: event.ambulanceId,
           currentLocation: event.currentLocation,
           destination: event.destination,
