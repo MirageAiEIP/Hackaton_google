@@ -6,7 +6,6 @@
  * - update_call_info (POST /update_call_info) - Updates call and patient information as AI collects data
  * - dispatch_smur (POST /dispatch_smur) - Dispatches SMUR/ambulance for P0/P1 emergencies
  * - get_pharmacy_on_duty (POST /get_pharmacy_on_duty) - Finds nearby pharmacies currently open
- * - conversation-init (POST /conversation-init) - ElevenLabs conversation initialization webhook
  *
  * All routes are prefixed with /api/v1/tools
  *
@@ -258,52 +257,6 @@ export const toolsRoutes = (app: FastifyInstance) => {
       }
     }
   );
-
-  app.post('/conversation-init', async (request, reply) => {
-    // ===== LOG EVERYTHING FROM ELEVENLABS =====
-    logger.info('[DEBUG] ElevenLabs conversation-init webhook called', {
-      body: request.body,
-      headers: request.headers,
-      query: request.query,
-      params: request.params,
-      method: request.method,
-      url: request.url,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Log raw body if available
-    if (request.body) {
-      logger.info('[DEBUG] Conversation init - Body keys', {
-        keys: Object.keys(request.body as Record<string, unknown>),
-        bodyType: typeof request.body,
-      });
-    }
-
-    // Check for common identifiers
-    const bodyWithId = request.body as Record<string, unknown>;
-    const possibleIds = {
-      conversation_id: bodyWithId.conversation_id,
-      call_sid: bodyWithId.call_sid,
-      callSid: bodyWithId.callSid,
-      session_id: bodyWithId.session_id,
-      from: bodyWithId.from,
-      to: bodyWithId.to,
-    };
-
-    logger.info('[DEBUG] Possible identifiers in payload', possibleIds);
-
-    // Return minimal valid conversation_initiation_client_data response
-    // Format: https://elevenlabs.io/docs/api-reference/websockets#conversation_initiation_client_data
-    return reply.send({
-      type: 'conversation_initiation_client_data',
-      conversation_initiation_client_data: {
-        custom_llm_extra_body: {
-          debug: 'This is a test response',
-          receivedAt: new Date().toISOString(),
-        },
-      },
-    });
-  });
 
   app.get('/health', async (_request, reply) => {
     return reply.send({
