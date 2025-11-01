@@ -184,4 +184,62 @@ describe('AmbulanceLocationUpdatedEvent', () => {
 
     expect(event.speed).toBe(120);
   });
+
+  it('should return correct payload from getPayload()', () => {
+    const location = { latitude: 48.8566, longitude: 2.3522 };
+
+    const event = new AmbulanceLocationUpdatedEvent(
+      'ambulance_789',
+      location,
+      'EN_ROUTE',
+      90,
+      75,
+      'dispatch_999'
+    );
+
+    const payload = event.getPayload();
+
+    expect(payload.ambulanceId).toBe('ambulance_789');
+    expect(payload.location).toEqual(location);
+    expect(payload.status).toBe('EN_ROUTE');
+    expect(payload.heading).toBe(90);
+    expect(payload.speed).toBe(75);
+    expect(payload.dispatchId).toBe('dispatch_999');
+    expect(payload.timestamp).toBeDefined();
+    expect(typeof payload.timestamp).toBe('string');
+  });
+
+  it('should include optional fields in payload', () => {
+    const event = new AmbulanceLocationUpdatedEvent(
+      'ambulance_123',
+      { latitude: 48.87, longitude: 2.36 },
+      'AVAILABLE',
+      0,
+      0,
+      undefined
+    );
+
+    const payload = event.getPayload();
+
+    expect(payload.heading).toBe(0);
+    expect(payload.speed).toBe(0);
+    expect(payload.dispatchId).toBeUndefined();
+  });
+
+  it('should include ISO timestamp in payload', () => {
+    const event = new AmbulanceLocationUpdatedEvent(
+      'ambulance_123',
+      { latitude: 48.8566, longitude: 2.3522 },
+      'EN_ROUTE',
+      45,
+      60,
+      'dispatch_456'
+    );
+
+    const payload = event.getPayload();
+    const timestamp = new Date(payload.timestamp);
+
+    expect(timestamp).toBeInstanceOf(Date);
+    expect(timestamp.toISOString()).toBe(payload.timestamp);
+  });
 });
