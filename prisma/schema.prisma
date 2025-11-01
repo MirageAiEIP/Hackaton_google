@@ -1,12 +1,10 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  extensions = [pgvector(map: "vector")]
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum PriorityLevel {
@@ -181,18 +179,17 @@ model RedFlag {
 }
 
 model MedicalKnowledge {
-  id          String                       @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
-  content     String                       @db.Text
+  content     String    @db.Text
   category    String
   subcategory String?
-  embedding   Unsupported("vector(1536)")?
   source      String?
-  verified    Boolean                      @default(false)
+  verified    Boolean   @default(false)
   verifiedBy  String?
   verifiedAt  DateTime?
-  createdAt   DateTime                     @default(now())
-  updatedAt   DateTime                     @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([category])
   @@map("medical_knowledge")

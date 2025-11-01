@@ -117,22 +117,48 @@ export class TwilioElevenLabsProxyService {
     let conversationId: string | null = null;
     let extractionInterval: NodeJS.Timeout | null = null;
     let lastTranscriptLength = 0; // Éviter extractions inutiles si transcript identique
+    let audioBuffer: Array<string> = []; // Buffer for audio before ElevenLabs ready
+    let elevenLabsReady = false;
+    let audioPacketsSent = 0; // Count audio packets sent to ElevenLabs
 
     // Connect to ElevenLabs WebSocket
     try {
       const elevenLabsUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${this.agentId}`;
 
+      logger.info('Attempting ElevenLabs WebSocket connection', {
+        callSid,
+        agentId: this.agentId,
+        apiKeyPrefix: this.apiKey?.substring(0, 10) + '...',
+        url: elevenLabsUrl,
+      });
+
       elevenLabsWs = new WebSocket(elevenLabsUrl, {
         headers: {
           'xi-api-key': this.apiKey,
         },
+        handshakeTimeout: 10000, // 10 seconds timeout
       });
 
-      logger.info('Connecting to ElevenLabs WebSocket', { callSid });
+      logger.info('ElevenLabs WebSocket object created, waiting for open event', { callSid });
 
       // Envoyer le callId à l'agent via conversation_initiation_client_data dès la connexion
       elevenLabsWs.on('open', () => {
-        logger.info('ElevenLabs WebSocket connected for Twilio call', { callSid, callId });
+        clearTimeout(connectionTimeout);
+        logger.info('ElevenLabs WebSocket connected successfully', {
+          callSid,
+          callId,
+          bufferedAudioPackets: audioBuffer.length,
+        });
+        elevenLabsReady = true;
+
+        // Discard buffered audio (avoid duplication since real-time stream is already active)
+        if (audioBuffer.length > 0) {
+          logger.info('Discarding buffered audio packets (avoiding duplication)', {
+            discardedCount: audioBuffer.length,
+            callSid,
+          });
+          audioBuffer = [];
+        }
 
         // Store the connection for potential contextual updates
         if (callId) {
@@ -235,13 +261,11 @@ export class TwilioElevenLabsProxyService {
         try {
           const message = JSON.parse(data.toString());
 
-          logger.info('ElevenLabs message received', {
-            type: message.type,
-            hasConversationId: !!message.conversation_id,
-            conversationId: message.conversation_id || 'none',
-            messageKeys: Object.keys(message),
-            initMetadata: message.conversation_initiation_metadata_event,
+          logger.info(`ElevenLabs message: ${message.type}`, {
             callSid,
+            hasAudio: !!message.audio_event,
+            hasTranscript: !!message.transcript_event,
+            conversationId: message.conversation_id,
           });
 
           // Capturer le conversation_id from initiation metadata or top level
@@ -253,6 +277,10 @@ export class TwilioElevenLabsProxyService {
 
           // Forward audio to Twilio
           if (message.type === 'audio' && message.audio_event) {
+            logger.info('Forwarding ElevenLabs audio to Twilio', {
+              callSid,
+              audioLength: message.audio_event.audio_base_64?.length || 0,
+            });
             const audioBase64 = message.audio_event.audio_base_64;
 
             twilioWs.send(
@@ -260,6 +288,7 @@ export class TwilioElevenLabsProxyService {
                 event: 'media',
                 streamSid,
                 media: {
+                  track: 'outbound',
                   payload: audioBase64,
                 },
               })
@@ -278,10 +307,21 @@ export class TwilioElevenLabsProxyService {
 
           // Log transcript
           if (message.type === 'transcript' && message.transcript_event) {
-            logger.info('ElevenLabs transcript', {
-              text: message.transcript_event.text,
-              role: message.transcript_event.role,
+            logger.info(
+              `ElevenLabs transcript [${message.transcript_event.role}]: ${message.transcript_event.text}`,
+              {
+                role: message.transcript_event.role,
+                callSid,
+                conversationId,
+              }
+            );
+          }
+
+          // Log other message types
+          if (message.type && !['audio', 'transcript'].includes(message.type)) {
+            logger.info(`ElevenLabs special message: ${message.type}`, {
               callSid,
+              messageKeys: Object.keys(message),
             });
           }
         } catch (error) {
@@ -289,8 +329,40 @@ export class TwilioElevenLabsProxyService {
         }
       });
 
+      // Timeout si connexion ne s'établit pas
+      const connectionTimeout = setTimeout(() => {
+        if (!elevenLabsReady) {
+          const timeoutError = new Error(
+            'ElevenLabs WebSocket connection timeout after 10 seconds'
+          );
+          logger.error('ElevenLabs WebSocket connection timeout after 10 seconds', timeoutError, {
+            callSid,
+            agentId: this.agentId,
+            wsReadyState: elevenLabsWs?.readyState,
+            readyStateText:
+              elevenLabsWs?.readyState === 0
+                ? 'CONNECTING'
+                : elevenLabsWs?.readyState === 1
+                  ? 'OPEN'
+                  : elevenLabsWs?.readyState === 2
+                    ? 'CLOSING'
+                    : 'CLOSED',
+          });
+          if (elevenLabsWs) {
+            elevenLabsWs.close();
+          }
+        }
+      }, 10000);
+
       elevenLabsWs.on('error', (error: Error) => {
-        logger.error('ElevenLabs WebSocket error', error, { callSid });
+        clearTimeout(connectionTimeout);
+        logger.error('ElevenLabs WebSocket error', error, {
+          callSid,
+          errorMessage: error.message,
+          errorStack: error.stack,
+          agentId: this.agentId,
+          apiKeyPrefix: this.apiKey?.substring(0, 10) + '...',
+        });
 
         // Cleanup extraction interval on error
         if (extractionInterval) {
@@ -303,8 +375,14 @@ export class TwilioElevenLabsProxyService {
         }
       });
 
-      elevenLabsWs.on('close', () => {
-        logger.info('ElevenLabs WebSocket closed', { callSid });
+      elevenLabsWs.on('close', (code: number, reason: Buffer) => {
+        clearTimeout(connectionTimeout);
+        logger.info('ElevenLabs WebSocket closed', {
+          callSid,
+          closeCode: code,
+          closeReason: reason.toString(),
+          wasConnected: elevenLabsReady,
+        });
 
         // Cleanup extraction interval
         if (extractionInterval) {
@@ -325,7 +403,13 @@ export class TwilioElevenLabsProxyService {
         twilioWs.close();
       });
     } catch (error) {
-      logger.error('Failed to connect to ElevenLabs', error as Error, { callSid });
+      logger.error('Failed to create ElevenLabs WebSocket', error as Error, {
+        callSid,
+        errorMessage: (error as Error).message,
+        errorStack: (error as Error).stack,
+        agentId: this.agentId,
+        apiKeyPrefix: this.apiKey?.substring(0, 10) + '...',
+      });
       twilioWs.close();
       return;
     }
@@ -373,20 +457,33 @@ export class TwilioElevenLabsProxyService {
         }
 
         // Handle media (audio) from Twilio
-        if (message.event === 'media' && elevenLabsWs) {
+        if (message.event === 'media') {
+          // Log first media message to debug
+          if (audioPacketsSent === 0) {
+            logger.info('First Twilio media message (FULL)', {
+              event: message.event,
+              streamSid: message.streamSid,
+              sequenceNumber: message.sequenceNumber,
+              media: message.media,
+            });
+          }
           const audioPayload = message.media.payload;
 
-          // Forward to ElevenLabs
-          // Note: Twilio sends mulaw 8kHz, might need conversion
-          elevenLabsWs.send(
-            JSON.stringify({
-              type: 'audio',
-              audio_event: {
-                audio_base_64: audioPayload,
-                // encoding: 'mulaw_8000', // Check ElevenLabs docs for format
-              },
-            })
-          );
+          // Check if ElevenLabs is ready and connected
+          if (elevenLabsWs && elevenLabsReady && elevenLabsWs.readyState === WebSocket.OPEN) {
+            // Forward to ElevenLabs immediately
+            // Note: Twilio sends mulaw 8kHz
+            // ElevenLabs Conversational AI expects: {"user_audio_chunk":"base64..."}
+            elevenLabsWs.send(
+              JSON.stringify({
+                user_audio_chunk: audioPayload,
+              })
+            );
+            audioPacketsSent++;
+          } else {
+            // Buffer audio until ElevenLabs connects
+            audioBuffer.push(audioPayload);
+          }
         }
 
         // Handle stream stop
