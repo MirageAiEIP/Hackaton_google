@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏥 SAMU AI Triage System
+# SAMU AI Triage System
 
 ### *Next-Generation Emergency Medical Triage powered by Conversational AI*
 
@@ -10,46 +10,37 @@
 [![Google Cloud](https://img.shields.io/badge/Cloud-Google%20Cloud-4285F4?logo=google-cloud)](https://cloud.google.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Features](#-features) • [Architecture](#-architecture) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Deployment](#-deployment)
+[Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Deployment](#deployment)
 
 </div>
 
 ---
 
-## 🎯 Overview
+## Overview
 
-**SAMU AI Triage** is an enterprise-grade, AI-powered medical emergency triage system designed for SAMU (French Emergency Medical Services) to **reduce wait times by up to 60%** during peak hours through intelligent pre-triage and medical information collection.
+**SAMU AI Triage** is an enterprise-grade, AI-powered medical emergency triage system designed for SAMU (French Emergency Medical Services) to reduce wait times during peak hours through intelligent pre-triage and medical information collection.
 
-### The Challenge
-
-- **Peak hour bottlenecks**: SAMU operators overwhelmed with 100+ calls/hour
-- **Critical information gathering**: 3-5 minutes lost per call collecting basic patient data
-- **Triage delays**: Life-threatening emergencies buried in non-urgent calls
-- **Resource allocation**: Inefficient ambulance/SMUR dispatch coordination
-
-### Our Solution
-
-A **fully autonomous conversational AI agent** that:
-- 🎙️ Handles inbound phone calls via **Twilio** with natural voice interaction
-- 🧠 Performs medical triage using **Gemini 2.5 Flash** + **ElevenLabs Conversational AI**
-- 🏥 Applies **WHO ABCD protocol** (Airway-Breathing-Circulation-Disability)
-- 📊 Generates **structured triage reports** (P0-P4 priority levels)
-- 🚑 **Auto-dispatches** SMUR for P0/P1 emergencies
-- 👨‍⚕️ **Seamless handoff** to human operators when needed
-- 📈 **Real-time dashboards** with WebSocket updates for medical coordinators
+The system provides:
+- **Autonomous conversational AI agent** handling inbound phone calls via Twilio
+- **Medical triage** using Gemini 2.5 Flash + ElevenLabs Conversational AI
+- **WHO ABCD protocol** implementation (Airway-Breathing-Circulation-Disability)
+- **Structured triage reports** with priority classification (P0-P4)
+- **Auto-dispatch** of SMUR for P0/P1 emergencies
+- **Seamless handoff** to human operators when needed
+- **Real-time dashboards** with WebSocket updates for medical coordinators
 
 ---
 
-## ✨ Features
+## Features
 
-### 🤖 **AI-Powered Voice Triage**
+### **AI-Powered Voice Triage**
 - **Natural conversation** in French via phone (Twilio + ElevenLabs)
 - **Real-time speech-to-text** with voice activity detection (VAD)
 - **Gemini 2.5 Flash** for medical reasoning and triage logic
 - **Context-aware** follow-up questions based on symptoms
 - **Sentiment analysis** to detect patient distress levels
 
-### 🏥 **Medical Intelligence**
+### **Medical Intelligence**
 - **ABCD Protocol Implementation** (WHO Emergency Triage Assessment)
   - **A**irway obstruction detection
   - **B**reathing rate & SpO2 evaluation
@@ -60,28 +51,28 @@ A **fully autonomous conversational AI agent** that:
 - **Patient History**: Retrieves past calls, chronic conditions, allergies
 - **Pharmacy on Duty**: Location-based pharmacy recommendations
 
-### 🚑 **Dispatch & Queue Management**
+### **Dispatch & Queue Management**
 - **Auto-dispatch SMUR** for P0/P1 cases (< 30 seconds decision time)
 - **Intelligent queueing** system for P2/P3/P4 cases
 - **Operator availability tracking** (AVAILABLE/BUSY/OFFLINE)
 - **Contextual handoff** with full conversation transcript + AI analysis
 - **Real-time coordination** via WebSocket dashboards
 
-### 🔐 **Security & Compliance**
+### **Security & Compliance**
 - **GDPR-compliant**: Phone numbers hashed (SHA-256), no PII logging
 - **HDS-ready**: Audit logs, data encryption, access control
 - **Role-based access control** (RBAC): OPERATOR, ADMIN roles
 - **JWT authentication** with Redis-backed token storage
 - **Encrypted secrets** via Google Cloud Secret Manager
 
-### 📊 **Real-Time Monitoring**
+### **Real-Time Monitoring**
 - **Live dashboards** with WebSocket (operator status, queue depth, dispatches)
 - **Conversation persistence** (ElevenLabs transcripts + audio in GCS)
 - **Metrics & Analytics** (call volume, triage distribution, response times)
 - **Structured logging** (JSON format with correlation IDs)
 - **Health checks** (/health, /health/live, /health/ready)
 
-### 🧪 **Production-Ready**
+### **Production-Ready**
 - **Comprehensive test suite** (Vitest + Testcontainers)
 - **TypeScript strict mode** (zero `any` types)
 - **CI/CD pipeline** (GitHub Actions + Google Cloud Build)
@@ -91,7 +82,7 @@ A **fully autonomous conversational AI agent** that:
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### System Overview
 
@@ -191,7 +182,7 @@ A **fully autonomous conversational AI agent** that:
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -224,7 +215,7 @@ npm run db:migrate
 npm run dev
 ```
 
-🎉 Server running at `http://localhost:8080`
+Server running at `http://localhost:8080`
 
 ### Docker Compose (Recommended for Development)
 
@@ -239,7 +230,7 @@ This starts:
 
 ---
 
-## 📖 Documentation
+## Documentation
 
 ### Project Structure
 
@@ -341,8 +332,6 @@ POST /api/v1/test/dispatch-smur           # SMUR dispatch (P0/P1)
 - `Dispatch` - SMUR/ambulance dispatch records
 - `ElevenLabsConversation` - Conversation metadata + transcript
 
-See [CLAUDE.md](./CLAUDE.md) for full schema documentation.
-
 ### Environment Variables
 
 Required variables (store in Google Secret Manager for production):
@@ -375,7 +364,7 @@ PUBLIC_API_URL=https://your-domain.app
 
 ---
 
-## ☁️ Deployment
+## Deployment
 
 ### Google Cloud Run (Production)
 
@@ -434,7 +423,7 @@ Resources provisioned:
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Run Tests
 
@@ -482,7 +471,7 @@ describe('CallService', () => {
 
 ---
 
-## 🛠️ Development
+## Development
 
 ### Available Scripts
 
@@ -531,7 +520,7 @@ git commit -m "fix(scope): description"
 
 ---
 
-## 🔒 Security
+## Security
 
 ### GDPR Compliance
 
@@ -557,65 +546,27 @@ git commit -m "fix(scope): description"
 
 ---
 
-## 📊 Performance
+## Team
 
-### Metrics (Production)
+**Google Hackathon 2025** - Built by the SAMU AI Team
 
-- **Response Time**: < 100ms (p95)
-- **Triage Decision**: < 30s for P0/P1 dispatch
-- **Concurrent Calls**: 100+ simultaneous (Cloud Run scaling)
-- **Uptime**: 99.9% SLA
-- **Queue Wait Time**: < 2 min average (P2/P3)
+### Contributors
 
-### Optimization Techniques
-
-- **Redis caching**: Patient history, pharmacy lookup
-- **Database indexing**: Optimized queries (< 10ms)
-- **WebSocket**: Real-time updates without polling
-- **Horizontal scaling**: Stateless architecture
-- **Audio streaming**: No buffering delays (< 50ms latency)
+<!-- TODO: Add team member names and roles -->
+- **[Name]** - Project Lead & Backend Architecture
+- **[Name]** - AI Integration & ElevenLabs Development
+- **[Name]** - Infrastructure & DevOps
+- **[Name]** - Medical Protocol Implementation
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'feat: add amazing feature'`)
-4. **Push** to branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Code Standards
-
-- **TypeScript strict mode** (no `any` types)
-- **Comprehensive test coverage** for new features
-- **ESLint + Prettier** (auto-formatted on commit)
-- **Conventional Commits** for commit messages
-- **Documentation** for public APIs
-
----
-
-## 👥 Team
-
-**Google Hackathon 2025**
-Built by the SAMU AI Team
-
-- **Architecture & Backend**: Full-stack development
-- **AI Integration**: ElevenLabs + Claude orchestration
-- **Infrastructure**: Google Cloud deployment
-- **Medical Expertise**: ABCD protocol implementation
-
----
-
-## 📄 License
+## License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Google** - Gemini 2.5 Flash LLM & Google Cloud Platform
 - **ElevenLabs** - Conversational AI platform
@@ -625,9 +576,8 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ---
 
-## 📞 Support
+## Support
 
-- **Documentation**: [CLAUDE.md](./CLAUDE.md)
 - **Issues**: [GitHub Issues](https://github.com/BitBricoleurs/backend-google-hackathon/issues)
 - **Repository**: [github.com/BitBricoleurs/backend-google-hackathon](https://github.com/BitBricoleurs/backend-google-hackathon)
 
@@ -635,8 +585,8 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 <div align="center">
 
-**⭐ Star this repo if you find it useful!**
+**Star this repo if you find it useful!**
 
-Made with ❤️ for SAMU and emergency medical services worldwide
+Made for SAMU and emergency medical services worldwide
 
 </div>
