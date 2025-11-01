@@ -1,3 +1,20 @@
+/**
+ * @fileoverview ElevenLabs Client Tools Webhook Routes
+ *
+ * Provides webhook endpoints called by ElevenLabs Conversational AI when tools are invoked:
+ * - get_current_call_info (POST /get_current_call_info) - Retrieves complete call context for the AI agent
+ * - update_call_info (POST /update_call_info) - Updates call and patient information as AI collects data
+ * - dispatch_smur (POST /dispatch_smur) - Dispatches SMUR/ambulance for P0/P1 emergencies
+ * - get_pharmacy_on_duty (POST /get_pharmacy_on_duty) - Finds nearby pharmacies currently open
+ * - conversation-init (POST /conversation-init) - ElevenLabs conversation initialization webhook
+ *
+ * All routes are prefixed with /api/v1/tools
+ *
+ * Configuration: Tools are configured on ElevenLabs dashboard with these webhook URLs
+ *
+ * @module api/routes/tools
+ */
+
 import { FastifyInstance } from 'fastify';
 import {
   executeGetPharmacyOnDuty,

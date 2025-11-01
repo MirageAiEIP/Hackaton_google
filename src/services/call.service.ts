@@ -29,6 +29,19 @@ export class CallService {
     return crypto.createHash('sha256').update(phoneNumber).digest('hex');
   }
 
+  /**
+   * Finds an existing patient by phone hash or creates a new patient record
+   * Phone numbers are hashed using SHA-256 for GDPR/HDS compliance
+   *
+   * @param payload - Call creation payload containing phoneNumber and optional patient info
+   * @returns Promise resolving to the found or created Patient record
+   *
+   * @example
+   * const patient = await callService.findOrCreatePatient({
+   *   phoneNumber: '+33612345678',
+   *   patientInfo: { age: 45, gender: 'M', city: 'Paris' }
+   * });
+   */
   async findOrCreatePatient(payload: CreateCallPayload): Promise<Patient> {
     const phoneHash = this.hashPhoneNumber(payload.phoneNumber);
 
@@ -56,6 +69,21 @@ export class CallService {
     return patient;
   }
 
+  /**
+   * Creates a new emergency call record with IN_PROGRESS status
+   * Publishes CallStartedEvent for real-time dashboard updates
+   *
+   * @param payload - Call creation payload with phoneNumber, optional initial message and audio URL
+   * @returns Promise resolving to the created Call record with patient relation
+   * @throws {Error} If database operation fails
+   *
+   * @example
+   * const call = await callService.createCall({
+   *   phoneNumber: '+33612345678',
+   *   initialMessage: 'Patient reports chest pain',
+   *   audioUrl: 'https://storage.googleapis.com/...'
+   * });
+   */
   async createCall(payload: CreateCallPayload): Promise<Call> {
     const patient = await this.findOrCreatePatient(payload);
 
@@ -87,6 +115,19 @@ export class CallService {
     return call;
   }
 
+  /**
+   * Retrieves a call by ID with all related data
+   * Includes: patient, triageReport, symptoms, and redFlags
+   *
+   * @param callId - The unique call identifier
+   * @returns Promise resolving to the Call record or null if not found
+   *
+   * @example
+   * const call = await callService.getCallById('clx1234567890');
+   * if (call) {
+   *   console.log(`Call status: ${call.status}, Priority: ${call.triageReport?.priorityLevel}`);
+   * }
+   */
   async getCallById(callId: string): Promise<Call | null> {
     return prisma.call.findUnique({
       where: { id: callId },
@@ -99,6 +140,17 @@ export class CallService {
     });
   }
 
+  /**
+   * Updates the call transcript by appending a new message
+   * Existing transcript is preserved and new message is appended with double newline separator
+   *
+   * @param callId - The unique call identifier
+   * @param newMessage - The message text to append to the transcript
+   * @throws {Error} If call is not found
+   *
+   * @example
+   * await callService.updateTranscript('clx123', 'Agent: Quelle est votre urgence?');
+   */
   async updateTranscript(callId: string, newMessage: string): Promise<void> {
     const call = await prisma.call.findUnique({
       where: { id: callId },
@@ -122,6 +174,22 @@ export class CallService {
     logger.debug('Transcript updated', { callId });
   }
 
+  /**
+   * Updates call status and publishes lifecycle events
+   * Automatically sets endedAt timestamp for terminal statuses (COMPLETED, ESCALATED, CANCELLED)
+   * Publishes CallCompletedEvent, CallEscalatedEvent, or CallCancelledEvent to event bus
+   *
+   * @param callId - The unique call identifier
+   * @param status - New call status (IN_PROGRESS, COMPLETED, ESCALATED, CANCELLED, etc.)
+   * @param metadata - Optional metadata (duration, qualityScore, processingTime)
+   * @throws {Error} If call is not found
+   *
+   * @example
+   * await callService.updateCallStatus('clx123', 'COMPLETED', {
+   *   duration: 120,
+   *   qualityScore: 0.95
+   * });
+   */
   async updateCallStatus(
     callId: string,
     status: CallStatus,
@@ -178,6 +246,16 @@ export class CallService {
     }
   }
 
+  /**
+   * Appends a single line to the call transcript and broadcasts to WebSocket clients
+   * Used for real-time transcript streaming to the dashboard
+   *
+   * @param callId - The unique call identifier
+   * @param line - The transcript line to append (typically a single utterance)
+   *
+   * @example
+   * await callService.appendTranscript('clx123', 'Patient: J\'ai mal à la poitrine');
+   */
   async appendTranscript(callId: string, line: string): Promise<void> {
     const call = await prisma.call.findUnique({
       where: { id: callId },
@@ -203,6 +281,23 @@ export class CallService {
     logger.debug('Transcript appended', { callId, line });
   }
 
+  /**
+   * Creates a single symptom record for a call
+   *
+   * @param callId - The unique call identifier
+   * @param symptom - Detected symptom with name, severity, onset, evolution, and confidence
+   * @returns Promise resolving to the created Symptom record
+   *
+   * @example
+   * await callService.createSymptom('clx123', {
+   *   name: 'Chest pain',
+   *   severity: 'SEVERE',
+   *   onset: 'sudden',
+   *   evolution: 'worsening',
+   *   confidence: 0.92,
+   *   detectedAt: new Date()
+   * });
+   */
   async createSymptom(callId: string, symptom: DetectedSymptom): Promise<Symptom> {
     return prisma.symptom.create({
       data: {
@@ -217,6 +312,21 @@ export class CallService {
     });
   }
 
+  /**
+   * Creates a single red flag record for a call
+   * Red flags indicate critical medical conditions requiring immediate attention
+   *
+   * @param callId - The unique call identifier
+   * @param redFlag - Detected red flag with flag name, severity, and detection time
+   * @returns Promise resolving to the created RedFlag record
+   *
+   * @example
+   * await callService.createRedFlag('clx123', {
+   *   flag: 'Unconscious',
+   *   severity: 'CRITICAL',
+   *   detectedAt: new Date()
+   * });
+   */
   async createRedFlag(callId: string, redFlag: DetectedRedFlag): Promise<RedFlag> {
     return prisma.redFlag.create({
       data: {
@@ -228,6 +338,19 @@ export class CallService {
     });
   }
 
+  /**
+   * Creates multiple symptom records in a single database operation
+   * More efficient than creating symptoms individually
+   *
+   * @param callId - The unique call identifier
+   * @param symptoms - Array of detected symptoms
+   *
+   * @example
+   * await callService.createSymptomsBatch('clx123', [
+   *   { name: 'Chest pain', severity: 'SEVERE', ... },
+   *   { name: 'Shortness of breath', severity: 'MODERATE', ... }
+   * ]);
+   */
   async createSymptomsBatch(callId: string, symptoms: DetectedSymptom[]): Promise<void> {
     if (symptoms.length === 0) {
       return;
@@ -248,6 +371,19 @@ export class CallService {
     logger.info('Symptoms batch created', { callId, count: symptoms.length });
   }
 
+  /**
+   * Creates multiple red flag records in a single database operation
+   * More efficient than creating red flags individually
+   *
+   * @param callId - The unique call identifier
+   * @param redFlags - Array of detected red flags
+   *
+   * @example
+   * await callService.createRedFlagsBatch('clx123', [
+   *   { flag: 'Unconscious', severity: 'CRITICAL', detectedAt: new Date() },
+   *   { flag: 'Severe bleeding', severity: 'CRITICAL', detectedAt: new Date() }
+   * ]);
+   */
   async createRedFlagsBatch(callId: string, redFlags: DetectedRedFlag[]): Promise<void> {
     if (redFlags.length === 0) {
       return;
@@ -265,6 +401,27 @@ export class CallService {
     logger.info('Red flags batch created', { callId, count: redFlags.length });
   }
 
+  /**
+   * Creates a complete triage report with ABCD assessment and priority classification
+   * Combines AI-generated triage decision with ABCD (Airway, Breathing, Circulation, Disability) assessment
+   *
+   * @param callId - The unique call identifier
+   * @param decision - AI triage decision with priorityLevel, confidence, reasoning, and recommendations
+   * @returns Promise resolving to the created TriageReport record
+   * @throws {Error} If call is not found
+   *
+   * @example
+   * const report = await callService.createTriageReport('clx123', {
+   *   priorityLevel: 'P1',
+   *   confidence: 0.95,
+   *   reasoning: 'Severe chest pain with radiation to left arm',
+   *   chiefComplaint: 'Chest pain',
+   *   recommendedAction: 'DISPATCH_SMUR',
+   *   recommendationReasoning: 'Suspected myocardial infarction',
+   *   conversationSummary: '...',
+   *   keyQuotes: ['Patient: "I can\'t breathe properly"']
+   * });
+   */
   async createTriageReport(callId: string, decision: TriageDecision): Promise<TriageReport> {
     const session = await this.getSessionFromCall(callId);
 
@@ -347,6 +504,23 @@ export class CallService {
     };
   }
 
+  /**
+   * Lists calls with optional filtering by status and pagination
+   * Results are ordered by creation date (most recent first)
+   *
+   * @param options - Query options
+   * @param options.status - Optional filter by call status
+   * @param options.limit - Maximum number of results (default: 50)
+   * @param options.offset - Number of results to skip for pagination (default: 0)
+   * @returns Promise resolving to array of Call records with patient and triageReport
+   *
+   * @example
+   * const activeCalls = await callService.listCalls({
+   *   status: 'IN_PROGRESS',
+   *   limit: 20,
+   *   offset: 0
+   * });
+   */
   async listCalls(options: {
     status?: CallStatus;
     limit?: number;
@@ -364,6 +538,17 @@ export class CallService {
     });
   }
 
+  /**
+   * Retrieves all active calls (IN_PROGRESS or ESCALATED status)
+   * Includes full relations: patient, triageReport, elevenLabsConversation, and latest handoff
+   *
+   * @returns Promise resolving to array of active Call records with all relations
+   * @throws {Error} If database query fails
+   *
+   * @example
+   * const activeCalls = await callService.getActiveCalls();
+   * console.log(`${activeCalls.length} calls currently active`);
+   */
   async getActiveCalls() {
     logger.info('Getting active calls');
 
@@ -399,6 +584,20 @@ export class CallService {
     }
   }
 
+  /**
+   * Retrieves recent calls for a specific patient within a time window
+   * Used by the get_patient_history ElevenLabs tool to provide context to the AI agent
+   *
+   * @param patientId - The unique patient identifier
+   * @param hoursAgo - Number of hours to look back (default: 24)
+   * @param excludeCallId - Optional call ID to exclude from results (typically the current call)
+   * @returns Promise resolving to array of recent call summaries (max 5 results)
+   * @throws {Error} If database query fails
+   *
+   * @example
+   * const history = await callService.getRecentCallsByPatient('patient123', 48, 'currentCall');
+   * console.log(`Patient had ${history.length} calls in the last 48 hours`);
+   */
   async getRecentCallsByPatient(
     patientId: string,
     hoursAgo: number = 24,
@@ -453,6 +652,21 @@ export class CallService {
     }
   }
 
+  /**
+   * Updates patient information fields
+   * Used to enrich patient records during calls as information is collected
+   *
+   * @param patientId - The unique patient identifier
+   * @param fields - Object containing field names and values to update
+   * @throws {Error} If patient is not found or database update fails
+   *
+   * @example
+   * await callService.updatePatientInfo('patient123', {
+   *   age: 45,
+   *   chronicConditions: ['diabetes', 'hypertension'],
+   *   allergies: ['penicillin']
+   * });
+   */
   async updatePatientInfo(patientId: string, fields: Record<string, unknown>): Promise<void> {
     logger.info('Updating patient info', { patientId, fields: Object.keys(fields) });
 
@@ -469,6 +683,21 @@ export class CallService {
     }
   }
 
+  /**
+   * Updates specific call fields dynamically
+   * Useful for updating metadata fields without full status transitions
+   *
+   * @param callId - The unique call identifier
+   * @param fields - Object containing field names and values to update
+   * @throws {Error} If call is not found or database update fails
+   *
+   * @example
+   * await callService.updateCallFields('clx123', {
+   *   chiefComplaint: 'Chest pain',
+   *   priority: 'P1',
+   *   agentVersion: '2.0.0'
+   * });
+   */
   async updateCallFields(callId: string, fields: Record<string, unknown>): Promise<void> {
     logger.info('Updating call fields', { callId, fields: Object.keys(fields) });
 
@@ -485,6 +714,17 @@ export class CallService {
     }
   }
 
+  /**
+   * Permanently deletes a call and all related data
+   * Cascade deletes: symptoms, redFlags, triageReport, handoffs, and other relations
+   * WARNING: This operation is irreversible
+   *
+   * @param callId - The unique call identifier
+   * @throws {Error} If call is not found or database deletion fails
+   *
+   * @example
+   * await callService.deleteCall('clx123');
+   */
   async deleteCall(callId: string): Promise<void> {
     logger.info('Deleting call', { callId });
 

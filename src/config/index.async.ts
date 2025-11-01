@@ -49,11 +49,6 @@ interface AppConfig {
   logging: { level: string };
   database: { url: string };
   redis: { url: string };
-  ai: {
-    model: string;
-    maxTokens: number;
-    temperature: number;
-  };
   elevenlabs: {
     apiKey: string;
     agentId: string;
@@ -122,12 +117,6 @@ export async function loadConfig(): Promise<AppConfig> {
 
     redis: {
       url: secrets.redisUrl,
-    },
-
-    ai: {
-      model: 'gemini-2.0-flash-001',
-      maxTokens: 2048,
-      temperature: 0.7,
     },
 
     elevenlabs: {

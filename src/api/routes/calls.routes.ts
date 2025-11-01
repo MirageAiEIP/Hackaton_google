@@ -1,3 +1,19 @@
+/**
+ * @fileoverview Call Management API Routes
+ *
+ * Provides REST endpoints for managing emergency call records:
+ * - List and filter calls (GET /)
+ * - Delete calls and related data (DELETE /:callId)
+ * - Retrieve call transcripts (GET /:callId/transcript)
+ * - Start web-based triage conversations (POST /start-web)
+ * - AI-powered information extraction from transcripts (POST /:callId/extract-info)
+ * - Preview extraction results without updating (POST /:callId/preview-extraction)
+ *
+ * All routes are prefixed with /api/v1/calls
+ *
+ * @module api/routes/calls
+ */
+
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { callService } from '@/services/call.service';

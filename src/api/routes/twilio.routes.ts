@@ -1,3 +1,19 @@
+/**
+ * @fileoverview Twilio Integration API Routes
+ *
+ * Handles Twilio telephony webhooks and call lifecycle:
+ * - Inbound call webhook (POST /inbound) - Returns TwiML to connect Twilio → ElevenLabs via WebSocket proxy
+ * - Outbound call initiation (POST /outbound) - Starts outbound calls to patients
+ * - Post-call webhook (POST /post-call-webhook) - Processes analytics and transcripts after call ends
+ *
+ * Architecture:
+ * Twilio → /inbound (returns TwiML with WebSocket URL) → Twilio Media Stream → /ws/twilio-media → ElevenLabs
+ *
+ * All routes are prefixed with /api/v1/twilio
+ *
+ * @module api/routes/twilio
+ */
+
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { callService } from '@/services/call.service';
