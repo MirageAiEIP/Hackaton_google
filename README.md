@@ -552,11 +552,11 @@ git commit -m "fix(scope): description"
 
 ### Contributors
 
-<!-- TODO: Add team member names and roles -->
-- **[Name]** - Project Lead & Backend Architecture
-- **[Name]** - AI Integration & ElevenLabs Development
-- **[Name]** - Infrastructure & DevOps
-- **[Name]** - Medical Protocol Implementation
+- **Alexandre Lagasse** ([@alexandrelagasse](https://github.com/alexandrelagasse))
+- **Harry Viennot** ([@harryviennot](https://github.com/harryviennot))
+- **Bartosz** ([@Bartoszkk](https://github.com/Bartoszkk))
+- **Théophilus Homawoo** ([@theohmwoa](https://github.com/theohmwoa))
+- **Clément Lagasse** ([@ClementLagasse](https://github.com/ClementLagasse))
 
 ---
 
