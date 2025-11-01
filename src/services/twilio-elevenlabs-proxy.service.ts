@@ -158,19 +158,23 @@ export class TwilioElevenLabsProxyService {
             callSid,
           });
           audioBuffer.forEach((payload) => {
+            // ElevenLabs Conversational AI expects: {"user_audio_chunk":"base64..."}
             elevenLabsWs!.send(
               JSON.stringify({
-                type: 'audio',
-                audio_event: {
-                  audio_base_64: payload,
-                  encoding: 'mulaw_8000',
-                },
+                user_audio_chunk: payload,
               })
             );
             audioPacketsSent++;
-            if (audioPacketsSent === 1) {
+            // Log packets at different times to check if payload changes from silence to real audio
+            if (
+              audioPacketsSent === 1 ||
+              audioPacketsSent === 50 ||
+              audioPacketsSent === 100 ||
+              audioPacketsSent === 150
+            ) {
+              const timingMs = audioPacketsSent * 20; // Each packet is ~20ms
               logger.info(
-                `First Twilio audio packet (buffered) - callSid: ${callSid}, length: ${payload.length}, start: "${payload.substring(0, 20)}", end: "${payload.substring(payload.length - 20)}"`
+                `Twilio audio packet #${audioPacketsSent} (~${timingMs}ms) (buffered) - callSid: ${callSid}, length: ${payload.length}, start: "${payload.substring(0, 20)}", end: "${payload.substring(payload.length - 20)}"`
               );
             }
           });
@@ -481,25 +485,38 @@ export class TwilioElevenLabsProxyService {
 
         // Handle media (audio) from Twilio
         if (message.event === 'media') {
+          // Log first media message to debug
+          if (audioPacketsSent === 0) {
+            logger.info('First Twilio media message (FULL)', {
+              event: message.event,
+              streamSid: message.streamSid,
+              sequenceNumber: message.sequenceNumber,
+              media: message.media,
+            });
+          }
           const audioPayload = message.media.payload;
 
           // Check if ElevenLabs is ready and connected
           if (elevenLabsWs && elevenLabsReady && elevenLabsWs.readyState === WebSocket.OPEN) {
             // Forward to ElevenLabs immediately
             // Note: Twilio sends mulaw 8kHz
+            // ElevenLabs Conversational AI expects: {"user_audio_chunk":"base64..."}
             elevenLabsWs.send(
               JSON.stringify({
-                type: 'audio',
-                audio_event: {
-                  audio_base_64: audioPayload,
-                  encoding: 'mulaw_8000',
-                },
+                user_audio_chunk: audioPayload,
               })
             );
             audioPacketsSent++;
-            if (audioPacketsSent === 1) {
+            // Log packets at different times to check if payload changes from silence to real audio
+            if (
+              audioPacketsSent === 1 ||
+              audioPacketsSent === 50 ||
+              audioPacketsSent === 100 ||
+              audioPacketsSent === 150
+            ) {
+              const timingMs = audioPacketsSent * 20; // Each packet is ~20ms
               logger.info(
-                `First Twilio audio packet - callSid: ${callSid}, length: ${audioPayload.length}, start: "${audioPayload.substring(0, 20)}", end: "${audioPayload.substring(audioPayload.length - 20)}"`
+                `Twilio audio packet #${audioPacketsSent} (~${timingMs}ms) - callSid: ${callSid}, length: ${audioPayload.length}, start: "${audioPayload.substring(0, 20)}", end: "${audioPayload.substring(audioPayload.length - 20)}"`
               );
             }
             if (audioPacketsSent % 100 === 0) {
