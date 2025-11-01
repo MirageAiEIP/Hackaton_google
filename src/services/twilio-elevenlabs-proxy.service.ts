@@ -151,39 +151,12 @@ export class TwilioElevenLabsProxyService {
         });
         elevenLabsReady = true;
 
-        // Flush buffered audio packets
+        // Discard buffered audio (avoid duplication since real-time stream is already active)
         if (audioBuffer.length > 0) {
-          logger.info('Flushing buffered audio packets to ElevenLabs', {
-            count: audioBuffer.length,
+          logger.info('Discarding buffered audio packets (avoiding duplication)', {
+            discardedCount: audioBuffer.length,
             callSid,
           });
-          audioBuffer.forEach((payload) => {
-            // ElevenLabs Conversational AI expects: {"user_audio_chunk":"base64..."}
-            elevenLabsWs!.send(
-              JSON.stringify({
-                user_audio_chunk: payload,
-              })
-            );
-            audioPacketsSent++;
-            // Log packets at different times to check if payload changes from silence to real audio
-            if (
-              audioPacketsSent === 1 ||
-              audioPacketsSent === 50 ||
-              audioPacketsSent === 100 ||
-              audioPacketsSent === 150
-            ) {
-              const timingMs = audioPacketsSent * 20; // Each packet is ~20ms
-              logger.info(
-                `Twilio audio packet #${audioPacketsSent} (~${timingMs}ms) (buffered) - callSid: ${callSid}, length: ${payload.length}, start: "${payload.substring(0, 20)}", end: "${payload.substring(payload.length - 20)}"`
-              );
-            }
-          });
-          logger.info(
-            `Flushed ${audioBuffer.length} audio packets, total sent: ${audioPacketsSent}`,
-            {
-              callSid,
-            }
-          );
           audioBuffer = [];
         }
 
