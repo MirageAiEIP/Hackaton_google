@@ -492,12 +492,9 @@ export class TwilioElevenLabsProxyService {
             );
             audioPacketsSent++;
             if (audioPacketsSent === 1) {
-              logger.info('First Twilio audio packet', {
-                callSid,
-                payloadLength: audioPayload.length,
-                payloadStart: audioPayload.substring(0, 20),
-                payloadEnd: audioPayload.substring(audioPayload.length - 20),
-              });
+              logger.info(
+                `First Twilio audio packet - callSid: ${callSid}, length: ${audioPayload.length}, start: "${audioPayload.substring(0, 20)}", end: "${audioPayload.substring(audioPayload.length - 20)}"`
+              );
             }
             if (audioPacketsSent % 100 === 0) {
               logger.info('Sending Twilio audio to ElevenLabs', {
