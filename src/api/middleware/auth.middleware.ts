@@ -120,31 +120,3 @@ export function requireRole(...allowedRoles: Array<'OPERATOR' | 'ADMIN'>) {
     }
   };
 }
-
-export function createOptionalAuthMiddleware(accessTokenSecret: string) {
-  return async (request: FastifyRequest): Promise<void> => {
-    try {
-      const authHeader = request.headers.authorization;
-
-      if (authHeader) {
-        const parts = authHeader.split(' ');
-        if (parts.length === 2 && parts[0] === 'Bearer') {
-          const token = parts[1];
-          if (token) {
-            const decoded = verifyAccessToken(token, accessTokenSecret);
-
-            request.user = {
-              userId: decoded.userId,
-              employeeId: decoded.employeeId,
-              fullName: decoded.fullName,
-              role: decoded.role,
-              operatorId: decoded.operatorId,
-            };
-          }
-        }
-      }
-    } catch (error) {
-      // Silently fail - token is optional
-    }
-  };
-}

@@ -105,6 +105,18 @@ export class TwilioElevenLabsProxyService {
     }
   }
 
+  /**
+   * Handles WebSocket connection from Twilio Media Stream
+   * Creates a bidirectional audio proxy between Twilio and ElevenLabs Conversational AI
+   *
+   * @param twilioWs - WebSocket connection from Twilio Media Stream
+   * @param request - Fastify request containing callSid in query params
+   * @throws {Error} If ElevenLabs agent ID is not configured
+   *
+   * @example
+   * // Called by Twilio when a call is connected
+   * await twilioElevenLabsProxyService.handleTwilioConnection(ws, request);
+   */
   async handleTwilioConnection(twilioWs: FastifyWebSocket, request: FastifyRequest): Promise<void> {
     await this.initialize();
 
@@ -569,6 +581,18 @@ export class TwilioElevenLabsProxyService {
     });
   }
 
+  /**
+   * Handles WebSocket connection from web browser clients
+   * Creates a proxy between the web client and ElevenLabs for web-based triage
+   *
+   * @param clientWs - WebSocket connection from the web client
+   * @param request - Fastify request containing sessionId and optional callId in query params
+   * @throws {Error} If ElevenLabs agent ID is not configured
+   *
+   * @example
+   * // Called when a web client initiates a triage session
+   * await twilioElevenLabsProxyService.handleWebConnection(ws, request);
+   */
   async handleWebConnection(clientWs: FastifyWebSocket, request: FastifyRequest): Promise<void> {
     await this.initialize();
 
@@ -1116,6 +1140,18 @@ export class TwilioElevenLabsProxyService {
     }
   }
 
+  /**
+   * Handles operator takeover of an active AI conversation
+   * Disconnects the AI agent and connects the human operator to the client
+   *
+   * @param operatorWs - WebSocket connection from the operator's interface
+   * @param request - Fastify request containing sessionId in query params
+   * @throws {Error} If session is not found or already ended
+   *
+   * @example
+   * // Called when an operator takes over a call from the AI
+   * await twilioElevenLabsProxyService.handleOperatorConnection(ws, request);
+   */
   async handleOperatorConnection(
     operatorWs: FastifyWebSocket,
     request: FastifyRequest

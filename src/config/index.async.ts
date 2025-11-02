@@ -49,11 +49,6 @@ interface AppConfig {
   logging: { level: string };
   database: { url: string };
   redis: { url: string };
-  ai: {
-    model: string;
-    maxTokens: number;
-    temperature: number;
-  };
   elevenlabs: {
     apiKey: string;
     agentId: string;
@@ -124,12 +119,6 @@ export async function loadConfig(): Promise<AppConfig> {
       url: secrets.redisUrl,
     },
 
-    ai: {
-      model: 'gemini-2.0-flash-001',
-      maxTokens: 2048,
-      temperature: 0.7,
-    },
-
     elevenlabs: {
       apiKey: secrets.elevenlabsApiKey,
       agentId: secrets.elevenlabsAgentId,
@@ -176,35 +165,5 @@ export async function loadConfig(): Promise<AppConfig> {
 
   return configCache;
 }
-
-export const staticConfig = {
-  env: env.NODE_ENV,
-  isDevelopment: env.NODE_ENV === 'development',
-  isProduction: env.NODE_ENV === 'production',
-  isTest: env.NODE_ENV === 'test',
-
-  server: {
-    port: env.PORT,
-  },
-
-  logging: {
-    level: env.LOG_LEVEL,
-  },
-
-  rateLimit: {
-    windowMs: env.RATE_LIMIT_WINDOW_MS,
-    maxRequests: env.RATE_LIMIT_MAX_REQUESTS,
-  },
-
-  gcp: {
-    projectId: env.GCP_PROJECT_ID,
-    bucketName: env.GCS_BUCKET_NAME,
-  },
-
-  agent: {
-    version: '1.0.0',
-    name: 'SAMU AI Triage Agent',
-  },
-} as const;
 
 export type Config = AppConfig;

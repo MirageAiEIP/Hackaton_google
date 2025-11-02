@@ -285,13 +285,3 @@ export class ElevenLabsConversationsService {
     return toolCalls;
   }
 }
-
-// Singleton instance
-let conversationsServiceInstance: ElevenLabsConversationsService | null = null;
-
-export const getElevenLabsConversationsService = (): ElevenLabsConversationsService => {
-  if (!conversationsServiceInstance) {
-    conversationsServiceInstance = new ElevenLabsConversationsService();
-  }
-  return conversationsServiceInstance;
-};

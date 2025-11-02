@@ -9,7 +9,6 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   // Secrets loaded from Google Secret Manager (optional in .env)
   DATABASE_URL: z.string().url().optional(),
-  GOOGLE_API_KEY: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(32).optional(),
   ENCRYPTION_KEY: z.string().min(32).optional(),
   // Twilio
@@ -56,14 +55,6 @@ export const config = {
   database: {
     // Will be loaded from Secret Manager if not in .env
     url: env.DATABASE_URL || '',
-  },
-
-  ai: {
-    // Will be loaded from Secret Manager if not in .env
-    apiKey: env.GOOGLE_API_KEY || '',
-    model: 'gemini-2.0-flash-001',
-    maxTokens: 2048,
-    temperature: 0.7,
   },
 
   security: {
