@@ -476,14 +476,39 @@ export class TwilioElevenLabsProxyService {
           });
         }
 
-        // Remove the connection from active connections
-        if (callId) {
-          this.activeElevenLabsConnections.delete(callId);
-          this.activeTwilioSessions.delete(callId);
-          logger.info('Removed ElevenLabs connection and Twilio session', { callId });
-        }
+        // Check if there's an operator handling this call (handoff active)
+        const twilioSession = callId ? this.activeTwilioSessions.get(callId) : null;
+        const hasOperator = twilioSession?.operatorWs !== null;
 
-        twilioWs.close();
+        if (hasOperator) {
+          // Operator is handling the call - keep Twilio connection alive
+          logger.info('Operator is handling call - keeping Twilio connection alive', {
+            callId,
+            callSid,
+          });
+
+          // Only remove ElevenLabs connection, NOT Twilio session
+          if (callId) {
+            this.activeElevenLabsConnections.delete(callId);
+
+            // Update session to mark ElevenLabs as closed
+            if (twilioSession) {
+              twilioSession.elevenLabsWs = null;
+              this.activeTwilioSessions.set(callId, twilioSession);
+            }
+
+            logger.info('Removed ElevenLabs connection (operator handoff active)', { callId });
+          }
+        } else {
+          // No operator - normal flow: close everything
+          if (callId) {
+            this.activeElevenLabsConnections.delete(callId);
+            this.activeTwilioSessions.delete(callId);
+            logger.info('Removed ElevenLabs connection and Twilio session', { callId });
+          }
+
+          twilioWs.close();
+        }
       });
     } catch (error) {
       logger.error('Failed to create ElevenLabs WebSocket', error as Error, {
