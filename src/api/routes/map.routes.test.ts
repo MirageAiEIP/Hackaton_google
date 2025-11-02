@@ -167,7 +167,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/data',
+        url: '/api/v1/map/data',
       });
 
       expect(response.statusCode).toBe(200);
@@ -193,7 +193,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/data?lastHours=48',
+        url: '/api/v1/map/data?lastHours=48',
       });
 
       expect(response.statusCode).toBe(200);
@@ -212,7 +212,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/data',
+        url: '/api/v1/map/data',
       });
 
       expect(response.statusCode).toBe(200);
@@ -228,7 +228,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/data',
+        url: '/api/v1/map/data',
       });
 
       expect(response.statusCode).toBe(500);
@@ -280,7 +280,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/ambulances',
+        url: '/api/v1/map/ambulances',
       });
 
       expect(response.statusCode).toBe(200);
@@ -299,7 +299,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/ambulances',
+        url: '/api/v1/map/ambulances',
       });
 
       expect(response.statusCode).toBe(200);
@@ -316,7 +316,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/ambulances',
+        url: '/api/v1/map/ambulances',
       });
 
       expect(response.statusCode).toBe(500);
@@ -351,7 +351,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/dispatches',
+        url: '/api/v1/map/dispatches',
       });
 
       expect(response.statusCode).toBe(200);
@@ -372,7 +372,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/dispatches?lastHours=48',
+        url: '/api/v1/map/dispatches?lastHours=48',
       });
 
       expect(response.statusCode).toBe(200);
@@ -386,7 +386,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/dispatches',
+        url: '/api/v1/map/dispatches',
       });
 
       expect(response.statusCode).toBe(500);
@@ -434,7 +434,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/hospitals',
+        url: '/api/v1/map/hospitals',
       });
 
       expect(response.statusCode).toBe(200);
@@ -457,7 +457,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/hospitals',
+        url: '/api/v1/map/hospitals',
       });
 
       expect(response.statusCode).toBe(200);
@@ -472,7 +472,7 @@ describe('Map Routes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/map/hospitals',
+        url: '/api/v1/map/hospitals',
       });
 
       expect(response.statusCode).toBe(500);

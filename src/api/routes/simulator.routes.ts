@@ -17,8 +17,11 @@ interface SimulateAmbulanceMovementBody {
  * WARNING: These endpoints should be disabled in production
  */
 export async function simulatorRoutes(app: FastifyInstance) {
-  const container = Container.getInstance();
-  const eventBus = container.getEventBus();
+  // Lazy load eventBus to avoid initialization issues in tests
+  const getEventBus = () => {
+    const container = Container.getInstance();
+    return container.getEventBus();
+  };
 
   /**
    * Simulate ambulance movement along a route
@@ -109,7 +112,7 @@ export async function simulatorRoutes(app: FastifyInstance) {
           ambulance.currentLongitude || 2.3522,
           duration,
           updateInterval,
-          eventBus
+          getEventBus()
         );
 
         return {
