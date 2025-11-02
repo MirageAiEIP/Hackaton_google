@@ -10,8 +10,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/integration/**/*.test.ts', 'src/api/**/*.test.ts'],
-    exclude: ['node_modules', 'dist', 'coverage', 'tests/unit/**'],
+    include: ['src/**/*.integration.test.ts'],
+    exclude: ['node_modules', 'dist', 'coverage', 'tests/**'],
     setupFiles: ['./vitest.setup.ts'],
     testTimeout: 30000, // Longer timeout for DB operations
     hookTimeout: 30000,
