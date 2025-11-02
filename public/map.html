@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAMU AI - Suivi des Ambulances en Temps Réel</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            overflow: hidden;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid #ef4444;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ef4444;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pulse {
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        .stats {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #10b981;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Map Container */
+        #map {
+            flex: 1;
+            height: 100%;
+            min-height: 500px;
+            z-index: 0;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 350px;
+            background: #1e293b;
+            border-left: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            background: #0f172a;
+            border-bottom: 1px solid #334155;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        /* Legend */
+        .legend {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .legend h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #f1f5f9;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .legend-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .legend-icon.hospital {
+            background: #3b82f6;
+        }
+
+        .legend-icon.ambulance {
+            background: #10b981;
+        }
+
+        .legend-icon.dispatch {
+            background: #ef4444;
+        }
+
+        /* List Items */
+        .list-item {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border-left: 3px solid;
+            transition: all 0.2s;
+        }
+
+        .list-item:hover {
+            background: #1e293b;
+            transform: translateX(-2px);
+        }
+
+        .list-item.ambulance {
+            border-color: #10b981;
+        }
+
+        .list-item.dispatch {
+            border-color: #ef4444;
+        }
+
+        .list-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .list-item-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.available {
+            background: #10b981;
+            color: #fff;
+        }
+
+        .status-badge.en-route {
+            background: #f59e0b;
+            color: #fff;
+        }
+
+        .status-badge.on-scene {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .status-badge.dispatched {
+            background: #8b5cf6;
+            color: #fff;
+        }
+
+        .list-item-detail {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+        }
+
+        /* Custom Leaflet Popup */
+        .leaflet-popup-content-wrapper {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 0;
+        }
+
+        .leaflet-popup-content {
+            margin: 0;
+            padding: 1rem;
+        }
+
+        .popup-title {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #f1f5f9;
+        }
+
+        .popup-detail {
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+            color: #cbd5e1;
+        }
+
+        /* Scrollbar */
+        .sidebar-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+
+        /* Loading */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #334155;
+            border-top-color: #ef4444;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="header-content">
+                <h1>
+                    <div class="pulse"></div>
+                    SAMU AI - Suivi en Temps Réel
+                </h1>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-ambulances">0</div>
+                        <div class="stat-label">Ambulances</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-dispatches">0</div>
+                        <div class="stat-label">Interventions</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-hospitals">0</div>
+                        <div class="stat-label">Hôpitaux</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div id="map"></div>
+
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h2>📍 Légende & Détails</h2>
+                </div>
+                <div class="sidebar-content">
+                    <div class="legend">
+                        <h3>Légende</h3>
+                        <div class="legend-item">
+                            <div class="legend-icon hospital">🏥</div>
+                            <span>Hôpitaux / SAMU</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon ambulance">🚑</div>
+                            <span>Ambulances actives</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon dispatch">📍</div>
+                            <span>Interventions en cours</span>
+                        </div>
+                    </div>
+
+                    <div id="ambulance-list"></div>
+                    <div id="dispatch-list"></div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Configuration
+        const API_URL = window.location.origin;
+        const WS_URL = `ws://${window.location.host}/ws/operator`;
+
+        // Initialize map centered on Paris
+        const map = L.map('map', {
+            center: [48.8566, 2.3522],
+            zoom: 12,
+            zoomControl: true
+        });
+
+        // Add tile layer (OpenStreetMap) - try multiple sources for reliability
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+            crossOrigin: true
+        });
+
+        tileLayer.on('tileerror', function(error) {
+            console.log('Tile loading error:', error);
+        });
+
+        tileLayer.addTo(map);
+
+        // Force map to refresh after a short delay
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+
+        // Store markers
+        const markers = {
+            hospitals: {},
+            ambulances: {},
+            dispatches: {}
+        };
+
+        // Custom icons
+        const hospitalIcon = L.divIcon({
+            html: '<div style="background:#3b82f6;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🏥</div>',
+            className: '',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+        const ambulanceIcon = L.divIcon({
+            html: '<div style="background:#10b981;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid white;">🚑</div>',
+            className: '',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+        });
+
+        const dispatchIcon = L.divIcon({
+            html: '<div style="background:#ef4444;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.3);animation:pulse 1.5s ease-in-out infinite;">📍</div>',
+            className: '',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+        // Load initial map data
+        async function loadMapData() {
+            try {
+                const response = await fetch(`${API_URL}/api/map/data`);
+                const data = await response.json();
+
+                // Update stats
+                document.getElementById('stat-ambulances').textContent = data.ambulances.length;
+                document.getElementById('stat-dispatches').textContent = data.dispatches.length;
+                document.getElementById('stat-hospitals').textContent = data.hospitals.length;
+
+                // Add hospitals
+                data.hospitals.forEach(hospital => {
+                    if (!markers.hospitals[hospital.id]) {
+                        const marker = L.marker([hospital.latitude, hospital.longitude], { icon: hospitalIcon })
+                            .addTo(map)
+                            .bindPopup(`
+                                <div class="popup-title">${hospital.name}</div>
+                                <div class="popup-detail">📍 ${hospital.address}, ${hospital.city}</div>
+                                <div class="popup-detail">📞 ${hospital.phone}</div>
+                                <div class="popup-detail">🚑 ${hospital.availableAmbulances}/${hospital.totalAmbulances} disponibles</div>
+                                ${hospital.hasSMUR ? '<div class="popup-detail">✅ SMUR disponible</div>' : ''}
+                            `);
+                        markers.hospitals[hospital.id] = marker;
+                    }
+                });
+
+                // Add ambulances
+                data.ambulances.forEach(ambulance => {
+                    updateAmbulanceMarker(ambulance);
+                });
+
+                // Filter and add only active dispatches (not COMPLETED)
+                const activeDispatches = data.dispatches.filter(d => d.status !== 'COMPLETED');
+
+                // Remove completed dispatch markers
+                Object.keys(markers.dispatches).forEach(dispatchId => {
+                    const dispatch = data.dispatches.find(d => d.id === dispatchId);
+                    if (dispatch && dispatch.status === 'COMPLETED') {
+                        map.removeLayer(markers.dispatches[dispatchId]);
+                        delete markers.dispatches[dispatchId];
+                    }
+                });
+
+                activeDispatches.forEach(dispatch => {
+                    updateDispatchMarker(dispatch);
+                });
+
+                // Update lists
+                updateAmbulanceList(data.ambulances);
+                updateDispatchList(activeDispatches);
+
+            } catch (error) {
+                console.error('Failed to load map data:', error);
+            }
+        }
+
+        function updateAmbulanceMarker(ambulance) {
+            const id = ambulance.id;
+            const lat = ambulance.location.latitude;
+            const lng = ambulance.location.longitude;
+
+            if (markers.ambulances[id]) {
+                // Update existing marker with smooth animation
+                markers.ambulances[id].setLatLng([lat, lng]);
+            } else {
+                // Create new marker
+                const marker = L.marker([lat, lng], { icon: ambulanceIcon })
+                    .addTo(map)
+                    .bindPopup(`
+                        <div class="popup-title">🚑 ${ambulance.callSign}</div>
+                        <div class="popup-detail">ID: ${ambulance.vehicleId}</div>
+                        <div class="popup-detail">Type: ${ambulance.type}</div>
+                        <div class="popup-detail">Statut: ${ambulance.status}</div>
+                        <div class="popup-detail">Vitesse: ${ambulance.speed} km/h</div>
+                        <div class="popup-detail">Base: ${ambulance.homeHospital.name}</div>
+                    `);
+                markers.ambulances[id] = marker;
+            }
+        }
+
+        function updateDispatchMarker(dispatch) {
+            const id = dispatch.id;
+            const lat = dispatch.location.latitude;
+            const lng = dispatch.location.longitude;
+
+            if (!markers.dispatches[id]) {
+                const marker = L.marker([lat, lng], { icon: dispatchIcon })
+                    .addTo(map)
+                    .bindPopup(`
+                        <div class="popup-title">🚨 Intervention ${dispatch.priority}</div>
+                        <div class="popup-detail">ID: ${dispatch.dispatchId}</div>
+                        <div class="popup-detail">📍 ${dispatch.address}</div>
+                        <div class="popup-detail">Symptômes: ${dispatch.symptoms}</div>
+                        <div class="popup-detail">Statut: ${dispatch.status}</div>
+                        ${dispatch.estimatedArrivalMinutes ? `<div class="popup-detail">⏱️ ETA: ${dispatch.estimatedArrivalMinutes} min</div>` : ''}
+                    `);
+                markers.dispatches[id] = marker;
+            }
+        }
+
+        function updateAmbulanceList(ambulances) {
+            const list = document.getElementById('ambulance-list');
+            list.innerHTML = '<h3 style="margin-bottom:0.5rem;font-size:0.875rem;">🚑 Ambulances actives</h3>';
+
+            ambulances.forEach(ambulance => {
+                const item = document.createElement('div');
+                item.className = 'list-item ambulance';
+                item.innerHTML = `
+                    <div class="list-item-header">
+                        <div class="list-item-title">${ambulance.callSign}</div>
+                        <div class="status-badge ${ambulance.status.toLowerCase().replace('_', '-')}">${ambulance.status}</div>
+                    </div>
+                    <div class="list-item-detail">${ambulance.vehicleId} - ${ambulance.type}</div>
+                    <div class="list-item-detail">🏥 ${ambulance.homeHospital.name}</div>
+                    <div class="list-item-detail">⚡ ${ambulance.speed} km/h</div>
+                `;
+                item.onclick = () => {
+                    map.setView([ambulance.location.latitude, ambulance.location.longitude], 15);
+                    markers.ambulances[ambulance.id].openPopup();
+                };
+                list.appendChild(item);
+            });
+        }
+
+        function updateDispatchList(dispatches) {
+            const list = document.getElementById('dispatch-list');
+            list.innerHTML = '<h3 style="margin-top:1rem;margin-bottom:0.5rem;font-size:0.875rem;">🚨 Interventions en cours</h3>';
+
+            dispatches.forEach(dispatch => {
+                const item = document.createElement('div');
+                item.className = 'list-item dispatch';
+                item.innerHTML = `
+                    <div class="list-item-header">
+                        <div class="list-item-title">${dispatch.dispatchId}</div>
+                        <div class="status-badge ${dispatch.status.toLowerCase().replace('_', '-')}">${dispatch.priority}</div>
+                    </div>
+                    <div class="list-item-detail">📍 ${dispatch.address}</div>
+                    <div class="list-item-detail">${dispatch.symptoms.substring(0, 50)}...</div>
+                    ${dispatch.estimatedArrivalMinutes ? `<div class="list-item-detail">⏱️ ETA: ${dispatch.estimatedArrivalMinutes} min</div>` : ''}
+                `;
+                item.onclick = () => {
+                    map.setView([dispatch.location.latitude, dispatch.location.longitude], 15);
+                    markers.dispatches[dispatch.id].openPopup();
+                };
+                list.appendChild(item);
+            });
+        }
+
+        // WebSocket connection for real-time updates
+        function connectWebSocket() {
+            const ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                // Join map room
+                ws.send(JSON.stringify({ action: 'join', room: 'map' }));
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+
+                    if (message.type === 'ambulance:location:updated') {
+                        const data = message.data;
+                        updateAmbulanceMarker({
+                            id: data.ambulanceId,
+                            location: data.location,
+                            status: data.status,
+                            heading: data.heading,
+                            speed: data.speed,
+                            currentDispatchId: data.dispatchId
+                        });
+                        // Don't reload data - WebSocket update is enough!
+                    } else if (message.type === 'ambulance:dispatched') {
+                        console.log('Ambulance dispatched:', message.data);
+                        loadMapData(); // Only reload for new dispatches
+                    }
+                } catch (error) {
+                    console.error('WebSocket message error:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected, reconnecting...');
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        // Initialize
+        loadMapData();
+        connectWebSocket();
+
+        // Refresh data every 5 seconds (for new dispatches and hospital updates)
+        setInterval(loadMapData, 5000);
+    </script>
+</body>
+</html>

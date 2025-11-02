@@ -28,6 +28,10 @@ import { usersRoutes } from '@/api/routes/users.routes';
 import { transcriptsRoutes } from '@/api/routes/transcripts.routes';
 import { audioRoutes } from '@/api/routes/audio.routes';
 import { monitoringRoutes } from '@/api/routes/monitoring.routes';
+import { mapRoutes } from '@/api/routes/map.routes';
+import { simulatorRoutes } from '@/api/routes/simulator.routes';
+import { setDashboardGateway as setAmbulanceLocationGateway } from '@/application/events/AmbulanceLocationUpdatedHandler';
+import { setDashboardGateway as setAmbulanceDispatchGateway } from '@/application/events/AmbulanceDispatchedHandler';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 
@@ -110,15 +114,16 @@ async function setupServer() {
     },
   });
 
-  // Serve static files (frontend de test)
+  // Serve static files (frontend de test + map visualization)
   // MUST be registered after Swagger but before routes
   const publicPath = path.join(process.cwd(), 'public');
-  logger.info('Serving static files', { publicPath, prefix: '/test/' });
+  logger.info('Serving static files', { publicPath });
 
   await app.register(fastifyStatic, {
     root: publicPath,
-    prefix: '/test/',
+    prefix: '/',
     decorateReply: false,
+    constraints: { host: /.*/ },
   });
 
   // Root route - Application info
@@ -309,6 +314,15 @@ async function setupServer() {
   // Register monitoring routes (real-time call monitoring)
   await app.register(monitoringRoutes, { prefix: '/api/v1/monitoring' });
 
+  // Register map routes (ambulance tracking and visualization)
+  await app.register(mapRoutes, { prefix: '/api/v1/map' });
+
+  // Register simulator routes (DEV ONLY - for testing real-time features)
+  if (config.env !== 'production') {
+    await app.register(simulatorRoutes, { prefix: '/api/v1/simulator' });
+    logger.info('Simulator routes enabled (development mode)');
+  }
+
   // WebSocket stats endpoint
   app.get('/api/v1/dashboard/stats', async () => {
     if (!dashboardGateway) {
@@ -382,6 +396,11 @@ async function startServer() {
     dashboardGateway = new RealtimeDashboardGateway(app);
     await dashboardGateway.initialize();
     logger.info('Real-Time Dashboard Gateway initialized successfully');
+
+    // Set dashboard gateway for ambulance event handlers
+    setAmbulanceLocationGateway(dashboardGateway);
+    setAmbulanceDispatchGateway(dashboardGateway);
+    logger.info('Dashboard gateway set for ambulance event handlers');
 
     // Initialize Queue Dashboard WebSocket Gateway (Secured)
     // Using the singleton instance imported from the module

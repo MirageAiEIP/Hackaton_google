@@ -11,11 +11,11 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc && tsc-alias",
     "start": "node dist/server.js",
-    "test": "vitest run",
-    "test:unit": "vitest run src/api src/server.test.ts",
-    "test:integration": "vitest run src/services/health-check.service.integration.test.ts",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test": "vitest run --config vitest.unit.config.ts",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:watch": "vitest --config vitest.unit.config.ts",
+    "test:coverage": "vitest run --config vitest.unit.config.ts --coverage",
     "test:ui": "vitest --ui",
     "test:calibration": "tsx test-framework/automated-testing.ts",
     "test:architecture": "tsx scripts/test-architecture.ts",
@@ -36,7 +36,7 @@
     "docker:up": "docker-compose up --build",
     "docker:down": "docker-compose down",
     "prepare": "husky install",
-    "validate": "npm run type-check && npm run lint && npm run format:check && npm run test:coverage"
+    "validate": "npm run type-check && npm run lint && npm run format:check && npm run test:unit"
   },
   "keywords": [
     "ai",

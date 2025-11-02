@@ -1,3 +1,4 @@
+
 # Dependencies
 node_modules/
 .pnp
@@ -64,3 +65,4 @@ prisma/*.db-journal
 .claude
 *.md
 !README.md
+.idea/
