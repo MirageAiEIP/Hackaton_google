@@ -198,8 +198,72 @@
     let audioContext = null;
     let audioQueue = [];
     let isPlaying = false;
+    let isTwilioCall = false; // Détecte si c'est un appel téléphonique (mulaw 8kHz)
+    let audioFormat = null;
     const WS_URL = 'ws://localhost:8080/ws/operator';
     const API_URL = 'http://localhost:8080/api/v1';
+
+    // Codec µ-law (mulaw) pour les appels Twilio
+    const MULAW_BIAS = 0x84;
+    const MULAW_MAX = 0x1FFF;
+    const MULAW_SEG_SHIFT = 4;
+    const MULAW_SEG_MASK = 0x70;
+    const MULAW_QUANT_MASK = 0x0F;
+
+    // Table de décodage mulaw → PCM16
+    const mulawToPcm16 = (() => {
+      const table = new Int16Array(256);
+      for (let i = 0; i < 256; i++) {
+        let mulaw = ~i;
+        let sign = (mulaw & 0x80);
+        let exponent = (mulaw >> 4) & 0x07;
+        let mantissa = mulaw & 0x0F;
+        let sample = (((mantissa << 3) + MULAW_BIAS) << exponent) - MULAW_BIAS;
+        table[i] = sign ? -sample : sample;
+      }
+      return table;
+    })();
+
+    // Encodage PCM16 → mulaw
+    function pcm16ToMulaw(pcm16Value) {
+      const BIAS = 0x84;
+      let sign = (pcm16Value < 0) ? 0x80 : 0x00;
+      let sample = Math.abs(pcm16Value);
+
+      sample += BIAS;
+      if (sample > 0x7FFF) sample = 0x7FFF;
+
+      let exponent = 7;
+      for (let exp = 0; exp < 8; exp++) {
+        if (sample <= (0xFF << exp)) {
+          exponent = exp;
+          break;
+        }
+      }
+
+      let mantissa = (sample >> (exponent + 3)) & 0x0F;
+      let mulaw = ~(sign | (exponent << 4) | mantissa);
+
+      return mulaw & 0xFF;
+    }
+
+    // Décoder mulaw → PCM16
+    function decodeMulaw(mulawBytes) {
+      const pcm16 = new Int16Array(mulawBytes.length);
+      for (let i = 0; i < mulawBytes.length; i++) {
+        pcm16[i] = mulawToPcm16[mulawBytes[i]];
+      }
+      return pcm16;
+    }
+
+    // Encoder PCM16 → mulaw
+    function encodeMulaw(pcm16Array) {
+      const mulaw = new Uint8Array(pcm16Array.length);
+      for (let i = 0; i < pcm16Array.length; i++) {
+        mulaw[i] = pcm16ToMulaw(pcm16Array[i]);
+      }
+      return mulaw;
+    }
 
     async function takeControl() {
       const callId = document.getElementById('callId').value.trim();
@@ -328,7 +392,17 @@
 
           if (message.type === 'connected') {
             log('✅ Prêt à parler avec le patient', 'success');
-            updateStatus('Connecté - Vous pouvez parler avec le patient', true);
+
+            // Détecter le format audio (Twilio = mulaw 8kHz, Web = PCM16 16kHz)
+            if (message.audioFormat) {
+              audioFormat = message.audioFormat;
+              isTwilioCall = audioFormat.input?.format === 'mulaw';
+              const formatStr = isTwilioCall ? 'Twilio (mulaw 8kHz)' : 'Web (PCM16 16kHz)';
+              log(`📞 Type d'appel détecté: ${formatStr}`, 'info');
+              updateStatus(`Connecté (${formatStr}) - Vous pouvez parler avec le patient`, true);
+            } else {
+              updateStatus('Connecté - Vous pouvez parler avec le patient', true);
+            }
           }
 
           // Audio du patient → Jouer dans les haut-parleurs
@@ -397,13 +471,24 @@
               pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
 
-            // Convertir en base64
-            const base64Audio = btoa(String.fromCharCode.apply(null, new Uint8Array(pcm16.buffer)));
+            let audioToSend;
+            let format = 'pcm16';
+
+            // Si appel Twilio, encoder en mulaw
+            if (isTwilioCall) {
+              const mulawData = encodeMulaw(pcm16);
+              audioToSend = btoa(String.fromCharCode.apply(null, mulawData));
+              format = 'mulaw';
+            } else {
+              // Sinon envoyer PCM16
+              audioToSend = btoa(String.fromCharCode.apply(null, new Uint8Array(pcm16.buffer)));
+            }
 
             // Envoyer au backend
             ws.send(JSON.stringify({
               type: 'audio',
-              audio_base_64: base64Audio,
+              audio_base_64: audioToSend,
+              format: format,
             }));
           }
         };
@@ -459,18 +544,32 @@
         }
         log(`✔️ Base64 décodé: ${bytes.length} bytes`, 'info');
 
+        let pcm16;
+        let sampleRate;
+
+        // Si appel Twilio, décoder mulaw → PCM16
+        if (isTwilioCall) {
+          pcm16 = decodeMulaw(bytes);
+          sampleRate = 8000;
+          log(`✔️ Mulaw décodé → PCM16: ${pcm16.length} samples (8kHz)`, 'info');
+        } else {
+          // Sinon c'est déjà du PCM16
+          pcm16 = new Int16Array(bytes.buffer);
+          sampleRate = 16000;
+          log(`✔️ PCM16 direct: ${pcm16.length} samples (16kHz)`, 'info');
+        }
+
         // Convertir PCM 16-bit en Float32
-        const pcm16 = new Int16Array(bytes.buffer);
         const float32 = new Float32Array(pcm16.length);
         for (let i = 0; i < pcm16.length; i++) {
           float32[i] = pcm16[i] / 32768.0;
         }
         log(`✔️ Converti en Float32: ${float32.length} samples`, 'info');
 
-        // Créer un AudioBuffer (mono, 16kHz)
-        const audioBuffer = audioContext.createBuffer(1, float32.length, 16000);
+        // Créer un AudioBuffer avec le bon sample rate
+        const audioBuffer = audioContext.createBuffer(1, float32.length, sampleRate);
         audioBuffer.getChannelData(0).set(float32);
-        log(`✔️ AudioBuffer créé: ${audioBuffer.duration.toFixed(2)}s`, 'info');
+        log(`✔️ AudioBuffer créé: ${audioBuffer.duration.toFixed(2)}s @ ${sampleRate}Hz`, 'info');
 
         // Créer une source et jouer
         const source = audioContext.createBufferSource();

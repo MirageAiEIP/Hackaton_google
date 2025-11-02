@@ -603,10 +603,14 @@ export class TwilioElevenLabsProxyService {
           const session = callId ? this.activeTwilioSessions.get(callId) : null;
           if (session?.operatorWs && session.operatorWs.readyState === 1) {
             // Route audio to operator instead of ElevenLabs
+            // NOTE: Twilio sends mulaw 8kHz audio
             session.operatorWs.send(
               JSON.stringify({
                 type: 'patient_audio',
                 audio_base_64: audioPayload,
+                format: 'mulaw',
+                sample_rate: 8000,
+                channels: 1,
               })
             );
             audioPacketsSent++;
@@ -1429,10 +1433,23 @@ export class TwilioElevenLabsProxyService {
             });
 
             // Pour Twilio: router l'audio Twilio ↔ Opérateur (comme Web)
-            // 1. Terminer l'agent IA (ElevenLabs)
+            // 1. Arrêter l'agent IA (ElevenLabs) proprement
             if (twilioSession.elevenLabsWs && twilioSession.elevenLabsWs.readyState === 1) {
-              twilioSession.elevenLabsWs.close();
-              logger.info('Terminated ElevenLabs agent for Twilio handoff', { callId });
+              // Envoyer une interruption pour arrêter l'agent de parler
+              twilioSession.elevenLabsWs.send(
+                JSON.stringify({
+                  type: 'interrupt',
+                })
+              );
+              logger.info('Sent interrupt to ElevenLabs agent', { callId });
+
+              // Attendre un peu puis fermer
+              setTimeout(() => {
+                if (twilioSession.elevenLabsWs && twilioSession.elevenLabsWs.readyState === 1) {
+                  twilioSession.elevenLabsWs.close();
+                  logger.info('Terminated ElevenLabs agent for Twilio handoff', { callId });
+                }
+              }, 100);
             }
 
             // 2. Stocker l'opérateur dans la session Twilio
@@ -1461,6 +1478,20 @@ export class TwilioElevenLabsProxyService {
                 status: 'ready',
                 message:
                   'Vous êtes connecté au patient (appel téléphonique). Vous pouvez maintenant parler.',
+                audioFormat: {
+                  input: {
+                    format: 'mulaw',
+                    sampleRate: 8000,
+                    channels: 1,
+                    note: 'Audio from patient (Twilio) is mulaw 8kHz mono',
+                  },
+                  output: {
+                    format: 'mulaw',
+                    sampleRate: 8000,
+                    channels: 1,
+                    note: 'Send audio to patient as mulaw 8kHz mono (or PCM16 will be converted)',
+                  },
+                },
               })
             );
 
@@ -1710,11 +1741,22 @@ export class TwilioElevenLabsProxyService {
         const message = JSON.parse(data.toString());
 
         if (message.type === 'audio' && message.audio_base_64) {
-          // L'opérateur envoie de l'audio PCM16 encodé en base64
-          // Twilio attend du mulaw audio
-          // Note: Pour l'instant on forward tel quel, à adapter si format différent
+          // L'opérateur envoie de l'audio encodé en base64
+          // Twilio attend du mulaw 8kHz
+          // IMPORTANT: Le frontend DOIT envoyer du mulaw 8kHz ou il y aura du bruit !
+          // Si le frontend envoie du PCM16, il faut le convertir en mulaw avant d'envoyer
 
           const audioBuffer = Buffer.from(message.audio_base_64, 'base64');
+
+          // Vérifier le format si spécifié
+          const format = message.format || 'unknown';
+          if (format !== 'mulaw' && format !== 'unknown') {
+            logger.warn('Operator sending non-mulaw audio to Twilio call', {
+              callId: twilioSession.callId,
+              format,
+              note: 'Audio may sound distorted. Frontend should send mulaw 8kHz.',
+            });
+          }
 
           // Ajouter au buffer pour transcription
           operatorAudioBuffer.push(audioBuffer);
@@ -1742,6 +1784,7 @@ export class TwilioElevenLabsProxyService {
             logger.debug('Operator audio forwarded to Twilio', {
               callId: twilioSession.callId,
               audioLength: audioBuffer.length,
+              format,
             });
           }
         }
