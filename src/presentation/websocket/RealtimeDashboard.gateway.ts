@@ -67,8 +67,12 @@ export class RealtimeDashboardGateway {
     await eventBus.subscribe('DispatchCreatedEvent', this.createEventHandler('dispatches'));
     await eventBus.subscribe('DispatchStatusChangedEvent', this.createEventHandler('dispatches'));
 
+    // MAP ROOM - Real-time ambulance location tracking
+    await eventBus.subscribe('AmbulanceLocationUpdatedEvent', this.createEventHandler('map'));
+    await eventBus.subscribe('AmbulanceDispatchedEvent', this.createEventHandler('map'));
+
     logger.info('Real-Time Dashboard Gateway initialized', {
-      rooms: ['dispatches', 'queue', 'operators', 'all'],
+      rooms: ['dispatches', 'queue', 'operators', 'map', 'all'],
     });
   }
 
@@ -291,7 +295,7 @@ export class RealtimeDashboardGateway {
   }
 
   private isValidRoom(room: string): boolean {
-    const validRooms = ['dispatches', 'queue', 'operators', 'all'];
+    const validRooms = ['dispatches', 'queue', 'operators', 'map', 'all'];
     return validRooms.includes(room);
   }
 
