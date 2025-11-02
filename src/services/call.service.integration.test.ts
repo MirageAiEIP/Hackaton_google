@@ -175,10 +175,13 @@ describe('CallService - Integration Tests (Real DB)', () => {
       createdPatientIds.push(created.patient.id);
 
       // Append first line
-      await callService.appendTranscript(created.id, 'Agent: Bonjour, que puis-je faire pour vous?');
+      await callService.appendTranscript(
+        created.id,
+        'Agent: Bonjour, que puis-je faire pour vous?'
+      );
 
       // Append second line
-      await callService.appendTranscript(created.id, 'Patient: J\'ai mal à la poitrine');
+      await callService.appendTranscript(created.id, "Patient: J'ai mal à la poitrine");
 
       // Verify in database
       const updated = await prisma.call.findUnique({
@@ -186,7 +189,7 @@ describe('CallService - Integration Tests (Real DB)', () => {
       });
 
       expect(updated?.transcript).toContain('Agent: Bonjour');
-      expect(updated?.transcript).toContain('Patient: J\'ai mal à la poitrine');
+      expect(updated?.transcript).toContain("Patient: J'ai mal à la poitrine");
     });
   });
 
