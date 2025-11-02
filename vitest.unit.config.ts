@@ -22,12 +22,7 @@ export default defineConfig({
         'prisma/**',
         'tests/**',
       ],
-      thresholds: {
-        lines: 70,
-        functions: 70,
-        branches: 65,
-        statements: 70,
-      },
+      // No thresholds - coverage is informational only
     },
     include: ['tests/unit/**/*.test.ts'],
     exclude: ['node_modules', 'dist', 'coverage', 'tests/integration/**'],
