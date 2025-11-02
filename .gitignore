@@ -65,3 +65,4 @@ prisma/*.db-journal
 .claude
 *.md
 !README.md
+.idea/

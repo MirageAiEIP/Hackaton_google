@@ -29,6 +29,7 @@ import { transcriptsRoutes } from '@/api/routes/transcripts.routes';
 import { audioRoutes } from '@/api/routes/audio.routes';
 import { monitoringRoutes } from '@/api/routes/monitoring.routes';
 import { mapRoutes } from '@/api/routes/map.routes';
+import { simulatorRoutes } from '@/api/routes/simulator.routes';
 import { setDashboardGateway as setAmbulanceLocationGateway } from '@/application/events/AmbulanceLocationUpdatedHandler';
 import { setDashboardGateway as setAmbulanceDispatchGateway } from '@/application/events/AmbulanceDispatchedHandler';
 import fastifyStatic from '@fastify/static';
@@ -314,7 +315,13 @@ async function setupServer() {
   await app.register(monitoringRoutes, { prefix: '/api/v1/monitoring' });
 
   // Register map routes (ambulance tracking and visualization)
-  await app.register(mapRoutes, { prefix: '/api/map' });
+  await app.register(mapRoutes, { prefix: '/api/v1/map' });
+
+  // Register simulator routes (DEV ONLY - for testing real-time features)
+  if (config.env !== 'production') {
+    await app.register(simulatorRoutes, { prefix: '/api/v1/simulator' });
+    logger.info('Simulator routes enabled (development mode)');
+  }
 
   // WebSocket stats endpoint
   app.get('/api/v1/dashboard/stats', async () => {
