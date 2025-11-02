@@ -520,19 +520,23 @@ export class TwilioElevenLabsProxyService {
             callId = call.id;
             logger.info('Call created from Twilio stream', { callId, streamSid });
 
-            // Store Twilio session for handoff support
-            if (callSid) {
+            // Store Twilio session for handoff support (use CallSid from customParameters)
+            const twilioCallSid = customParameters?.CallSid || callSid;
+            if (twilioCallSid) {
               this.activeTwilioSessions.set(callId, {
                 twilioWs,
                 elevenLabsWs,
                 callId,
-                callSid,
+                callSid: twilioCallSid,
                 streamSid,
               });
-              logger.info('Stored Twilio session for handoff support', { callId, callSid });
+              logger.info('Stored Twilio session for handoff support', {
+                callId,
+                callSid: twilioCallSid,
+              });
 
               // Broadcast session started event to dashboard (same as Web)
-              this.broadcastSessionStarted(callId, callSid).catch((err) => {
+              this.broadcastSessionStarted(callId, twilioCallSid).catch((err) => {
                 logger.error('Failed to broadcast Twilio session started event', err as Error);
               });
             }
@@ -630,10 +634,14 @@ export class TwilioElevenLabsProxyService {
             }
 
             // Broadcast session ended event to dashboard (same as Web)
-            if (callSid) {
-              this.broadcastSessionEnded(callId, callSid, 'Call completed').catch((err) => {
-                logger.error('Failed to broadcast Twilio session ended event', err as Error);
-              });
+            // Get callSid from stored session
+            const twilioSession = this.activeTwilioSessions.get(callId);
+            if (twilioSession) {
+              this.broadcastSessionEnded(callId, twilioSession.callSid, 'Call completed').catch(
+                (err) => {
+                  logger.error('Failed to broadcast Twilio session ended event', err as Error);
+                }
+              );
             }
           }
         }
