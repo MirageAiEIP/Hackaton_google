@@ -162,6 +162,48 @@ resource "google_cloud_run_v2_service" "samu_api" {
         }
       }
 
+      # JWT Secrets (authentication)
+      env {
+        name = "JWT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "${var.environment}-jwt-secret"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "JWT_ACCESS_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "${var.environment}-jwt-access-secret"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "JWT_REFRESH_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "${var.environment}-jwt-refresh-secret"
+            version = "latest"
+          }
+        }
+      }
+
+      # Encryption Key (data security)
+      env {
+        name = "ENCRYPTION_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "${var.environment}-encryption-key"
+            version = "latest"
+          }
+        }
+      }
+
       # Liveness probe
       liveness_probe {
         http_get {

@@ -19,6 +19,10 @@ locals {
     twilio-phone-number = "Twilio Phone Number"
     redis-url           = "Redis connection URL (Upstash)"
     public-api-url      = "Public API URL for webhooks (Cloud Run URL)"
+    jwt-secret          = "JWT Secret (legacy, 32+ chars)"
+    jwt-access-secret   = "JWT Access Token Secret (48+ chars)"
+    jwt-refresh-secret  = "JWT Refresh Token Secret (48+ chars)"
+    encryption-key      = "Data Encryption Key (32 chars for AES-256)"
   }
 }
 
@@ -80,4 +84,20 @@ output "redis_url_name" {
 
 output "public_api_url_name" {
   value = google_secret_manager_secret.secrets["public-api-url"].secret_id
+}
+
+output "jwt_secret_name" {
+  value = google_secret_manager_secret.secrets["jwt-secret"].secret_id
+}
+
+output "jwt_access_secret_name" {
+  value = google_secret_manager_secret.secrets["jwt-access-secret"].secret_id
+}
+
+output "jwt_refresh_secret_name" {
+  value = google_secret_manager_secret.secrets["jwt-refresh-secret"].secret_id
+}
+
+output "encryption_key_name" {
+  value = google_secret_manager_secret.secrets["encryption-key"].secret_id
 }
