@@ -35,6 +35,7 @@ export class TwilioElevenLabsProxyService {
     {
       twilioWs: FastifyWebSocket;
       elevenLabsWs: WebSocket | null;
+      operatorWs: FastifyWebSocket | null;
       callId: string;
       callSid: string;
       streamSid: string | null;
@@ -526,6 +527,7 @@ export class TwilioElevenLabsProxyService {
               this.activeTwilioSessions.set(callId, {
                 twilioWs,
                 elevenLabsWs,
+                operatorWs: null,
                 callId,
                 callSid: twilioCallSid,
                 streamSid,
@@ -572,9 +574,23 @@ export class TwilioElevenLabsProxyService {
           }
           const audioPayload = message.media.payload;
 
-          // Check if ElevenLabs is ready and connected
-          if (elevenLabsWs && elevenLabsReady && elevenLabsWs.readyState === WebSocket.OPEN) {
-            // Forward to ElevenLabs immediately
+          // Check if there's an operator (handoff active)
+          const session = callId ? this.activeTwilioSessions.get(callId) : null;
+          if (session?.operatorWs && session.operatorWs.readyState === 1) {
+            // Route audio to operator instead of ElevenLabs
+            session.operatorWs.send(
+              JSON.stringify({
+                type: 'patient_audio',
+                audio_base_64: audioPayload,
+              })
+            );
+            audioPacketsSent++;
+          } else if (
+            elevenLabsWs &&
+            elevenLabsReady &&
+            elevenLabsWs.readyState === WebSocket.OPEN
+          ) {
+            // Forward to ElevenLabs (normal flow)
             // Note: Twilio sends mulaw 8kHz
             // ElevenLabs Conversational AI expects: {"user_audio_chunk":"base64..."}
             elevenLabsWs.send(
@@ -1387,29 +1403,58 @@ export class TwilioElevenLabsProxyService {
               callSid: twilioSession.callSid,
             });
 
-            // Pour Twilio, pas de routing audio direct opérateur ↔ patient
-            // On informe l'opérateur et on termine l'agent IA
-            operatorWs.send(
-              JSON.stringify({
-                type: 'twilio_call_detected',
-                message:
-                  "Cet appel provient de Twilio. Le handoff direct n'est pas supporté pour les appels téléphoniques. L'agent IA va être terminé.",
-                callId,
-                transcript: handoff.transcript,
-                patientSummary: handoff.patientSummary,
-              })
-            );
-
-            // Terminer l'agent IA (ElevenLabs)
+            // Pour Twilio: router l'audio Twilio ↔ Opérateur (comme Web)
+            // 1. Terminer l'agent IA (ElevenLabs)
             if (twilioSession.elevenLabsWs && twilioSession.elevenLabsWs.readyState === 1) {
               twilioSession.elevenLabsWs.close();
               logger.info('Terminated ElevenLabs agent for Twilio handoff', { callId });
             }
 
-            // Mettre à jour le handoff comme completed
-            await handoffService.updateHandoffStatus(handoff.id, 'COMPLETED');
+            // 2. Stocker l'opérateur dans la session Twilio
+            twilioSession.operatorWs = operatorWs;
+            this.activeTwilioSessions.set(callId, twilioSession);
 
-            operatorWs.close();
+            // 3. Envoyer le contexte à l'opérateur
+            operatorWs.send(
+              JSON.stringify({
+                type: 'handoff_context',
+                data: {
+                  callId: handoff.callId,
+                  callType: 'twilio',
+                  transcript: handoff.transcript,
+                  patientSummary: handoff.patientSummary,
+                  reason: handoff.reason,
+                  aiContext: handoff.aiContext,
+                },
+              })
+            );
+
+            // 4. Notifier l'opérateur qu'il est connecté
+            operatorWs.send(
+              JSON.stringify({
+                type: 'connected',
+                status: 'ready',
+                message:
+                  'Vous êtes connecté au patient (appel téléphonique). Vous pouvez maintenant parler.',
+              })
+            );
+
+            logger.info('Operator ready for Twilio handoff', { handoffId, callId });
+
+            // Marquer le handoff comme IN_PROGRESS
+            await handoffService.updateHandoffStatus(handoff.id, 'IN_PROGRESS');
+
+            // 5. Setup audio routing: Opérateur → Twilio
+            this.setupTwilioOperatorAudioRouting(
+              twilioSession,
+              operatorWs,
+              handoff,
+              operatorAudioBuffer,
+              operatorBufferTimeout,
+              transcribeBatch
+            );
+
+            // Note: Twilio → Opérateur routing is handled in handleTwilioConnection
             return;
           }
         }
@@ -1607,6 +1652,137 @@ export class TwilioElevenLabsProxyService {
       );
       operatorWs.close();
     }
+  }
+
+  /**
+   * Setup audio routing for Twilio ↔ Operator handoff
+   * Handles Operator → Twilio audio streaming
+   */
+  private setupTwilioOperatorAudioRouting(
+    twilioSession: {
+      twilioWs: FastifyWebSocket;
+      elevenLabsWs: WebSocket | null;
+      operatorWs: FastifyWebSocket | null;
+      callId: string;
+      callSid: string;
+      streamSid: string | null;
+    },
+    operatorWs: FastifyWebSocket,
+    handoff: { id: string; callId: string },
+    operatorAudioBuffer: Buffer[],
+    operatorBufferTimeout: NodeJS.Timeout | null,
+    transcribeBatch: (
+      buffer: Buffer[],
+      speaker: 'operator' | 'patient',
+      callId: string
+    ) => Promise<void>
+  ): void {
+    const TRANSCRIBE_BATCH_MS = 3000;
+
+    // Audio OPERATOR → TWILIO
+    operatorWs.on('message', async (data: Buffer) => {
+      try {
+        const message = JSON.parse(data.toString());
+
+        if (message.type === 'audio' && message.audio_base_64) {
+          // L'opérateur envoie de l'audio PCM16 encodé en base64
+          // Twilio attend du mulaw audio
+          // Note: Pour l'instant on forward tel quel, à adapter si format différent
+
+          const audioBuffer = Buffer.from(message.audio_base_64, 'base64');
+
+          // Ajouter au buffer pour transcription
+          operatorAudioBuffer.push(audioBuffer);
+
+          // Reset le timer de transcription
+          if (operatorBufferTimeout) {
+            clearTimeout(operatorBufferTimeout);
+          }
+          operatorBufferTimeout = setTimeout(async () => {
+            await transcribeBatch(operatorAudioBuffer, 'operator', twilioSession.callId);
+          }, TRANSCRIBE_BATCH_MS);
+
+          // Forward audio à Twilio
+          if (twilioSession.twilioWs.readyState === 1 && twilioSession.streamSid) {
+            twilioSession.twilioWs.send(
+              JSON.stringify({
+                event: 'media',
+                streamSid: twilioSession.streamSid,
+                media: {
+                  payload: message.audio_base_64,
+                },
+              })
+            );
+
+            logger.debug('Operator audio forwarded to Twilio', {
+              callId: twilioSession.callId,
+              audioLength: audioBuffer.length,
+            });
+          }
+        }
+
+        if (message.type === 'end_handoff') {
+          logger.info('Operator ending Twilio handoff', {
+            handoffId: handoff.id,
+            callId: twilioSession.callId,
+          });
+
+          // Transcrire les buffers restants
+          await transcribeBatch(operatorAudioBuffer, 'operator', twilioSession.callId);
+
+          await handoffService.updateHandoffStatus(handoff.id, 'COMPLETED');
+          await callService.updateCallStatus(handoff.callId, 'COMPLETED');
+
+          // Fermer la connexion Twilio (termine l'appel)
+          twilioSession.twilioWs.close();
+
+          // Cleanup session
+          this.activeTwilioSessions.delete(twilioSession.callId);
+
+          operatorWs.close();
+        }
+      } catch (error) {
+        logger.error('Failed to process operator message for Twilio', error as Error, {
+          handoffId: handoff.id,
+          callId: twilioSession.callId,
+        });
+      }
+    });
+
+    // Gestion fermeture opérateur
+    operatorWs.on('close', async () => {
+      logger.info('Operator WebSocket closed (Twilio handoff)', {
+        handoffId: handoff.id,
+        callId: twilioSession.callId,
+      });
+
+      // Transcrire les buffers restants
+      await transcribeBatch(operatorAudioBuffer, 'operator', twilioSession.callId);
+
+      // Clear le timer
+      if (operatorBufferTimeout) {
+        clearTimeout(operatorBufferTimeout);
+      }
+
+      // Marquer handoff comme completed
+      const currentHandoff = await handoffService.getHandoffById(handoff.id);
+      if (currentHandoff && currentHandoff.status === 'IN_PROGRESS') {
+        await handoffService.updateHandoffStatus(handoff.id, 'COMPLETED');
+      }
+
+      // Fermer l'appel Twilio
+      twilioSession.twilioWs.close();
+
+      // Cleanup session
+      this.activeTwilioSessions.delete(twilioSession.callId);
+    });
+
+    operatorWs.on('error', (error: Error) => {
+      logger.error('Operator WebSocket error (Twilio handoff)', error, {
+        handoffId: handoff.id,
+        callId: twilioSession.callId,
+      });
+    });
   }
 }
 
