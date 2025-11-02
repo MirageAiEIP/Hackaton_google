@@ -25,7 +25,7 @@ export default defineConfig({
       // No thresholds - coverage is informational only
     },
     include: ['tests/unit/**/*.test.ts'],
-    exclude: ['node_modules', 'dist', 'coverage', 'tests/integration/**'],
+    exclude: ['node_modules', 'dist', 'coverage', 'src/**/*.integration.test.ts'],
     testTimeout: 5000, // Faster timeout for unit tests
   },
   resolve: {
