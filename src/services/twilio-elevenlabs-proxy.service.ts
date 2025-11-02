@@ -269,7 +269,7 @@ export class TwilioElevenLabsProxyService {
       });
 
       // ElevenLabs → Twilio: Forward audio responses
-      elevenLabsWs.on('message', (data: Buffer) => {
+      elevenLabsWs.on('message', async (data: Buffer) => {
         try {
           const message = JSON.parse(data.toString());
 
@@ -285,6 +285,41 @@ export class TwilioElevenLabsProxyService {
 
           if (conversationIdFromMessage && callId) {
             this.storeConversationMapping(conversationIdFromMessage, callId);
+          }
+
+          // Capture conversation ID from ElevenLabs (from top level or initiation metadata)
+          if (conversationIdFromMessage && !conversationId) {
+            conversationId = conversationIdFromMessage;
+            logger.info('Captured ElevenLabs conversation ID', {
+              conversationId,
+              callId,
+              callSid,
+            });
+          }
+
+          // Gérer les ping events (keep-alive) - SAME AS WEB
+          if (message.type === 'ping' && message.ping_event) {
+            logger.debug('Ping event received', {
+              callSid,
+              eventId: message.ping_event.event_id,
+            });
+
+            // Répondre avec un pong après le délai spécifié
+            const pingMs = message.ping_event.ping_ms || 0;
+            setTimeout(() => {
+              if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
+                elevenLabsWs.send(
+                  JSON.stringify({
+                    type: 'pong',
+                    event_id: message.ping_event.event_id,
+                  })
+                );
+                logger.debug('Pong sent to ElevenLabs', {
+                  callSid,
+                  eventId: message.ping_event.event_id,
+                });
+              }
+            }, pingMs);
           }
 
           // Forward audio to Twilio
@@ -307,17 +342,34 @@ export class TwilioElevenLabsProxyService {
             );
           }
 
-          // Capture conversation ID from ElevenLabs (from top level or initiation metadata)
-          if (conversationIdFromMessage && !conversationId) {
-            conversationId = conversationIdFromMessage;
-            logger.info('Captured ElevenLabs conversation ID', {
-              conversationId,
-              callId,
+          // Save transcript to database in real-time - SAME AS WEB
+          if (message.type === 'user_transcript' && message.user_transcription_event) {
+            const userText = message.user_transcription_event.user_transcript;
+            logger.info('User transcript (Twilio)', {
+              text: userText,
               callSid,
+              callId,
             });
+
+            if (callId) {
+              await callService.appendTranscript(callId, `User: ${userText}`);
+            }
           }
 
-          // Log transcript
+          if (message.type === 'agent_response' && message.agent_response_event) {
+            const agentText = message.agent_response_event.agent_response;
+            logger.info('Agent response (Twilio)', {
+              text: agentText,
+              callSid,
+              callId,
+            });
+
+            if (callId) {
+              await callService.appendTranscript(callId, `Agent: ${agentText}`);
+            }
+          }
+
+          // Log legacy transcript format (fallback)
           if (message.type === 'transcript' && message.transcript_event) {
             logger.info(
               `ElevenLabs transcript [${message.transcript_event.role}]: ${message.transcript_event.text}`,
@@ -330,7 +382,12 @@ export class TwilioElevenLabsProxyService {
           }
 
           // Log other message types
-          if (message.type && !['audio', 'transcript'].includes(message.type)) {
+          if (
+            message.type &&
+            !['audio', 'transcript', 'user_transcript', 'agent_response', 'ping'].includes(
+              message.type
+            )
+          ) {
             logger.info(`ElevenLabs special message: ${message.type}`, {
               callSid,
               messageKeys: Object.keys(message),
