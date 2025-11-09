@@ -11,7 +11,7 @@ import path from 'path';
 
 dotenv.config();
 
-const PROJECT_ID = process.env.GCP_PROJECT_ID || 'samu-ai-474822';
+const PROJECT_ID = process.env.GCP_PROJECT_ID || 'gaia-477710';
 const USE_SECRET_MANAGER = process.env.USE_SECRET_MANAGER === 'true';
 
 const colors = {

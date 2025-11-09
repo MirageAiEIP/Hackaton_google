@@ -2,7 +2,7 @@
 set -e
 
 ENVIRONMENT="${1:-staging}"
-PROJECT_ID="samu-ai-474822"
+PROJECT_ID="gaia-477710"
 REGION="europe-west1"
 
 if [[ ! "$ENVIRONMENT" =~ ^(staging|production)$ ]]; then

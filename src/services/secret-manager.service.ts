@@ -16,7 +16,7 @@ export class SecretManagerService {
     this.client = new SecretManagerServiceClient({ keyFilename });
 
     // Extraire le project ID depuis le service account JSON
-    this.projectId = process.env.GCP_PROJECT_ID || 'samu-ai-474822';
+    this.projectId = process.env.GCP_PROJECT_ID || 'gaia-477710';
 
     // Déterminer le préfixe selon l'environnement
     const nodeEnv = process.env.NODE_ENV || 'development';
