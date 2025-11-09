@@ -109,17 +109,14 @@ jobs:
             --update-env-vars NODE_ENV=${{ steps.vars.outputs.ENV }},LOG_LEVEL=info \
             --update-secrets DATABASE_URL=${{ steps.vars.outputs.ENV }}-database-url:latest,REDIS_URL=${{ steps.vars.outputs.ENV }}-redis-url:latest,ELEVENLABS_API_KEY=${{ steps.vars.outputs.ENV }}-elevenlabs-api-key:latest,ELEVENLABS_AGENT_ID=${{ steps.vars.outputs.ENV }}-elevenlabs-agent-id:latest,GOOGLE_API_KEY=${{ steps.vars.outputs.ENV }}-google-api-key:latest,TWILIO_ACCOUNT_SID=${{ steps.vars.outputs.ENV }}-twilio-account-sid:latest,TWILIO_AUTH_TOKEN=${{ steps.vars.outputs.ENV }}-twilio-auth-token:latest,TWILIO_PHONE_NUMBER=${{ steps.vars.outputs.ENV }}-twilio-phone-number:latest
 
-      - name: Run database migrations
-        run: |
-          # Get database URL from Secret Manager (Supabase)
-          DATABASE_URL=$(gcloud secrets versions access latest \
-            --secret="${{ steps.vars.outputs.ENV }}-database-url")
-
-          # Set DATABASE_URL for migrations
-          export DATABASE_URL="${DATABASE_URL}"
-
-          # Run migrations
-          npm run db:migrate:prod
+      # NOTE: Migrations disabled - GitHub Actions cannot connect to Supabase
+      # Execute migrations manually via Supabase SQL Editor (one-time setup)
+      # - name: Run database migrations
+      #   run: |
+      #     DATABASE_URL=$(gcloud secrets versions access latest \
+      #       --secret="${{ steps.vars.outputs.ENV }}-database-url")
+      #     export DATABASE_URL="${DATABASE_URL}"
+      #     npm run db:migrate:prod
 
       - name: Health check
         run: |
