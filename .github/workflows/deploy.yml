@@ -102,10 +102,15 @@ jobs:
       # GitHub Actions met à jour SEULEMENT l'image Docker et les secrets
       - name: Deploy to Cloud Run
         run: |
+          # Get Cloud SQL connection name for this environment
+          CONNECTION_NAME=$(gcloud sql instances describe samu-ai-db-${{ steps.vars.outputs.ENV }} \
+            --format="value(connectionName)")
+
           gcloud run deploy ${{ steps.vars.outputs.SERVICE_NAME }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/samu-ai-triage/${{ steps.vars.outputs.SERVICE_NAME }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.REGION }} \
+            --add-cloudsql-instances=${CONNECTION_NAME} \
             --update-env-vars NODE_ENV=${{ steps.vars.outputs.ENV }},LOG_LEVEL=info \
             --update-secrets DATABASE_URL=${{ steps.vars.outputs.ENV }}-database-url:latest,REDIS_URL=${{ steps.vars.outputs.ENV }}-redis-url:latest,ELEVENLABS_API_KEY=${{ steps.vars.outputs.ENV }}-elevenlabs-api-key:latest,ELEVENLABS_AGENT_ID=${{ steps.vars.outputs.ENV }}-elevenlabs-agent-id:latest,GOOGLE_API_KEY=${{ steps.vars.outputs.ENV }}-google-api-key:latest,TWILIO_ACCOUNT_SID=${{ steps.vars.outputs.ENV }}-twilio-account-sid:latest,TWILIO_AUTH_TOKEN=${{ steps.vars.outputs.ENV }}-twilio-auth-token:latest,TWILIO_PHONE_NUMBER=${{ steps.vars.outputs.ENV }}-twilio-phone-number:latest
 
