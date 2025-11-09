@@ -3,7 +3,7 @@ set -e
 
 ENVIRONMENT="${1}"
 BACKUP_ID="${2}"
-PROJECT_ID="samu-ai-474822"
+PROJECT_ID="gaia-477710"
 
 if [[ ! "$ENVIRONMENT" =~ ^(staging|production)$ ]]; then
   echo "Invalid environment. Use: staging or production"

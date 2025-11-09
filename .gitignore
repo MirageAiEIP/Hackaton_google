@@ -23,6 +23,7 @@ build/
 # Google Cloud credentials (NEVER commit these!)
 config/*.json
 config/google-*.json
+secrets-backup/
 
 # Temporary audio files
 temp-audio/

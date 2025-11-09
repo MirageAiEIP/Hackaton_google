@@ -1740,6 +1740,13 @@ export class TwilioElevenLabsProxyService {
       try {
         const message = JSON.parse(data.toString());
 
+        logger.info('Operator message received', {
+          callId: twilioSession.callId,
+          messageType: message.type,
+          hasAudio: !!message.audio_base_64,
+          audioLength: message.audio_base_64?.length || 0,
+        });
+
         if (message.type === 'audio' && message.audio_base_64) {
           // L'opérateur envoie de l'audio encodé en base64
           // Twilio attend du mulaw 8kHz
@@ -1781,10 +1788,12 @@ export class TwilioElevenLabsProxyService {
               })
             );
 
-            logger.debug('Operator audio forwarded to Twilio', {
+            logger.info('Operator audio forwarded to Twilio', {
               callId: twilioSession.callId,
               audioLength: audioBuffer.length,
               format,
+              streamSid: twilioSession.streamSid,
+              twilioWsState: twilioSession.twilioWs.readyState,
             });
           }
         }

@@ -2,7 +2,7 @@
 set -e
 
 ENVIRONMENT="${1:-staging}"
-PROJECT_ID="samu-ai-474822"
+PROJECT_ID="gaia-477710"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 if [[ ! "$ENVIRONMENT" =~ ^(staging|production)$ ]]; then

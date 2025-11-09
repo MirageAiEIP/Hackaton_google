@@ -10,7 +10,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   RATE_LIMIT_WINDOW_MS: z.string().transform(Number).default('60000'),
   RATE_LIMIT_MAX_REQUESTS: z.string().transform(Number).default('100'),
-  GCP_PROJECT_ID: z.string().default('samu-ai-474822'),
+  GCP_PROJECT_ID: z.string().default('gaia-477710'),
   USE_SECRET_MANAGER: z
     .string()
     .transform((val) => val === 'true')

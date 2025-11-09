@@ -444,7 +444,15 @@
     async function startAudioCapture() {
       try {
         log('🎤 Demande autorisation microphone...', 'info');
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // Demander la permission microphone avec des contraintes spécifiques
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        });
         log('✅ Microphone opérateur activé', 'success');
 
         // Utiliser l'audioContext déjà créé
@@ -453,14 +461,35 @@
           log('⚠️ AudioContext créé tardivement', 'info');
         }
 
+        // Reprendre l'AudioContext si suspendu
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+          log('🔊 AudioContext resumed', 'info');
+        }
+
         const source = audioContext.createMediaStreamSource(stream);
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
-        source.connect(processor);
-        // NE PAS connecter à destination (sinon écho de son propre micro)
-        // processor.connect(audioContext.destination);
+        // IMPORTANT: Connecter le processor à destination pour qu'il fonctionne
+        // Mais baisser le volume à 0 pour éviter l'écho
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 0;
+        processor.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
+        source.connect(processor);
+
+        log('🎙️ Processor connecté, début de capture...', 'info');
+
+        let processCount = 0;
         processor.onaudioprocess = (e) => {
+          processCount++;
+
+          // Log pour vérifier que onaudioprocess est appelé
+          if (processCount === 1) {
+            log('✅ onaudioprocess called for first time!', 'success');
+          }
+
           if (ws && ws.readyState === WebSocket.OPEN) {
             const audioData = e.inputBuffer.getChannelData(0);
 
@@ -485,17 +514,33 @@
             }
 
             // Envoyer au backend
-            ws.send(JSON.stringify({
+            const msg = {
               type: 'audio',
               audio_base_64: audioToSend,
               format: format,
-            }));
+            };
+            ws.send(JSON.stringify(msg));
+
+            // Log périodique (toutes les 50 transmissions = ~5 secondes)
+            if (!window.audioSentCount) window.audioSentCount = 0;
+            window.audioSentCount++;
+            if (window.audioSentCount === 1) {
+              log(`🎤 Premier audio envoyé! (format: ${format})`, 'success');
+            }
+            if (window.audioSentCount % 50 === 0) {
+              log(`🎤 Audio opérateur envoyé (x${window.audioSentCount}, format: ${format})`, 'info');
+            }
+          } else {
+            if (processCount === 1) {
+              log(`⚠️ WebSocket not ready (state: ${ws?.readyState})`, 'info');
+            }
           }
         };
 
         log('🎙️ Capture audio opérateur démarrée', 'success');
       } catch (error) {
         log(`❌ Erreur microphone: ${error.message}`, 'error');
+        log(`❌ Error stack: ${error.stack}`, 'error');
       }
     }
 

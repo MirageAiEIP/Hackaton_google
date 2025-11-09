@@ -10,7 +10,7 @@ terraform {
 module "samu_production" {
   source = "../../"
 
-  project_id  = "samu-ai-474822"
+  project_id  = "gaia-477710"
   region      = "europe-west1"
   environment = "production"
 }
