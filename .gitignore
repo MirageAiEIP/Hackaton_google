@@ -63,6 +63,10 @@ prisma/*.db-journal
 .vercel
 *.tsbuildinfo
 
+# Cloud SQL Proxy (local testing only)
+cloud_sql_proxy
+cloud_sql_proxy.exe
+
 .claude
 *.md
 !README.md
