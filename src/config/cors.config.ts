@@ -51,8 +51,8 @@ export function getCorsConfig(
     const stagingOrigins = process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
       : [
-          'https://samu-frontend-staging-262427917999.europe-west1.run.app',
-          'https://samu-frontend-staging-zblnsvceaa-ew.a.run.app',
+          'https://samu-frontend-staging-36rd7hnqca-ew.a.run.app',
+          'https://samu-frontend-staging-870817671665.europe-west1.run.app',
         ];
 
     logger.info('CORS configured for staging', { allowedOrigins: stagingOrigins });
@@ -72,8 +72,8 @@ export function getCorsConfig(
     const productionOrigins = process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
       : [
-          'https://samu-frontend-production-262427917999.europe-west1.run.app',
-          'https://samu-frontend-production-zblnsvceaa-ew.a.run.app',
+          'https://samu-frontend-production-36rd7hnqca-ew.a.run.app',
+          'https://samu-frontend-production-870817671665.europe-west1.run.app',
         ];
 
     logger.info('CORS configured for production', { allowedOrigins: productionOrigins });
